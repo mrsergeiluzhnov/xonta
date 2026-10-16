@@ -1,0 +1,571 @@
+{
+ "params": {
+  "rounds": 10,
+  "traffic": 300,
+  "budget": 25,
+  "merge_every": 2,
+  "poison_round": 6,
+  "bench": 800,
+  "seed": "xonta-lab-1",
+  "weights": {
+   "units": 0.35,
+   "dates": 0.3,
+   "phones": 0.2,
+   "money": 0.15
+  },
+  "noise": 0.02,
+  "mandate": {
+   "max_children": 3,
+   "max_depth": 1,
+   "categories": [
+    "dates",
+    "units",
+    "phones",
+    "money"
+   ]
+  }
+ },
+ "arms": {
+  "A": {
+   "bench_root": [
+    100,
+    64.9,
+    81.9,
+    79.9,
+    87.5,
+    99.8,
+    99.5,
+    99.5,
+    99.4,
+    99.6
+   ],
+   "bench_system": [
+    100,
+    64.9,
+    93.1,
+    79.9,
+    99.5,
+    99.8,
+    93.5,
+    99.5,
+    99.4,
+    97.8
+   ],
+   "eval_root": [
+    100,
+    61.5,
+    75.5,
+    75.3,
+    93.5,
+    99.5,
+    100,
+    99.5,
+    99.8,
+    99.8
+   ],
+   "mean_root": 90.2,
+   "mean_system": 91.9,
+   "rounds_below_95_system": 4,
+   "rounds_below_95_root": 4,
+   "feedback_sent": {
+    "ag_52392f5306": 152,
+    "ag_7241d54e29": 78,
+    "ag_921df54f6d": 73
+   },
+   "feedback_total": 303,
+   "traffic": {
+    "ag_52392f5306": 1379,
+    "ag_7241d54e29": 393,
+    "ag_921df54f6d": 426
+   },
+   "rules_learned": {
+    "ag_52392f5306": 13,
+    "ag_7241d54e29": 5,
+    "ag_921df54f6d": 12
+   },
+   "children": [
+    {
+     "id": "ag_7241d54e29",
+     "did": "did:web:localhost%3A4411",
+     "category": "phones",
+     "born_round": 1,
+     "signal": "sig_d4cdfc21b3de",
+     "scan": "no_findings",
+     "lineage_credential": "urn:uuid:2ebbf353-4374-4f78-acac-cb01fdeda7e7",
+     "parent_signature": "urn:uuid:4b99fbaa-6b10-4995-9f7e-f7f51aea4654",
+     "mandate": "urn:uuid:6d8dcc14-781f-4866-bc22-a69e72b79d94"
+    },
+    {
+     "id": "ag_921df54f6d",
+     "did": "did:web:localhost%3A4412",
+     "category": "units",
+     "born_round": 3,
+     "signal": "sig_1d0be97850df",
+     "scan": "no_findings",
+     "lineage_credential": "urn:uuid:2aaa79b9-cbad-4339-ad9a-3175a2f2529d",
+     "parent_signature": "urn:uuid:32450810-80ce-4c24-9db7-c89c290345ff",
+     "mandate": "urn:uuid:6d8dcc14-781f-4866-bc22-a69e72b79d94"
+    }
+   ],
+   "merges": [
+    {
+     "round": 3,
+     "status": "recommended",
+     "before": 62,
+     "after": 74.8,
+     "gain_pp": 12.8,
+     "accepted": [
+      "ag_7241d54e29/phones"
+     ],
+     "rejected": [],
+     "harmful_rules": [],
+     "contributions": [
+      {
+       "agent": "ag_7241d54e29",
+       "category": "phones",
+       "gain_pp": 12.8,
+       "share": 1,
+       "credential": "urn:uuid:373bfead-2760-4feb-b265-30231fe953c4"
+      }
+     ]
+    },
+    {
+     "round": 5,
+     "status": "recommended",
+     "before": 79.8,
+     "after": 99.8,
+     "gain_pp": 20,
+     "accepted": [
+      "ag_7241d54e29/phones",
+      "ag_921df54f6d/units"
+     ],
+     "rejected": [],
+     "harmful_rules": [],
+     "contributions": [
+      {
+       "agent": "ag_7241d54e29",
+       "category": "phones",
+       "gain_pp": 6,
+       "share": 0.3,
+       "credential": "urn:uuid:35f3d12c-9327-44a5-9eea-7d9e59519eb0"
+      },
+      {
+       "agent": "ag_921df54f6d",
+       "category": "units",
+       "gain_pp": 14,
+       "share": 0.7,
+       "credential": "urn:uuid:f5bb7c15-184d-40a8-84b3-0ba512a4b82b"
+      }
+     ]
+    },
+    {
+     "round": 7,
+     "status": "recommended",
+     "before": 88.8,
+     "after": 99.8,
+     "gain_pp": 11,
+     "accepted": [
+      "ag_7241d54e29/phones",
+      "ag_921df54f6d/units"
+     ],
+     "rejected": [],
+     "harmful_rules": [
+      "ag_7241d54e29 phones/GB: исправляет 0, портит 23"
+     ],
+     "contributions": [
+      {
+       "agent": "ag_7241d54e29",
+       "category": "phones",
+       "gain_pp": 5,
+       "share": 0.455,
+       "credential": "urn:uuid:2b4a5dcd-88e8-4f28-a1cc-35f58ebc262d"
+      },
+      {
+       "agent": "ag_921df54f6d",
+       "category": "units",
+       "gain_pp": 6,
+       "share": 0.545,
+       "credential": "urn:uuid:e9c17154-7ba1-485a-8eb2-a36aca2b9a12"
+      }
+     ]
+    },
+    {
+     "round": 9,
+     "status": "rejected",
+     "before": 99.8,
+     "after": 99.8,
+     "gain_pp": 0,
+     "accepted": [],
+     "rejected": [
+      "ag_921df54f6d/units: все правила отклонены: 1 ухудшают результат"
+     ],
+     "harmful_rules": [
+      "ag_921df54f6d units/cm: исправляет 0, портит 12"
+     ],
+     "contributions": []
+    }
+   ],
+   "proposals": 6,
+   "signals": [
+    "1:spawn_specialist:phones:accepted",
+    "3:spawn_specialist:units:accepted"
+   ],
+   "poison": {
+    "round": 6,
+    "agent": "ag_7241d54e29",
+    "category": "phones",
+    "pattern": "phone-GB",
+    "items": 40
+   },
+   "checks": [
+    "✓ подделанное предложение (правила изменены после подписи) → 400",
+    "✓ предложение вне области потомка → 403",
+    "✓ предложение от незарегистрированного агента → 403",
+    "✓ потомок по мандату, подписанному не владельцем → 400",
+    "✓ регистрация потомка не владельцем → 403"
+   ],
+   "final": {
+    "verify": {
+     "ag_52392f5306": {
+      "level": 2,
+      "lineage": null,
+      "owner_inherited_from": null,
+      "contributions": null,
+      "missing": [
+       "reputation"
+      ],
+      "profile": {
+       "expert": [
+        {
+         "category": "money",
+         "score": 100
+        },
+        {
+         "category": "phones",
+         "score": 100
+        },
+        {
+         "category": "units",
+         "score": 98.9
+        },
+        {
+         "category": "dates",
+         "score": 100
+        }
+       ],
+       "growth": [],
+       "data": "synthetic"
+      }
+     },
+     "ag_7241d54e29": {
+      "level": 2,
+      "lineage": {
+       "parent": "did:web:localhost%3A4410",
+       "root": "did:web:localhost%3A4410",
+       "depth": 1,
+       "owner": "did:web:localhost%3A4401",
+       "scope": {
+        "category": "phones"
+       }
+      },
+      "owner_inherited_from": "did:web:localhost%3A4410",
+      "contributions": {
+       "phones": {
+        "merges": 3,
+        "gain_pp": 23.8,
+        "to": [
+         "did:web:localhost%3A4410"
+        ]
+       }
+      },
+      "missing": [
+       "reputation"
+      ],
+      "profile": {
+       "expert": [
+        {
+         "category": "phones",
+         "score": 100
+        }
+       ],
+       "growth": [],
+       "data": "synthetic"
+      }
+     },
+     "ag_921df54f6d": {
+      "level": 2,
+      "lineage": {
+       "parent": "did:web:localhost%3A4410",
+       "root": "did:web:localhost%3A4410",
+       "depth": 1,
+       "owner": "did:web:localhost%3A4401",
+       "scope": {
+        "category": "units"
+       }
+      },
+      "owner_inherited_from": "did:web:localhost%3A4410",
+      "contributions": {
+       "units": {
+        "merges": 2,
+        "gain_pp": 20,
+        "to": [
+         "did:web:localhost%3A4410"
+        ]
+       }
+      },
+      "missing": [
+       "reputation"
+      ],
+      "profile": {
+       "expert": [
+        {
+         "category": "units",
+         "score": 93.8
+        }
+       ],
+       "growth": [],
+       "data": "synthetic"
+      }
+     }
+    },
+    "passports": {
+     "ag_52392f5306": {
+      "AgentDomainControl": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentMcpScan": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentOwnerVerified": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentEvaluation": {
+       "issued": 10,
+       "revoked": 0,
+       "suspended": 0
+      }
+     },
+     "ag_7241d54e29": {
+      "AgentLineage": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentDomainControl": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentMcpScan": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentEvaluation": {
+       "issued": 8,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentContribution": {
+       "issued": 3,
+       "revoked": 0,
+       "suspended": 0
+      }
+     },
+     "ag_921df54f6d": {
+      "AgentLineage": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentDomainControl": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentMcpScan": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentEvaluation": {
+       "issued": 6,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentContribution": {
+       "issued": 2,
+       "revoked": 0,
+       "suspended": 0
+      }
+     }
+    },
+    "cascade": {
+     "revoked": "ag_52392f5306",
+     "descendants_suspended": [
+      "ag_7241d54e29",
+      "ag_921df54f6d"
+     ],
+     "child_level_after": 0,
+     "child_status_after": "suspended"
+    },
+    "anchor": {
+     "root": "233ee126fb3c6e9d8a8b02d87d372c481c860e8a15a2ccf909adb78c3bf0187e",
+     "events": 61,
+     "chained_to": null,
+     "methods": [
+      {
+       "type": "opentimestamps",
+       "ok": false,
+       "error": "Failed to create timestamp: need at least 2 attestations but received 0 within timeout"
+      }
+     ]
+    },
+    "inclusion": true
+   }
+  },
+  "B": {
+   "bench_root": [
+    100,
+    64.9,
+    81.9,
+    67.1,
+    74.8,
+    70.3,
+    87.5,
+    85.3,
+    95.6,
+    99.8
+   ],
+   "bench_system": [
+    100,
+    64.9,
+    81.9,
+    67.1,
+    74.8,
+    70.3,
+    87.5,
+    85.3,
+    95.6,
+    99.8
+   ],
+   "eval_root": [
+    100,
+    61.5,
+    75.5,
+    57.8,
+    68.5,
+    61.5,
+    80.8,
+    69.5,
+    94.8,
+    100
+   ],
+   "mean_root": 80.8,
+   "mean_system": 80.8,
+   "rounds_below_95_system": 7,
+   "rounds_below_95_root": 7,
+   "feedback_sent": {
+    "ag_95af745ff8": 208
+   },
+   "feedback_total": 208,
+   "traffic": {
+    "ag_95af745ff8": 2198
+   },
+   "rules_learned": {
+    "ag_95af745ff8": 27
+   },
+   "children": [],
+   "merges": [],
+   "proposals": 0,
+   "signals": [
+    "1:spawn_specialist:phones:ignored (контроль)",
+    "2:spawn_specialist:phones:ignored (контроль)",
+    "3:spawn_specialist:units:ignored (контроль)",
+    "4:spawn_specialist:phones:ignored (контроль)",
+    "5:spawn_specialist:phones:ignored (контроль)",
+    "7:spawn_specialist:phones:ignored (контроль)"
+   ],
+   "poison": null,
+   "checks": [],
+   "final": {
+    "verify": {
+     "ag_95af745ff8": {
+      "level": 2,
+      "lineage": null,
+      "owner_inherited_from": null,
+      "contributions": null,
+      "missing": [
+       "reputation"
+      ],
+      "profile": {
+       "expert": [
+        {
+         "category": "money",
+         "score": 100
+        },
+        {
+         "category": "phones",
+         "score": 100
+        },
+        {
+         "category": "units",
+         "score": 100
+        },
+        {
+         "category": "dates",
+         "score": 100
+        }
+       ],
+       "growth": [],
+       "data": "synthetic"
+      }
+     }
+    },
+    "passports": {
+     "ag_95af745ff8": {
+      "AgentDomainControl": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentMcpScan": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentOwnerVerified": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentEvaluation": {
+       "issued": 10,
+       "revoked": 0,
+       "suspended": 0
+      }
+     }
+    },
+    "anchor": {
+     "root": "012aabfe7dd81bf977628c200c0b41fc48a91512decc899755a24c31f5ad4d69",
+     "events": 17,
+     "chained_to": null,
+     "methods": [
+      {
+       "type": "opentimestamps",
+       "ok": false,
+       "error": "Failed to create timestamp: need at least 2 attestations but received 0 within timeout"
+      }
+     ]
+    },
+    "inclusion": false
+   }
+  }
+ }
+}

@@ -1,0 +1,290 @@
+{
+ "params": {
+  "rounds": 10,
+  "traffic": 300,
+  "budget": 1000,
+  "merge_every": 2,
+  "poison_round": 6,
+  "bench": 800,
+  "seed": "xonta-lab-1",
+  "weights": {
+   "units": 0.35,
+   "dates": 0.3,
+   "phones": 0.2,
+   "money": 0.15
+  },
+  "noise": 0.02,
+  "mandate": {
+   "max_children": 3,
+   "max_depth": 1,
+   "categories": [
+    "dates",
+    "units",
+    "phones",
+    "money"
+   ]
+  }
+ },
+ "arms": {
+  "A": {
+   "bench_root": [
+    100,
+    96.8,
+    100,
+    99.9,
+    99.9,
+    99.9,
+    100,
+    100,
+    99.9,
+    99.9
+   ],
+   "bench_system": [
+    100,
+    96.8,
+    100,
+    99.9,
+    99.9,
+    99.9,
+    100,
+    100,
+    99.9,
+    99.9
+   ],
+   "eval_root": [
+    100,
+    98,
+    100,
+    100,
+    99.8,
+    100,
+    100,
+    99.8,
+    99.8,
+    100
+   ],
+   "mean_root": 99.6,
+   "mean_system": 99.6,
+   "rounds_below_95_system": 0,
+   "rounds_below_95_root": 0,
+   "feedback_sent": {
+    "ag_8d96eac3c6": 344
+   },
+   "feedback_total": 344,
+   "traffic": {
+    "ag_8d96eac3c6": 2198
+   },
+   "rules_learned": {
+    "ag_8d96eac3c6": 31
+   },
+   "children": [],
+   "merges": [],
+   "proposals": 0,
+   "signals": [],
+   "poison": null,
+   "checks": [],
+   "final": {
+    "verify": {
+     "ag_8d96eac3c6": {
+      "level": 2,
+      "lineage": null,
+      "owner_inherited_from": null,
+      "contributions": null,
+      "missing": [
+       "reputation"
+      ],
+      "profile": {
+       "expert": [
+        {
+         "category": "money",
+         "score": 100
+        },
+        {
+         "category": "units",
+         "score": 100
+        },
+        {
+         "category": "dates",
+         "score": 100
+        },
+        {
+         "category": "phones",
+         "score": 100
+        }
+       ],
+       "growth": [],
+       "data": "synthetic"
+      }
+     }
+    },
+    "passports": {
+     "ag_8d96eac3c6": {
+      "AgentDomainControl": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentMcpScan": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentOwnerVerified": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentEvaluation": {
+       "issued": 10,
+       "revoked": 0,
+       "suspended": 0
+      }
+     }
+    },
+    "anchor": {
+     "root": "97f1505c27eb750d918c16c3754476fcbaf890704ba32df7273418a46ac7ee46",
+     "events": 17,
+     "chained_to": null,
+     "methods": [
+      {
+       "type": "opentimestamps",
+       "ok": false,
+       "error": "Failed to create timestamp: need at least 2 attestations but received 0 within timeout"
+      }
+     ]
+    },
+    "inclusion": false
+   }
+  },
+  "B": {
+   "bench_root": [
+    100,
+    96.8,
+    100,
+    99.9,
+    99.9,
+    99.9,
+    100,
+    100,
+    99.9,
+    99.9
+   ],
+   "bench_system": [
+    100,
+    96.8,
+    100,
+    99.9,
+    99.9,
+    99.9,
+    100,
+    100,
+    99.9,
+    99.9
+   ],
+   "eval_root": [
+    100,
+    98,
+    100,
+    100,
+    99.8,
+    100,
+    100,
+    99.8,
+    99.8,
+    100
+   ],
+   "mean_root": 99.6,
+   "mean_system": 99.6,
+   "rounds_below_95_system": 0,
+   "rounds_below_95_root": 0,
+   "feedback_sent": {
+    "ag_f66bc892ea": 344
+   },
+   "feedback_total": 344,
+   "traffic": {
+    "ag_f66bc892ea": 2198
+   },
+   "rules_learned": {
+    "ag_f66bc892ea": 31
+   },
+   "children": [],
+   "merges": [],
+   "proposals": 0,
+   "signals": [],
+   "poison": null,
+   "checks": [],
+   "final": {
+    "verify": {
+     "ag_f66bc892ea": {
+      "level": 2,
+      "lineage": null,
+      "owner_inherited_from": null,
+      "contributions": null,
+      "missing": [
+       "reputation"
+      ],
+      "profile": {
+       "expert": [
+        {
+         "category": "money",
+         "score": 100
+        },
+        {
+         "category": "units",
+         "score": 98.8
+        },
+        {
+         "category": "phones",
+         "score": 100
+        },
+        {
+         "category": "dates",
+         "score": 100
+        }
+       ],
+       "growth": [],
+       "data": "synthetic"
+      }
+     }
+    },
+    "passports": {
+     "ag_f66bc892ea": {
+      "AgentDomainControl": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentMcpScan": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentOwnerVerified": {
+       "issued": 1,
+       "revoked": 0,
+       "suspended": 0
+      },
+      "AgentEvaluation": {
+       "issued": 10,
+       "revoked": 0,
+       "suspended": 0
+      }
+     }
+    },
+    "anchor": {
+     "root": "5d06670481da919038976d701d032cecc3759a63d344011706836fa5d41ad79b",
+     "events": 17,
+     "chained_to": null,
+     "methods": [
+      {
+       "type": "opentimestamps",
+       "ok": false,
+       "error": "Failed to create timestamp: need at least 2 attestations but received 0 within timeout"
+      }
+     ]
+    },
+    "inclusion": false
+   }
+  }
+ }
+}

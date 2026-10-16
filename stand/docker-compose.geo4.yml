@@ -1,0 +1,58 @@
+# Стенд «Репутация», прогон 4: советник v2 (Томпсон, контроль по типам, горизонт по типам, Брайер), три независимых дерева
+# агентов под одним оркестратором с общим опытом советов, распределение отдельным навыком с блокировкой при сомнении,
+# правила с историей версий и двумя вариантами (OPRO), свежие окна отзывов для слияний и поправка на повторные проверки.
+# Оценочная часть эталона та же, что в прогонах 1–3 (сравнимо по eval_hash). Данные — в stand-data/geo4.
+# Изоляция как раньше: свой проект, без портов, ограничения ресурсов; рабочие сервисы xonta не затрагиваются.
+name: xonta-stand-geo4
+services:
+  stand-geo4:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: xonta-stand:0.7.0
+    container_name: xonta-stand-geo4
+    user: "${STAND_UID:-1000}:${STAND_GID:-1000}"
+    restart: on-failure:3
+    env_file: ../stand.env
+    environment:
+      STAND_DIR: /stand-data/geo4
+      TREES: "${GEO_TREES:-3}"
+      GEO_LEARN: rules
+      GEO_ROUTER: "1"
+      GEO_RULE_CANDIDATES: "2"
+      GEO_MIN_MARGIN: "2"
+      GEO_ROUTING_COOLDOWN: "2"
+      GEO_CONCURRENCY: "2"
+      FEEDBACK_ALL: "1"
+      FEEDBACK_BUDGET: "50"
+      MERGE_TEST: mcnemar
+      MERGE_SAMPLE: "0"
+      MERGE_ALPHA: "0.05"
+      MERGE_SEQUENTIAL: "1"
+      MERGE_ROTATE_EVERY: "5"
+      MERGE_POOL_EXTRA: "600"
+      EVAL_RETURN_PREDS: "1"
+      ADVISOR: "1"
+      ADVICE_POLICY: thompson
+      ADVICE_CONTROL: "0.25"
+      ROOT_SEES_ALL: "1"
+      MAX_DEPTH: "5"
+      MAX_CHILDREN: "3"
+      MAX_CHILDREN_TOTAL: "8"
+      SIGNAL_C_MIN_SHARE: "0.1"
+      SIGNAL_C_MIN_N: "20"
+      AGENT_LLM_BUDGET_TOKENS: "9000000"
+      CHILD_LLM_BUDGET_TOKENS: "4000000"
+      STAND_LLM_BUDGET_TOKENS: "${GEO_STAND_BUDGET:-30000000}"
+      ORCH_LLM_BUDGET_TOKENS: "6000000"
+      ROUND_PAUSE_MIN: "${GEO_ROUND_PAUSE_MIN:-2}"
+      SIGNAL_C_GAP: "${GEO_SIGNAL_C_GAP:-15}"
+    command: ["node", "stand/geo-run.js"]
+    volumes:
+      - ../stand-data:/stand-data
+    cpus: "0.75"
+    mem_limit: 768m
+    pids_limit: 300
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }

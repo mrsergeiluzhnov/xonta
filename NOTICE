@@ -1,0 +1,6 @@
+Xonta Agent Passport
+Copyright 2026 Xonta (https://xonta.ru)
+
+Test vectors in test/vectors/ are from the W3C Data Integrity EdDSA Cryptosuites
+specification (https://github.com/w3c/vc-di-eddsa), licensed under the
+W3C Software and Document License: https://www.w3.org/Consortium/Legal/copyright-software

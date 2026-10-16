@@ -1,0 +1,43 @@
+# Стенд «Репутация», прогон 2: обучение правилами + значимая проверка слияний (тест Макнемара) + дерево потомков до глубины 5.
+# Тот же эталон (тот же отпечаток), те же данные и модель; отдельные данные в stand-data/geo2. Так же изолированно:
+# свой проект, без портов, ограничения ресурсов; рабочие сервисы xonta не затрагиваются.
+name: xonta-stand-geo2
+services:
+  stand-geo2:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: xonta-stand:0.5.0
+    container_name: xonta-stand-geo2
+    user: "${STAND_UID:-1000}:${STAND_GID:-1000}"
+    restart: on-failure:3
+    env_file: ../stand.env
+    environment:
+      STAND_DIR: /stand-data/geo2
+      GEO_LEARN: rules
+      FEEDBACK_ALL: "1"
+      FEEDBACK_BUDGET: "50"
+      MERGE_TEST: mcnemar
+      MERGE_SAMPLE: "0"
+      MERGE_ALPHA: "0.05"
+      EVAL_RETURN_PREDS: "1"
+      MAX_DEPTH: "5"
+      MAX_CHILDREN: "3"
+      MAX_CHILDREN_TOTAL: "12"
+      SIGNAL_C_MIN_SHARE: "0.1"
+      SIGNAL_C_MIN_N: "20"
+      AGENT_LLM_BUDGET_TOKENS: "4000000"
+      CHILD_LLM_BUDGET_TOKENS: "2500000"
+      STAND_LLM_BUDGET_TOKENS: "15000000"
+      ORCH_LLM_BUDGET_TOKENS: "4000000"
+      ROUND_PAUSE_MIN: "${GEO_ROUND_PAUSE_MIN:-5}"
+      SIGNAL_C_GAP: "${GEO_SIGNAL_C_GAP:-15}"
+    command: ["node", "stand/geo-run.js"]
+    volumes:
+      - ../stand-data:/stand-data
+    cpus: "0.5"
+    mem_limit: 512m
+    pids_limit: 200
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

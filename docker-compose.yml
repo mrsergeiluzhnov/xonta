@@ -1,0 +1,13 @@
+services:
+  passport:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "4040"
+      DATA_DIR: /data
+    ports:
+      - "127.0.0.1:4040:4040"
+    volumes:
+      - ./data:/data
+

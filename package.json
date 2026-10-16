@@ -1,0 +1,40 @@
+{
+  "name": "xonta-agent-passport",
+  "version": "0.12.0",
+  "description": "Agent passport and A2O2A orchestrator: verifiable attestations, MCP server checks, tester agent, signals for AI agents",
+  "type": "module",
+  "license": "Apache-2.0",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node test/unit.js",
+    "e2e": "node test/e2e.js",
+    "lab": "node lab/run.js && node lab/summarize.js > lab/out/summary.json",
+    "stand:check": "STAND_MODE=fixture LLM_PROVIDER=mock STAND_DIR=/tmp/xonta-stand-check PHASE1_ROUNDS=4 TOTAL_ROUNDS=8 SIGNAL_C_GAP=10 SIGNAL_C_MIN_SHARE=0.1 node stand/run.js",
+    "stand:network": "STAND_MODE=fixture LLM_PROVIDER=mock STAND_DIR=/tmp/xonta-net/run-8 ORCH_ROOT=/tmp/xonta-net/orchestrators TOTAL_ROUNDS=4 EXAM_SIZE=60 SUP_VALIDATION_SIZE=60 NET_CORRUPT_ROUND=2 NET_SWEEP_A=4 SUP_SWEEP_N=24 node stand/network-run.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "ai-agents",
+    "agent-identity",
+    "verifiable-credentials",
+    "mcp",
+    "a2a",
+    "know-your-agent",
+    "orchestrator",
+    "паспорт агента"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "canonicalize": "^2.1.0",
+    "express": "^5.2.1",
+    "undici": "^6.29.0",
+    "zod": "^3.25.76"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mrsergeiluzhnov/xonta-agent-passport"
+  },
+  "homepage": "https://passport.xonta.ru"
+}

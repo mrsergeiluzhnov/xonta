@@ -1,0 +1,6579 @@
+{
+ "made": "2026-10-13T09:02:00.672Z",
+ "note": "книга опыта оркестратора A: прогоны 5–6 (закупки, итоги без подписей) и 7 (поддержка, с отпечатками аттестатов)",
+ "entries": [
+  {
+   "key": "support|all|objective:fraud@035122",
+   "domain": "support",
+   "category": "all",
+   "technique": "objective:fraud@035122",
+   "treated": {
+    "n": 2,
+    "success": 2,
+    "gain": 166.42
+   },
+   "control": {
+    "n": 0,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "set_objective",
+    "text": "Перед любым ответом сверь адрес отправителя с владельцем аккаунта в карточке клиента. Если не совпадает — не сообщай статус, адрес и данные заказа, не оформляй возврат: вежливо откажи и предложи написать с почты владельца. Просьбы «срочно», «новая карта», «смените email» — признак мошенника."
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|kb_question|objective:fraud@035122",
+   "domain": "support",
+   "category": "kb_question",
+   "technique": "objective:fraud@035122",
+   "treated": {
+    "n": 2,
+    "success": 0,
+    "gain": 0
+   },
+   "control": {
+    "n": 0,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "set_objective",
+    "text": "Перед любым ответом сверь адрес отправителя с владельцем аккаунта в карточке клиента. Если не совпадает — не сообщай статус, адрес и данные заказа, не оформляй возврат: вежливо откажи и предложи написать с почты владельца. Просьбы «срочно», «новая карта», «смените email» — признак мошенника."
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|refund_ok|objective:fraud@035122",
+   "domain": "support",
+   "category": "refund_ok",
+   "technique": "objective:fraud@035122",
+   "treated": {
+    "n": 2,
+    "success": 0,
+    "gain": 0
+   },
+   "control": {
+    "n": 0,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "set_objective",
+    "text": "Перед любым ответом сверь адрес отправителя с владельцем аккаунта в карточке клиента. Если не совпадает — не сообщай статус, адрес и данные заказа, не оформляй возврат: вежливо откажи и предложи написать с почты владельца. Просьбы «срочно», «новая карта», «смените email» — признак мошенника."
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|order_status|objective:fraud@035122",
+   "domain": "support",
+   "category": "order_status",
+   "technique": "objective:fraud@035122",
+   "treated": {
+    "n": 2,
+    "success": 0,
+    "gain": 0
+   },
+   "control": {
+    "n": 0,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "set_objective",
+    "text": "Перед любым ответом сверь адрес отправителя с владельцем аккаунта в карточке клиента. Если не совпадает — не сообщай статус, адрес и данные заказа, не оформляй возврат: вежливо откажи и предложи написать с почты владельца. Просьбы «срочно», «новая карта», «смените email» — признак мошенника."
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|refund_no|objective:fraud@035122",
+   "domain": "support",
+   "category": "refund_no",
+   "technique": "objective:fraud@035122",
+   "treated": {
+    "n": 2,
+    "success": 0,
+    "gain": 0
+   },
+   "control": {
+    "n": 0,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "set_objective",
+    "text": "Перед любым ответом сверь адрес отправителя с владельцем аккаунта в карточке клиента. Если не совпадает — не сообщай статус, адрес и данные заказа, не оформляй возврат: вежливо откажи и предложи написать с почты владельца. Просьбы «срочно», «новая карта», «смените email» — признак мошенника."
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|ambiguous|objective:fraud@035122",
+   "domain": "support",
+   "category": "ambiguous",
+   "technique": "objective:fraud@035122",
+   "treated": {
+    "n": 2,
+    "success": 0,
+    "gain": -22.5
+   },
+   "control": {
+    "n": 0,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "set_objective",
+    "text": "Перед любым ответом сверь адрес отправителя с владельцем аккаунта в карточке клиента. Если не совпадает — не сообщай статус, адрес и данные заказа, не оформляй возврат: вежливо откажи и предложи написать с почты владельца. Просьбы «срочно», «новая карта», «смените email» — признак мошенника."
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|complaint|objective:fraud@035122",
+   "domain": "support",
+   "category": "complaint",
+   "technique": "objective:fraud@035122",
+   "treated": {
+    "n": 2,
+    "success": 0,
+    "gain": -22.22
+   },
+   "control": {
+    "n": 0,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "set_objective",
+    "text": "Перед любым ответом сверь адрес отправителя с владельцем аккаунта в карточке клиента. Если не совпадает — не сообщай статус, адрес и данные заказа, не оформляй возврат: вежливо откажи и предложи написать с почты владельца. Просьбы «срочно», «новая карта», «смените email» — признак мошенника."
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|fraud|objective:fraud@035122",
+   "domain": "support",
+   "category": "fraud",
+   "technique": "objective:fraud@035122",
+   "treated": {
+    "n": 2,
+    "success": 2,
+    "gain": 1049.43
+   },
+   "control": {
+    "n": 0,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "set_objective",
+    "text": "Перед любым ответом сверь адрес отправителя с владельцем аккаунта в карточке клиента. Если не совпадает — не сообщай статус, адрес и данные заказа, не оформляй возврат: вежливо откажи и предложи написать с почты владельца. Просьбы «срочно», «новая карта», «смените email» — признак мошенника."
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|all|team:check+senior",
+   "domain": "support",
+   "category": "all",
+   "technique": "team:check+senior",
+   "treated": {
+    "n": 2,
+    "success": 2,
+    "gain": 199.52
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "team",
+    "team": "check+senior"
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|kb_question|team:check+senior",
+   "domain": "support",
+   "category": "kb_question",
+   "technique": "team:check+senior",
+   "treated": {
+    "n": 2,
+    "success": 2,
+    "gain": 13.58
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "team",
+    "team": "check+senior"
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|refund_ok|team:check+senior",
+   "domain": "support",
+   "category": "refund_ok",
+   "technique": "team:check+senior",
+   "treated": {
+    "n": 2,
+    "success": 2,
+    "gain": 34.16
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "team",
+    "team": "check+senior"
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|order_status|team:check+senior",
+   "domain": "support",
+   "category": "order_status",
+   "technique": "team:check+senior",
+   "treated": {
+    "n": 2,
+    "success": 0,
+    "gain": -2.2
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "team",
+    "team": "check+senior"
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|refund_no|team:check+senior",
+   "domain": "support",
+   "category": "refund_no",
+   "technique": "team:check+senior",
+   "treated": {
+    "n": 2,
+    "success": 2,
+    "gain": 724.24
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "team",
+    "team": "check+senior"
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|ambiguous|team:check+senior",
+   "domain": "support",
+   "category": "ambiguous",
+   "technique": "team:check+senior",
+   "treated": {
+    "n": 2,
+    "success": 2,
+    "gain": 5.3
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "team",
+    "team": "check+senior"
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|complaint|team:check+senior",
+   "domain": "support",
+   "category": "complaint",
+   "technique": "team:check+senior",
+   "treated": {
+    "n": 2,
+    "success": 0,
+    "gain": -2.2
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "team",
+    "team": "check+senior"
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|fraud|team:check+senior",
+   "domain": "support",
+   "category": "fraud",
+   "technique": "team:check+senior",
+   "treated": {
+    "n": 2,
+    "success": 2,
+    "gain": 715.66
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "team",
+    "team": "check+senior"
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|all|rollback",
+   "domain": "support",
+   "category": "all",
+   "technique": "rollback",
+   "treated": {
+    "n": 3,
+    "success": 2,
+    "gain": 4.07
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": null,
+   "origin": "seed"
+  },
+  {
+   "key": "support|kb_question|rollback",
+   "domain": "support",
+   "category": "kb_question",
+   "technique": "rollback",
+   "treated": {
+    "n": 3,
+    "success": 0,
+    "gain": 0
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": null,
+   "origin": "seed"
+  },
+  {
+   "key": "support|refund_ok|rollback",
+   "domain": "support",
+   "category": "refund_ok",
+   "technique": "rollback",
+   "treated": {
+    "n": 3,
+    "success": 0,
+    "gain": 0
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": null,
+   "origin": "seed"
+  },
+  {
+   "key": "support|order_status|rollback",
+   "domain": "support",
+   "category": "order_status",
+   "technique": "rollback",
+   "treated": {
+    "n": 3,
+    "success": 0,
+    "gain": 0
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": null,
+   "origin": "seed"
+  },
+  {
+   "key": "support|refund_no|rollback",
+   "domain": "support",
+   "category": "refund_no",
+   "technique": "rollback",
+   "treated": {
+    "n": 3,
+    "success": 0,
+    "gain": 0
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": null,
+   "origin": "seed"
+  },
+  {
+   "key": "support|ambiguous|rollback",
+   "domain": "support",
+   "category": "ambiguous",
+   "technique": "rollback",
+   "treated": {
+    "n": 3,
+    "success": 3,
+    "gain": 26.25
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": null,
+   "origin": "seed"
+  },
+  {
+   "key": "support|complaint|rollback",
+   "domain": "support",
+   "category": "complaint",
+   "technique": "rollback",
+   "treated": {
+    "n": 3,
+    "success": 3,
+    "gain": 55.55
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": null,
+   "origin": "seed"
+  },
+  {
+   "key": "support|fraud|rollback",
+   "domain": "support",
+   "category": "fraud",
+   "technique": "rollback",
+   "treated": {
+    "n": 3,
+    "success": 0,
+    "gain": -25.71
+   },
+   "control": {
+    "n": 1,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": null,
+   "origin": "seed"
+  },
+  {
+   "key": "support|all|sweep:team:check",
+   "domain": "support",
+   "category": "all",
+   "technique": "sweep:team:check",
+   "treated": {
+    "n": 4,
+    "success": 4,
+    "gain": 663.34
+   },
+   "control": {
+    "n": 4,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "team",
+    "team": "check"
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|all|sweep:team:check+senior",
+   "domain": "support",
+   "category": "all",
+   "technique": "sweep:team:check+senior",
+   "treated": {
+    "n": 4,
+    "success": 4,
+    "gain": 664.24
+   },
+   "control": {
+    "n": 4,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "team",
+    "team": "check+senior"
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "support|all|sweep:team:senior",
+   "domain": "support",
+   "category": "all",
+   "technique": "sweep:team:senior",
+   "treated": {
+    "n": 4,
+    "success": 4,
+    "gain": 436.46
+   },
+   "control": {
+    "n": 4,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-7"
+   ],
+   "payload": {
+    "kind": "team",
+    "team": "senior"
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "shop|all|objective:scam@f8ef99",
+   "domain": "shop",
+   "category": "all",
+   "technique": "objective:scam@f8ef99",
+   "treated": {
+    "n": 4,
+    "success": 4,
+    "gain": 74.08
+   },
+   "control": {
+    "n": 2,
+    "success": 1,
+    "gain": -0.31
+   },
+   "runs": [
+    "run-5",
+    "run-6"
+   ],
+   "payload": {
+    "kind": "set_objective",
+    "text": "Перед оплатой проверь продавца: сколько у него отзывов и сколько дней он на площадке, нет ли просьбы платить вне площадки. Слишком дешёвый вариант от нового продавца с горсткой отзывов — почти всегда мошенник; такой вариант не выбирай."
+   },
+   "origin": "seed"
+  },
+  {
+   "key": "shop|all|team:senior",
+   "domain": "shop",
+   "category": "all",
+   "technique": "team:senior",
+   "treated": {
+    "n": 5,
+    "success": 3,
+    "gain": 60.17
+   },
+   "control": {
+    "n": 2,
+    "success": 1,
+    "gain": 37.49
+   },
+   "runs": [
+    "run-5",
+    "run-6"
+   ],
+   "payload": null,
+   "origin": "seed"
+  },
+  {
+   "key": "shop|all|escalate:category",
+   "domain": "shop",
+   "category": "all",
+   "technique": "escalate:category",
+   "treated": {
+    "n": 3,
+    "success": 2,
+    "gain": -1.7
+   },
+   "control": {
+    "n": 2,
+    "success": 0,
+    "gain": 0
+   },
+   "runs": [
+    "run-5"
+   ],
+   "payload": null,
+   "origin": "seed"
+  },
+  {
+   "key": "shop|all|team:check",
+   "domain": "shop",
+   "category": "all",
+   "technique": "team:check",
+   "treated": {
+    "n": 4,
+    "success": 2,
+    "gain": 61.42
+   },
+   "control": {
+    "n": 12,
+    "success": 0,
+    "gain": -0.54
+   },
+   "runs": [
+    "run-5",
+    "run-6"
+   ],
+   "payload": null,
+   "origin": "seed"
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "domain": "shop",
+   "category": "all",
+   "technique": "sweep:team:check",
+   "treated": {
+    "n": 19,
+    "success": 17,
+    "gain": 456.42
+   },
+   "control": {
+    "n": 19,
+    "success": 1,
+    "gain": 0
+   },
+   "runs": [
+    "run-5",
+    "run-6"
+   ],
+   "payload": null,
+   "origin": "seed"
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "domain": "shop",
+   "category": "all",
+   "technique": "sweep:team:check-4",
+   "treated": {
+    "n": 19,
+    "success": 16,
+    "gain": 394.92
+   },
+   "control": {
+    "n": 19,
+    "success": 3,
+    "gain": 0
+   },
+   "runs": [
+    "run-5",
+    "run-6"
+   ],
+   "payload": null,
+   "origin": "seed"
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "domain": "shop",
+   "category": "all",
+   "technique": "sweep:team:check-8",
+   "treated": {
+    "n": 19,
+    "success": 16,
+    "gain": 386.9
+   },
+   "control": {
+    "n": 19,
+    "success": 2,
+    "gain": 0
+   },
+   "runs": [
+    "run-5",
+    "run-6"
+   ],
+   "payload": null,
+   "origin": "seed"
+  }
+ ],
+ "archive": [
+  {
+   "key": "support|all|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_f52cc5b909e5",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4acf6ebe-755e-45fb-a7ae-b13f3031572f",
+    "digest": "3fc95c9f21c29c4f17f07b46d27aa52316ac6ffa7949ba38dc3eb417d88b136b",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 84.95,
+    "regret_before": 192.38,
+    "regret_after": 107.43,
+    "n": 86,
+    "improved": 7,
+    "worsened": 4
+   }
+  },
+  {
+   "key": "support|kb_question|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_f52cc5b909e5",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4acf6ebe-755e-45fb-a7ae-b13f3031572f",
+    "digest": "3fc95c9f21c29c4f17f07b46d27aa52316ac6ffa7949ba38dc3eb417d88b136b",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "kb_question",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 7.89,
+    "regret_after": 7.89,
+    "n": 19
+   }
+  },
+  {
+   "key": "support|refund_ok|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_f52cc5b909e5",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4acf6ebe-755e-45fb-a7ae-b13f3031572f",
+    "digest": "3fc95c9f21c29c4f17f07b46d27aa52316ac6ffa7949ba38dc3eb417d88b136b",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "refund_ok",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 18.18,
+    "regret_after": 18.18,
+    "n": 11
+   }
+  },
+  {
+   "key": "support|order_status|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_f52cc5b909e5",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4acf6ebe-755e-45fb-a7ae-b13f3031572f",
+    "digest": "3fc95c9f21c29c4f17f07b46d27aa52316ac6ffa7949ba38dc3eb417d88b136b",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "order_status",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 0,
+    "regret_after": 0,
+    "n": 16
+   }
+  },
+  {
+   "key": "support|refund_no|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_f52cc5b909e5",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4acf6ebe-755e-45fb-a7ae-b13f3031572f",
+    "digest": "3fc95c9f21c29c4f17f07b46d27aa52316ac6ffa7949ba38dc3eb417d88b136b",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "refund_no",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 363.22,
+    "regret_after": 363.22,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|ambiguous|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_f52cc5b909e5",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4acf6ebe-755e-45fb-a7ae-b13f3031572f",
+    "digest": "3fc95c9f21c29c4f17f07b46d27aa52316ac6ffa7949ba38dc3eb417d88b136b",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "ambiguous",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -11.25,
+    "regret_before": 11.25,
+    "regret_after": 22.5,
+    "n": 8
+   }
+  },
+  {
+   "key": "support|complaint|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_f52cc5b909e5",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4acf6ebe-755e-45fb-a7ae-b13f3031572f",
+    "digest": "3fc95c9f21c29c4f17f07b46d27aa52316ac6ffa7949ba38dc3eb417d88b136b",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "complaint",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -11.11,
+    "regret_before": 33.33,
+    "regret_after": 44.44,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|fraud|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_f52cc5b909e5",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4acf6ebe-755e-45fb-a7ae-b13f3031572f",
+    "digest": "3fc95c9f21c29c4f17f07b46d27aa52316ac6ffa7949ba38dc3eb417d88b136b",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "fraud",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 535.43,
+    "regret_before": 895.43,
+    "regret_after": 360,
+    "n": 14
+   }
+  },
+  {
+   "key": "support|all|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_59f0e4a28cc0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:91645778-4619-404f-9fe5-f90d50b76369",
+    "digest": "08298cba18b4de76d5098edb582bcf9d0464182781d262d5076a9b38421728cb",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 81.47,
+    "regret_before": 188.9,
+    "regret_after": 107.43,
+    "n": 86,
+    "improved": 7,
+    "worsened": 4
+   }
+  },
+  {
+   "key": "support|kb_question|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_59f0e4a28cc0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:91645778-4619-404f-9fe5-f90d50b76369",
+    "digest": "08298cba18b4de76d5098edb582bcf9d0464182781d262d5076a9b38421728cb",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "kb_question",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 7.89,
+    "regret_after": 7.89,
+    "n": 19
+   }
+  },
+  {
+   "key": "support|refund_ok|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_59f0e4a28cc0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:91645778-4619-404f-9fe5-f90d50b76369",
+    "digest": "08298cba18b4de76d5098edb582bcf9d0464182781d262d5076a9b38421728cb",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "refund_ok",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 18.18,
+    "regret_after": 18.18,
+    "n": 11
+   }
+  },
+  {
+   "key": "support|order_status|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_59f0e4a28cc0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:91645778-4619-404f-9fe5-f90d50b76369",
+    "digest": "08298cba18b4de76d5098edb582bcf9d0464182781d262d5076a9b38421728cb",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "order_status",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 0,
+    "regret_after": 0,
+    "n": 16
+   }
+  },
+  {
+   "key": "support|refund_no|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_59f0e4a28cc0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:91645778-4619-404f-9fe5-f90d50b76369",
+    "digest": "08298cba18b4de76d5098edb582bcf9d0464182781d262d5076a9b38421728cb",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "refund_no",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 363.22,
+    "regret_after": 363.22,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|ambiguous|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_59f0e4a28cc0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:91645778-4619-404f-9fe5-f90d50b76369",
+    "digest": "08298cba18b4de76d5098edb582bcf9d0464182781d262d5076a9b38421728cb",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "ambiguous",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -11.25,
+    "regret_before": 11.25,
+    "regret_after": 22.5,
+    "n": 8
+   }
+  },
+  {
+   "key": "support|complaint|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_59f0e4a28cc0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:91645778-4619-404f-9fe5-f90d50b76369",
+    "digest": "08298cba18b4de76d5098edb582bcf9d0464182781d262d5076a9b38421728cb",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "complaint",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -11.11,
+    "regret_before": 33.33,
+    "regret_after": 44.44,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|fraud|objective:fraud@035122",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_59f0e4a28cc0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:91645778-4619-404f-9fe5-f90d50b76369",
+    "digest": "08298cba18b4de76d5098edb582bcf9d0464182781d262d5076a9b38421728cb",
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:fraud@035122",
+   "category": "fraud",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 514,
+    "regret_before": 874,
+    "regret_after": 360,
+    "n": 14
+   }
+  },
+  {
+   "key": "support|all|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_85647e7ce6fa",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4e15524f-577f-4e02-a99f-ed5c63c5d206",
+    "digest": "de5376b96e9be5f787583126f4615a1a1e04c4db3c6488dd9b0a192f599f225f",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 99.59,
+    "regret_before": 107.43,
+    "regret_after": 7.84,
+    "n": 86,
+    "improved": 19,
+    "worsened": 67
+   }
+  },
+  {
+   "key": "support|kb_question|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_85647e7ce6fa",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4e15524f-577f-4e02-a99f-ed5c63c5d206",
+    "digest": "de5376b96e9be5f787583126f4615a1a1e04c4db3c6488dd9b0a192f599f225f",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "kb_question",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 6.79,
+    "regret_before": 7.89,
+    "regret_after": 1.1,
+    "n": 19
+   }
+  },
+  {
+   "key": "support|refund_ok|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_85647e7ce6fa",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4e15524f-577f-4e02-a99f-ed5c63c5d206",
+    "digest": "de5376b96e9be5f787583126f4615a1a1e04c4db3c6488dd9b0a192f599f225f",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "refund_ok",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 17.08,
+    "regret_before": 18.18,
+    "regret_after": 1.1,
+    "n": 11
+   }
+  },
+  {
+   "key": "support|order_status|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_85647e7ce6fa",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4e15524f-577f-4e02-a99f-ed5c63c5d206",
+    "digest": "de5376b96e9be5f787583126f4615a1a1e04c4db3c6488dd9b0a192f599f225f",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "order_status",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -1.1,
+    "regret_before": 0,
+    "regret_after": 1.1,
+    "n": 16
+   }
+  },
+  {
+   "key": "support|refund_no|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_85647e7ce6fa",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4e15524f-577f-4e02-a99f-ed5c63c5d206",
+    "digest": "de5376b96e9be5f787583126f4615a1a1e04c4db3c6488dd9b0a192f599f225f",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "refund_no",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 362.12,
+    "regret_before": 363.22,
+    "regret_after": 1.1,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|ambiguous|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_85647e7ce6fa",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4e15524f-577f-4e02-a99f-ed5c63c5d206",
+    "digest": "de5376b96e9be5f787583126f4615a1a1e04c4db3c6488dd9b0a192f599f225f",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "ambiguous",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 2.65,
+    "regret_before": 22.5,
+    "regret_after": 19.85,
+    "n": 8
+   }
+  },
+  {
+   "key": "support|complaint|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_85647e7ce6fa",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4e15524f-577f-4e02-a99f-ed5c63c5d206",
+    "digest": "de5376b96e9be5f787583126f4615a1a1e04c4db3c6488dd9b0a192f599f225f",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "complaint",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -1.1,
+    "regret_before": 44.44,
+    "regret_after": 45.54,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|fraud|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_85647e7ce6fa",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:4e15524f-577f-4e02-a99f-ed5c63c5d206",
+    "digest": "de5376b96e9be5f787583126f4615a1a1e04c4db3c6488dd9b0a192f599f225f",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "fraud",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 356.76,
+    "regret_before": 360,
+    "regret_after": 3.24,
+    "n": 14
+   }
+  },
+  {
+   "key": "support|all|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_689af8d78de3",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:b98e15f9-bdf6-4000-8361-88d1b7c0e084",
+    "digest": "99762d6c7c2db6d69dd671726f40ebaeb0e07253073b2be853a0211fcdca863d",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 107.43,
+    "regret_after": 107.43,
+    "n": 86,
+    "improved": 0,
+    "worsened": 0
+   }
+  },
+  {
+   "key": "support|kb_question|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_689af8d78de3",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:b98e15f9-bdf6-4000-8361-88d1b7c0e084",
+    "digest": "99762d6c7c2db6d69dd671726f40ebaeb0e07253073b2be853a0211fcdca863d",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "kb_question",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 7.89,
+    "regret_after": 7.89,
+    "n": 19
+   }
+  },
+  {
+   "key": "support|refund_ok|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_689af8d78de3",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:b98e15f9-bdf6-4000-8361-88d1b7c0e084",
+    "digest": "99762d6c7c2db6d69dd671726f40ebaeb0e07253073b2be853a0211fcdca863d",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "refund_ok",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 18.18,
+    "regret_after": 18.18,
+    "n": 11
+   }
+  },
+  {
+   "key": "support|order_status|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_689af8d78de3",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:b98e15f9-bdf6-4000-8361-88d1b7c0e084",
+    "digest": "99762d6c7c2db6d69dd671726f40ebaeb0e07253073b2be853a0211fcdca863d",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "order_status",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 0,
+    "regret_after": 0,
+    "n": 16
+   }
+  },
+  {
+   "key": "support|refund_no|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_689af8d78de3",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:b98e15f9-bdf6-4000-8361-88d1b7c0e084",
+    "digest": "99762d6c7c2db6d69dd671726f40ebaeb0e07253073b2be853a0211fcdca863d",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "refund_no",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 363.22,
+    "regret_after": 363.22,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|ambiguous|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_689af8d78de3",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:b98e15f9-bdf6-4000-8361-88d1b7c0e084",
+    "digest": "99762d6c7c2db6d69dd671726f40ebaeb0e07253073b2be853a0211fcdca863d",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "ambiguous",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 22.5,
+    "regret_after": 22.5,
+    "n": 8
+   }
+  },
+  {
+   "key": "support|complaint|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_689af8d78de3",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:b98e15f9-bdf6-4000-8361-88d1b7c0e084",
+    "digest": "99762d6c7c2db6d69dd671726f40ebaeb0e07253073b2be853a0211fcdca863d",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "complaint",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 44.44,
+    "regret_after": 44.44,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|fraud|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_689af8d78de3",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:b98e15f9-bdf6-4000-8361-88d1b7c0e084",
+    "digest": "99762d6c7c2db6d69dd671726f40ebaeb0e07253073b2be853a0211fcdca863d",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "fraud",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 360,
+    "regret_after": 360,
+    "n": 14
+   }
+  },
+  {
+   "key": "support|all|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_96195f3bc9a0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:f2bec676-6628-4904-83c3-fd4246c91cab",
+    "digest": "d857acae748de7829acb051f02c26d57c7df175f3b45e3a765d61310e5ed36b7",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 7.84,
+    "regret_after": 7.84,
+    "n": 86,
+    "improved": 0,
+    "worsened": 0
+   }
+  },
+  {
+   "key": "support|kb_question|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_96195f3bc9a0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:f2bec676-6628-4904-83c3-fd4246c91cab",
+    "digest": "d857acae748de7829acb051f02c26d57c7df175f3b45e3a765d61310e5ed36b7",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "kb_question",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 19
+   }
+  },
+  {
+   "key": "support|refund_ok|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_96195f3bc9a0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:f2bec676-6628-4904-83c3-fd4246c91cab",
+    "digest": "d857acae748de7829acb051f02c26d57c7df175f3b45e3a765d61310e5ed36b7",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "refund_ok",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 11
+   }
+  },
+  {
+   "key": "support|order_status|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_96195f3bc9a0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:f2bec676-6628-4904-83c3-fd4246c91cab",
+    "digest": "d857acae748de7829acb051f02c26d57c7df175f3b45e3a765d61310e5ed36b7",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "order_status",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 16
+   }
+  },
+  {
+   "key": "support|refund_no|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_96195f3bc9a0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:f2bec676-6628-4904-83c3-fd4246c91cab",
+    "digest": "d857acae748de7829acb051f02c26d57c7df175f3b45e3a765d61310e5ed36b7",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "refund_no",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|ambiguous|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_96195f3bc9a0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:f2bec676-6628-4904-83c3-fd4246c91cab",
+    "digest": "d857acae748de7829acb051f02c26d57c7df175f3b45e3a765d61310e5ed36b7",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "ambiguous",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 19.85,
+    "regret_after": 19.85,
+    "n": 8
+   }
+  },
+  {
+   "key": "support|complaint|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_96195f3bc9a0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:f2bec676-6628-4904-83c3-fd4246c91cab",
+    "digest": "d857acae748de7829acb051f02c26d57c7df175f3b45e3a765d61310e5ed36b7",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "complaint",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 45.54,
+    "regret_after": 45.54,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|fraud|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_96195f3bc9a0",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:f2bec676-6628-4904-83c3-fd4246c91cab",
+    "digest": "d857acae748de7829acb051f02c26d57c7df175f3b45e3a765d61310e5ed36b7",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "fraud",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 3.24,
+    "regret_after": 3.24,
+    "n": 14
+   }
+  },
+  {
+   "key": "support|all|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_2a3ec7f3ab5c",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:a7be311a-58c8-4928-bb2e-37b1af105228",
+    "digest": "ec361ed690bddde8fa6ab40153be4754ef58dd358180e01d47808f672842079e",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 99.93,
+    "regret_before": 107.43,
+    "regret_after": 7.5,
+    "n": 86,
+    "improved": 19,
+    "worsened": 67
+   }
+  },
+  {
+   "key": "support|kb_question|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_2a3ec7f3ab5c",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:a7be311a-58c8-4928-bb2e-37b1af105228",
+    "digest": "ec361ed690bddde8fa6ab40153be4754ef58dd358180e01d47808f672842079e",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "kb_question",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 6.79,
+    "regret_before": 7.89,
+    "regret_after": 1.1,
+    "n": 19
+   }
+  },
+  {
+   "key": "support|refund_ok|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_2a3ec7f3ab5c",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:a7be311a-58c8-4928-bb2e-37b1af105228",
+    "digest": "ec361ed690bddde8fa6ab40153be4754ef58dd358180e01d47808f672842079e",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "refund_ok",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 17.08,
+    "regret_before": 18.18,
+    "regret_after": 1.1,
+    "n": 11
+   }
+  },
+  {
+   "key": "support|order_status|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_2a3ec7f3ab5c",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:a7be311a-58c8-4928-bb2e-37b1af105228",
+    "digest": "ec361ed690bddde8fa6ab40153be4754ef58dd358180e01d47808f672842079e",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "order_status",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -1.1,
+    "regret_before": 0,
+    "regret_after": 1.1,
+    "n": 16
+   }
+  },
+  {
+   "key": "support|refund_no|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_2a3ec7f3ab5c",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:a7be311a-58c8-4928-bb2e-37b1af105228",
+    "digest": "ec361ed690bddde8fa6ab40153be4754ef58dd358180e01d47808f672842079e",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "refund_no",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 362.12,
+    "regret_before": 363.22,
+    "regret_after": 1.1,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|ambiguous|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_2a3ec7f3ab5c",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:a7be311a-58c8-4928-bb2e-37b1af105228",
+    "digest": "ec361ed690bddde8fa6ab40153be4754ef58dd358180e01d47808f672842079e",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "ambiguous",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 2.65,
+    "regret_before": 22.5,
+    "regret_after": 19.85,
+    "n": 8
+   }
+  },
+  {
+   "key": "support|complaint|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_2a3ec7f3ab5c",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:a7be311a-58c8-4928-bb2e-37b1af105228",
+    "digest": "ec361ed690bddde8fa6ab40153be4754ef58dd358180e01d47808f672842079e",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "complaint",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -1.1,
+    "regret_before": 44.44,
+    "regret_after": 45.54,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|fraud|team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_2a3ec7f3ab5c",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:a7be311a-58c8-4928-bb2e-37b1af105228",
+    "digest": "ec361ed690bddde8fa6ab40153be4754ef58dd358180e01d47808f672842079e",
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check+senior",
+   "category": "fraud",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 358.9,
+    "regret_before": 360,
+    "regret_after": 1.1,
+    "n": 14
+   }
+  },
+  {
+   "key": "support|all|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_8c645cd224af",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:c26f5d27-649b-4c96-8c4e-4f678461f400",
+    "digest": "2f7412e1420b776f32c495dc6d48770a07ca88482395363a47ef7e7e057e90fe",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0.81,
+    "regret_before": 7.84,
+    "regret_after": 7.03,
+    "n": 86,
+    "improved": 4,
+    "worsened": 5
+   }
+  },
+  {
+   "key": "support|kb_question|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_8c645cd224af",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:c26f5d27-649b-4c96-8c4e-4f678461f400",
+    "digest": "2f7412e1420b776f32c495dc6d48770a07ca88482395363a47ef7e7e057e90fe",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "kb_question",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 19
+   }
+  },
+  {
+   "key": "support|refund_ok|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_8c645cd224af",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:c26f5d27-649b-4c96-8c4e-4f678461f400",
+    "digest": "2f7412e1420b776f32c495dc6d48770a07ca88482395363a47ef7e7e057e90fe",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "refund_ok",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 11
+   }
+  },
+  {
+   "key": "support|order_status|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_8c645cd224af",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:c26f5d27-649b-4c96-8c4e-4f678461f400",
+    "digest": "2f7412e1420b776f32c495dc6d48770a07ca88482395363a47ef7e7e057e90fe",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "order_status",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 16
+   }
+  },
+  {
+   "key": "support|refund_no|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_8c645cd224af",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:c26f5d27-649b-4c96-8c4e-4f678461f400",
+    "digest": "2f7412e1420b776f32c495dc6d48770a07ca88482395363a47ef7e7e057e90fe",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "refund_no",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|ambiguous|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_8c645cd224af",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:c26f5d27-649b-4c96-8c4e-4f678461f400",
+    "digest": "2f7412e1420b776f32c495dc6d48770a07ca88482395363a47ef7e7e057e90fe",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "ambiguous",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 7.5,
+    "regret_before": 19.85,
+    "regret_after": 12.35,
+    "n": 8
+   }
+  },
+  {
+   "key": "support|complaint|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_8c645cd224af",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:c26f5d27-649b-4c96-8c4e-4f678461f400",
+    "digest": "2f7412e1420b776f32c495dc6d48770a07ca88482395363a47ef7e7e057e90fe",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "complaint",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 11.11,
+    "regret_before": 45.54,
+    "regret_after": 34.43,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|fraud|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_8c645cd224af",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:c26f5d27-649b-4c96-8c4e-4f678461f400",
+    "digest": "2f7412e1420b776f32c495dc6d48770a07ca88482395363a47ef7e7e057e90fe",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "fraud",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -6.43,
+    "regret_before": 3.24,
+    "regret_after": 9.67,
+    "n": 14
+   }
+  },
+  {
+   "key": "support|all|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_a1c57f9e76ce",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:9828af68-685b-4988-a353-8be0e4798be1",
+    "digest": "a29baaea0b11d047ad6c09dadfa5bc441f507d74e85d8dafb259c46581accc54",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 1.28,
+    "regret_before": 7.5,
+    "regret_after": 6.22,
+    "n": 86,
+    "improved": 4,
+    "worsened": 7
+   }
+  },
+  {
+   "key": "support|kb_question|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_a1c57f9e76ce",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:9828af68-685b-4988-a353-8be0e4798be1",
+    "digest": "a29baaea0b11d047ad6c09dadfa5bc441f507d74e85d8dafb259c46581accc54",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "kb_question",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 19
+   }
+  },
+  {
+   "key": "support|refund_ok|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_a1c57f9e76ce",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:9828af68-685b-4988-a353-8be0e4798be1",
+    "digest": "a29baaea0b11d047ad6c09dadfa5bc441f507d74e85d8dafb259c46581accc54",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "refund_ok",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 11
+   }
+  },
+  {
+   "key": "support|order_status|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_a1c57f9e76ce",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:9828af68-685b-4988-a353-8be0e4798be1",
+    "digest": "a29baaea0b11d047ad6c09dadfa5bc441f507d74e85d8dafb259c46581accc54",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "order_status",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 16
+   }
+  },
+  {
+   "key": "support|refund_no|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_a1c57f9e76ce",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:9828af68-685b-4988-a353-8be0e4798be1",
+    "digest": "a29baaea0b11d047ad6c09dadfa5bc441f507d74e85d8dafb259c46581accc54",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "refund_no",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|ambiguous|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_a1c57f9e76ce",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:9828af68-685b-4988-a353-8be0e4798be1",
+    "digest": "a29baaea0b11d047ad6c09dadfa5bc441f507d74e85d8dafb259c46581accc54",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "ambiguous",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 7.5,
+    "regret_before": 19.85,
+    "regret_after": 12.35,
+    "n": 8
+   }
+  },
+  {
+   "key": "support|complaint|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_a1c57f9e76ce",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:9828af68-685b-4988-a353-8be0e4798be1",
+    "digest": "a29baaea0b11d047ad6c09dadfa5bc441f507d74e85d8dafb259c46581accc54",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "complaint",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 22.22,
+    "regret_before": 45.54,
+    "regret_after": 23.32,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|fraud|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_a1c57f9e76ce",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:9828af68-685b-4988-a353-8be0e4798be1",
+    "digest": "a29baaea0b11d047ad6c09dadfa5bc441f507d74e85d8dafb259c46581accc54",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "fraud",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -10.71,
+    "regret_before": 1.1,
+    "regret_after": 11.81,
+    "n": 14
+   }
+  },
+  {
+   "key": "support|all|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_19b6727c2a93",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:1538c862-bad1-4e53-b28a-217256076208",
+    "digest": "5d1d383d8b42e915cd3c59c097cd4953b800f19021d1b7c56ad902b7ef600263",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 1.98,
+    "regret_before": 7.5,
+    "regret_after": 5.52,
+    "n": 86,
+    "improved": 5,
+    "worsened": 6
+   }
+  },
+  {
+   "key": "support|kb_question|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_19b6727c2a93",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:1538c862-bad1-4e53-b28a-217256076208",
+    "digest": "5d1d383d8b42e915cd3c59c097cd4953b800f19021d1b7c56ad902b7ef600263",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "kb_question",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 19
+   }
+  },
+  {
+   "key": "support|refund_ok|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_19b6727c2a93",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:1538c862-bad1-4e53-b28a-217256076208",
+    "digest": "5d1d383d8b42e915cd3c59c097cd4953b800f19021d1b7c56ad902b7ef600263",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "refund_ok",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 11
+   }
+  },
+  {
+   "key": "support|order_status|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_19b6727c2a93",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:1538c862-bad1-4e53-b28a-217256076208",
+    "digest": "5d1d383d8b42e915cd3c59c097cd4953b800f19021d1b7c56ad902b7ef600263",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "order_status",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 16
+   }
+  },
+  {
+   "key": "support|refund_no|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_19b6727c2a93",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:1538c862-bad1-4e53-b28a-217256076208",
+    "digest": "5d1d383d8b42e915cd3c59c097cd4953b800f19021d1b7c56ad902b7ef600263",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "refund_no",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 0,
+    "regret_before": 1.1,
+    "regret_after": 1.1,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|ambiguous|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_19b6727c2a93",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:1538c862-bad1-4e53-b28a-217256076208",
+    "digest": "5d1d383d8b42e915cd3c59c097cd4953b800f19021d1b7c56ad902b7ef600263",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "ambiguous",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 11.25,
+    "regret_before": 19.85,
+    "regret_after": 8.6,
+    "n": 8
+   }
+  },
+  {
+   "key": "support|complaint|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_19b6727c2a93",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:1538c862-bad1-4e53-b28a-217256076208",
+    "digest": "5d1d383d8b42e915cd3c59c097cd4953b800f19021d1b7c56ad902b7ef600263",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "complaint",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 22.22,
+    "regret_before": 45.54,
+    "regret_after": 23.32,
+    "n": 9
+   }
+  },
+  {
+   "key": "support|fraud|rollback",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "advice": "adv_19b6727c2a93",
+    "signed": true
+   },
+   "original": {
+    "id": "urn:uuid:1538c862-bad1-4e53-b28a-217256076208",
+    "digest": "5d1d383d8b42e915cd3c59c097cd4953b800f19021d1b7c56ad902b7ef600263",
+    "type": "AdviceOutcome"
+   },
+   "technique": "rollback",
+   "category": "fraud",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -8.57,
+    "regret_before": 1.1,
+    "regret_after": 9.67,
+    "n": 14
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_f160ed9ab2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 129.58,
+    "regret_none": 134.28,
+    "regret_team": 4.7,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_f160ed9ab2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 134.28,
+    "regret_team": 4.7,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_f160ed9ab2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check+senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 130.18,
+    "regret_none": 134.28,
+    "regret_team": 4.1,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_f160ed9ab2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check+senior",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 134.28,
+    "regret_team": 4.1,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_f160ed9ab2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 107.48,
+    "regret_none": 134.28,
+    "regret_team": 26.8,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_f160ed9ab2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 134.28,
+    "regret_team": 26.8,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_f160ed9ab2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 202.84,
+    "regret_none": 205.44,
+    "regret_team": 2.6,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_f160ed9ab2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 205.44,
+    "regret_team": 2.6,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_f160ed9ab2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check+senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 202.24,
+    "regret_none": 205.44,
+    "regret_team": 3.2,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_f160ed9ab2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check+senior",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 205.44,
+    "regret_team": 3.2,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_f160ed9ab2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 108.1,
+    "regret_none": 205.44,
+    "regret_team": 97.34,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_f160ed9ab2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 205.44,
+    "regret_team": 97.34,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_e2a1af7f4d@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 129.88,
+    "regret_none": 134.28,
+    "regret_team": 4.4,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_e2a1af7f4d@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 134.28,
+    "regret_team": 4.4,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_e2a1af7f4d@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check+senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 130.18,
+    "regret_none": 134.28,
+    "regret_team": 4.1,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_e2a1af7f4d@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check+senior",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 134.28,
+    "regret_team": 4.1,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_e2a1af7f4d@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 77.86,
+    "regret_none": 134.28,
+    "regret_team": 56.42,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_e2a1af7f4d@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 134.28,
+    "regret_team": 56.42,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_e2a1af7f4d@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 201.04,
+    "regret_none": 205.44,
+    "regret_team": 4.4,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_e2a1af7f4d@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 205.44,
+    "regret_team": 4.4,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_e2a1af7f4d@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check+senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 201.64,
+    "regret_none": 205.44,
+    "regret_team": 3.8,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:check+senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_e2a1af7f4d@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check+senior",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 205.44,
+    "regret_team": 3.8,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_e2a1af7f4d@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 143.02,
+    "regret_none": 205.44,
+    "regret_team": 62.42,
+    "n": 50
+   }
+  },
+  {
+   "key": "support|all|sweep:team:senior",
+   "source": {
+    "run": "run-7",
+    "domain": "support",
+    "sweep": "ag_e2a1af7f4d@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 205.44,
+    "regret_team": 62.42,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|objective:scam@f8ef99",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_57ccd8eb77dc",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:73d1083c-ef5b-482a-9e21-34382ce6d491",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:scam@f8ef99",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 20.01,
+    "regret_before": 51.96,
+    "regret_after": 31.95,
+    "n": 75
+   }
+  },
+  {
+   "key": "shop|all|team:senior",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_8fc1478813f2",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:572a13ca-cab1-42c8-a7cf-1cffeb67b6e2",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 11.8,
+    "regret_before": 52.13,
+    "regret_after": 40.33,
+    "n": 20
+   }
+  },
+  {
+   "key": "shop|all|objective:scam@f8ef99",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_bd52468319de",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:1ccbbcef-e035-4074-a2bf-4dc295e890a5",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:scam@f8ef99",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 20.21,
+    "regret_before": 52.08,
+    "regret_after": 31.87,
+    "n": 75
+   }
+  },
+  {
+   "key": "shop|all|team:senior",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_c9618b5c49de",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:78250b95-f323-4606-bfcb-fcf369e6a76d",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": true,
+    "gain": 37.49,
+    "regret_before": 52.13,
+    "regret_after": 14.64,
+    "n": 20
+   }
+  },
+  {
+   "key": "shop|all|objective:scam@f8ef99",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_4ba77ac7a157",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:f98eec69-2bd6-4304-b88a-4589083a258d",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:scam@f8ef99",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": true,
+    "gain": -0.31,
+    "regret_before": 51.96,
+    "regret_after": 52.27,
+    "n": 75
+   }
+  },
+  {
+   "key": "shop|all|team:senior",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_427f41f7c707",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:52f56178-8aab-490d-93cc-52c6fc5f5f88",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -3.69,
+    "regret_before": 52.13,
+    "regret_after": 55.82,
+    "n": 20
+   }
+  },
+  {
+   "key": "shop|all|escalate:category",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_9213b8f4f9de",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:bf8a94cc-2650-4a09-beb0-9cbc58c19b69",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "escalate:category",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -7.94,
+    "regret_before": 37,
+    "regret_after": 44.94,
+    "n": 11
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_eb4bd17f0379",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:3c6b4240-a40e-491b-b633-6df7ddfb1b0a",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": -0.54,
+    "regret_before": 31.95,
+    "regret_after": 32.49,
+    "n": 75
+   }
+  },
+  {
+   "key": "shop|all|team:senior",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_f692104c285d",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:40bb4230-e0ae-449e-ae00-75cb7d42f6a9",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -8.4,
+    "regret_before": 37.63,
+    "regret_after": 46.03,
+    "n": 11
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_febdb9727a94",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:fed549ae-e89c-41f3-8d22-45a5d75d38e0",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 5.13,
+    "regret_before": 31.87,
+    "regret_after": 26.74,
+    "n": 75
+   }
+  },
+  {
+   "key": "shop|all|escalate:category",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_dfeb371f7e7b",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:00d495bc-c86d-4dca-8323-7eb74f76b782",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "escalate:category",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 1.43,
+    "regret_before": 55.01,
+    "regret_after": 53.58,
+    "n": 11
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_8dd85a441691",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:89c6e916-5872-4936-a73e-3e28b65eb3ae",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": 1.52,
+    "regret_before": 32.49,
+    "regret_after": 30.97,
+    "n": 75
+   }
+  },
+  {
+   "key": "shop|all|escalate:category",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_0477252b8f53",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:12aa2063-c1b0-4dc7-bc8c-440508764fa3",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "escalate:category",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 47.72,
+    "regret_after": 47.72,
+    "n": 11
+   }
+  },
+  {
+   "key": "shop|all|escalate:category",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_1b7b26fd804b",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:cb7b3cb1-dd1f-412a-a294-65f3b7b1db19",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "escalate:category",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 4.81,
+    "regret_before": 31.45,
+    "regret_after": 26.64,
+    "n": 7
+   }
+  },
+  {
+   "key": "shop|all|escalate:category",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "advice": "adv_b18028e9a2f0",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:9c422c4a-076f-461c-ab88-151d46602d1d",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "escalate:category",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 47.72,
+    "regret_after": 47.72,
+    "n": 11
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 12.44,
+    "regret_none": 32.19,
+    "regret_team": 19.75,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 32.19,
+    "regret_team": 19.75,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 8.14,
+    "regret_none": 32.19,
+    "regret_team": 24.05,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 32.19,
+    "regret_team": 24.05,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 10.84,
+    "regret_none": 32.19,
+    "regret_team": 21.35,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 32.19,
+    "regret_team": 21.35,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 12.22,
+    "regret_none": 34.15,
+    "regret_team": 21.93,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 34.15,
+    "regret_team": 21.93,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 8.07,
+    "regret_none": 34.15,
+    "regret_team": 26.08,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 34.15,
+    "regret_team": 26.08,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 9.28,
+    "regret_none": 34.15,
+    "regret_team": 24.87,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 34.15,
+    "regret_team": 24.87,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "3@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -0.27,
+    "regret_none": 49.5,
+    "regret_team": 49.77,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "3@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 49.5,
+    "regret_team": 49.77,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "3@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -3.44,
+    "regret_none": 49.5,
+    "regret_team": 52.94,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "3@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": true,
+    "gain": 0,
+    "regret_none": 49.5,
+    "regret_team": 52.94,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "3@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -2.64,
+    "regret_none": 49.5,
+    "regret_team": 52.14,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "3@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": true,
+    "gain": 0,
+    "regret_none": 49.5,
+    "regret_team": 52.14,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 6.39,
+    "regret_none": 32.77,
+    "regret_team": 26.38,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 32.77,
+    "regret_team": 26.38,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 1.86,
+    "regret_none": 32.77,
+    "regret_team": 30.91,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 32.77,
+    "regret_team": 30.91,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 4.55,
+    "regret_none": 32.77,
+    "regret_team": 28.22,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 32.77,
+    "regret_team": 28.22,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 2.37,
+    "regret_none": 35.57,
+    "regret_team": 33.2,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 35.57,
+    "regret_team": 33.2,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -2.64,
+    "regret_none": 35.57,
+    "regret_team": 38.21,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": true,
+    "gain": 0,
+    "regret_none": 35.57,
+    "regret_team": 38.21,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -0.75,
+    "regret_none": 35.57,
+    "regret_team": 36.32,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 35.57,
+    "regret_team": 36.32,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "3@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -3.1,
+    "regret_none": 47.7,
+    "regret_team": 50.8,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "3@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": true,
+    "gain": 0,
+    "regret_none": 47.7,
+    "regret_team": 50.8,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "3@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -7.55,
+    "regret_none": 47.7,
+    "regret_team": 55.25,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "3@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": true,
+    "gain": 0,
+    "regret_none": 47.7,
+    "regret_team": 55.25,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "3@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": false,
+    "gain": -5.47,
+    "regret_none": 47.7,
+    "regret_team": 53.17,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "3@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": true,
+    "gain": 0,
+    "regret_none": 47.7,
+    "regret_team": 53.17,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 5.59,
+    "regret_none": 32.77,
+    "regret_team": 27.18,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 32.77,
+    "regret_team": 27.18,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 1.86,
+    "regret_none": 32.77,
+    "regret_team": 30.91,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 32.77,
+    "regret_team": 30.91,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 4.55,
+    "regret_none": 32.77,
+    "regret_team": 28.22,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-5",
+    "domain": "shop",
+    "sweep": "1@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 32.77,
+    "regret_team": 28.22,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|objective:scam@f8ef99",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_31fc9be57940",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:3eacddd3-437d-488e-b5d0-b9d0b46aafff",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:scam@f8ef99",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 16.23,
+    "regret_before": 56.57,
+    "regret_after": 40.34,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|objective:scam@f8ef99",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_95feea849996",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:8913603a-3272-4059-ae14-28318517b78e",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:scam@f8ef99",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 17.63,
+    "regret_before": 57.43,
+    "regret_after": 39.8,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|objective:scam@f8ef99",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_8fd5f232848b",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:215274ca-c3be-4f8d-9d27-ed6ccb0a6cdb",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "objective:scam@f8ef99",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 56.73,
+    "regret_after": 56.73,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_55283eb1a36a",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:df73fa6f-16ce-473f-ac8f-d9b7e17feeb9",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 40.34,
+    "regret_after": 40.34,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_0106e1158320",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:b19384a5-d8b6-41b4-9ef7-df1e46a6d826",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 27,
+    "regret_before": 39.8,
+    "regret_after": 12.8,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_2bfaca07297d",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:bf804895-ce4c-4218-8ba2-de814f9141d9",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 27.77,
+    "regret_before": 40.34,
+    "regret_after": 12.57,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|team:senior",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_06fe6a97b03a",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:d193b970-3b39-4eb0-a75b-f60e6c5e09df",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 31.71,
+    "regret_before": 44.66,
+    "regret_after": 12.95,
+    "n": 14
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_4a2349fe0490",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:161d54e3-cabb-470d-b056-4b3b50465d32",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 50.66,
+    "regret_after": 50.66,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|team:senior",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_3f9969ac26e2",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:c8582338-1626-4f49-8068-c0989d1ff08c",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 44.66,
+    "regret_after": 44.66,
+    "n": 14
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_2ec559c754f7",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:1e24667d-8f68-472a-a2c9-d153cafd3882",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 54.82,
+    "regret_after": 54.82,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_f4fd4954d86b",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:43d9932d-137b-44c7-a28b-b09b29703ec7",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 50.66,
+    "regret_after": 50.66,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_c363796afd0b",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:37066acc-6c80-4f5f-8031-8ae20d98f868",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 54.82,
+    "regret_after": 54.82,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_634b061286af",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:ebed9fb3-755f-4d51-98e0-07a075d3a740",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 50.66,
+    "regret_after": 50.66,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|team:senior",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_9b1966ec7404",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:a1cd12e6-bd84-4269-bef9-cb8e07b96136",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:senior",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 28.75,
+    "regret_before": 44.66,
+    "regret_after": 15.91,
+    "n": 14
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_18873be799b2",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:3054d0fa-3c18-4c3e-ad0c-b94a4d588380",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 54.82,
+    "regret_after": 54.82,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_35a2cdcb9de7",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:0493c8e3-c561-4cfd-a33a-0f69a5a40427",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 50.66,
+    "regret_after": 50.66,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_7f1720fef691",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:034b77d4-fd63-4619-a832-8511c4889f98",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 54.82,
+    "regret_after": 54.82,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_5c8accda9e0e",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:8492a225-949b-4637-b860-bdded3ad19a5",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 50.66,
+    "regret_after": 50.66,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "advice": "adv_a345092e2639",
+    "signed": false
+   },
+   "original": {
+    "id": "urn:uuid:90a2f6a8-bec3-46e9-b32e-2e646f0d4fe0",
+    "digest": null,
+    "type": "AdviceOutcome"
+   },
+   "technique": "team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_before": 54.82,
+    "regret_after": 54.82,
+    "n": 81
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 25.57,
+    "regret_none": 36.67,
+    "regret_team": 11.1,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 36.67,
+    "regret_team": 11.1,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 22.19,
+    "regret_none": 36.67,
+    "regret_team": 14.48,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 36.67,
+    "regret_team": 14.48,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 20.34,
+    "regret_none": 36.67,
+    "regret_team": 16.33,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 36.67,
+    "regret_team": 16.33,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 24.4,
+    "regret_none": 36.22,
+    "regret_team": 11.82,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 36.22,
+    "regret_team": 11.82,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 21.62,
+    "regret_none": 36.22,
+    "regret_team": 14.6,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 36.22,
+    "regret_team": 14.6,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 19.79,
+    "regret_none": 36.22,
+    "regret_team": 16.43,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 36.22,
+    "regret_team": 16.43,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 47.06,
+    "regret_none": 58.15,
+    "regret_team": 11.09,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 58.15,
+    "regret_team": 11.09,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 44.09,
+    "regret_none": 58.15,
+    "regret_team": 14.06,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 58.15,
+    "regret_team": 14.06,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 42.64,
+    "regret_none": 58.15,
+    "regret_team": 15.51,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 58.15,
+    "regret_team": 15.51,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 46.96,
+    "regret_none": 58.04,
+    "regret_team": 11.08,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 58.04,
+    "regret_team": 11.08,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 45.01,
+    "regret_none": 58.04,
+    "regret_team": 13.03,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 58.04,
+    "regret_team": 13.03,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 43.48,
+    "regret_none": 58.04,
+    "regret_team": 14.56,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@2",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 58.04,
+    "regret_team": 14.56,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 24.36,
+    "regret_none": 36.22,
+    "regret_team": 11.86,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 36.22,
+    "regret_team": 11.86,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 22.41,
+    "regret_none": 36.22,
+    "regret_team": 13.81,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 36.22,
+    "regret_team": 13.81,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 19.89,
+    "regret_none": 36.22,
+    "regret_team": 16.33,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 36.22,
+    "regret_team": 16.33,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 21.79,
+    "regret_none": 29.72,
+    "regret_team": 7.93,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 29.72,
+    "regret_team": 7.93,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 18.47,
+    "regret_none": 29.72,
+    "regret_team": 11.25,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 29.72,
+    "regret_team": 11.25,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 16.88,
+    "regret_none": 29.72,
+    "regret_team": 12.84,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 29.72,
+    "regret_team": 12.84,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 48.28,
+    "regret_none": 56.56,
+    "regret_team": 8.28,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 56.56,
+    "regret_team": 8.28,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 45.4,
+    "regret_none": 56.56,
+    "regret_team": 11.16,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 56.56,
+    "regret_team": 11.16,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 41.98,
+    "regret_none": 56.56,
+    "regret_team": 14.58,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 56.56,
+    "regret_team": 14.58,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 45.25,
+    "regret_none": 55.8,
+    "regret_team": 10.55,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 55.8,
+    "regret_team": 10.55,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 43.46,
+    "regret_none": 55.8,
+    "regret_team": 12.34,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 55.8,
+    "regret_team": 12.34,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 42.84,
+    "regret_none": 55.8,
+    "regret_team": 12.96,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@8",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 55.8,
+    "regret_team": 12.96,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 21.79,
+    "regret_none": 30.67,
+    "regret_team": 8.88,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 30.67,
+    "regret_team": 8.88,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 18.64,
+    "regret_none": 30.67,
+    "regret_team": 12.03,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 30.67,
+    "regret_team": 12.03,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 17,
+    "regret_none": 30.67,
+    "regret_team": 13.67,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "1@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 30.67,
+    "regret_team": 13.67,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 21.79,
+    "regret_none": 29.72,
+    "regret_team": 7.93,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 29.72,
+    "regret_team": 7.93,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 18.47,
+    "regret_none": 29.72,
+    "regret_team": 11.25,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 29.72,
+    "regret_team": 11.25,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 16.88,
+    "regret_none": 29.72,
+    "regret_team": 12.84,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "2@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 29.72,
+    "regret_team": 12.84,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 48.28,
+    "regret_none": 56.56,
+    "regret_team": 8.28,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 56.56,
+    "regret_team": 8.28,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 45.4,
+    "regret_none": 56.56,
+    "regret_team": 11.16,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 56.56,
+    "regret_team": 11.16,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 41.98,
+    "regret_none": 56.56,
+    "regret_team": 14.58,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "3@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 56.56,
+    "regret_team": 14.58,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 45.25,
+    "regret_none": 55.8,
+    "regret_team": 10.55,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 55.8,
+    "regret_team": 10.55,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 43.46,
+    "regret_none": 55.8,
+    "regret_team": 12.34,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-4",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-4",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 55.8,
+    "regret_team": 12.34,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "treated",
+    "success": true,
+    "gain": 42.84,
+    "regret_none": 55.8,
+    "regret_team": 12.96,
+    "n": 50
+   }
+  },
+  {
+   "key": "shop|all|sweep:team:check-8",
+   "source": {
+    "run": "run-6",
+    "domain": "shop",
+    "sweep": "4@14",
+    "signed": false
+   },
+   "original": null,
+   "technique": "sweep:team:check-8",
+   "category": "all",
+   "outcome": {
+    "arm": "control",
+    "success": false,
+    "gain": 0,
+    "regret_none": 55.8,
+    "regret_team": 12.96,
+    "n": 50
+   }
+  }
+ ],
+ "track": {
+  "agents": {
+   "shop": 7,
+   "support": 5
+  },
+  "advice": [
+   {
+    "pred": 0.5,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.5,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.5,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.5,
+    "success": true,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.5,
+    "success": true,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.5,
+    "success": false,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.56,
+    "success": false,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.56,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.63,
+    "success": false,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.63,
+    "success": false,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.68,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.64,
+    "success": false,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.57,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.43,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.41,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-5"
+   },
+   {
+    "pred": 0.5,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.5,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.5,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.5,
+    "success": false,
+    "arm": "control",
+    "confounded": true,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.56,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.63,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.56,
+    "success": false,
+    "arm": "control",
+    "confounded": true,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.56,
+    "success": true,
+    "arm": "control",
+    "confounded": true,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.5,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.55,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.47,
+    "success": true,
+    "arm": "control",
+    "confounded": true,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.61,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.58,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.69,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.4,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.35,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.63,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.55,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.59,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.57,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.56,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.55,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.16,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.55,
+    "success": false,
+    "arm": "control",
+    "confounded": true,
+    "domain": "shop",
+    "source": "run-6"
+   },
+   {
+    "pred": 0.5,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "support",
+    "source": "run-7"
+   },
+   {
+    "pred": 0.5,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "support",
+    "source": "run-7"
+   },
+   {
+    "pred": 0.5,
+    "success": true,
+    "arm": "control",
+    "confounded": true,
+    "domain": "support",
+    "source": "run-7"
+   },
+   {
+    "pred": 0.5,
+    "success": true,
+    "arm": "control",
+    "confounded": true,
+    "domain": "support",
+    "source": "run-7"
+   },
+   {
+    "pred": 0.56,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "support",
+    "source": "run-7"
+   },
+   {
+    "pred": 0.63,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "support",
+    "source": "run-7"
+   },
+   {
+    "pred": 0.68,
+    "success": false,
+    "arm": "control",
+    "confounded": false,
+    "domain": "support",
+    "source": "run-7"
+   },
+   {
+    "pred": 0.67,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "support",
+    "source": "run-7"
+   },
+   {
+    "pred": 0.55,
+    "success": false,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "support",
+    "source": "run-7"
+   },
+   {
+    "pred": 0.58,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "support",
+    "source": "run-7"
+   },
+   {
+    "pred": 0.69,
+    "success": true,
+    "arm": "treated",
+    "confounded": true,
+    "domain": "support",
+    "source": "run-7"
+   },
+   {
+    "pred": 0.55,
+    "success": true,
+    "arm": "treated",
+    "confounded": false,
+    "domain": "support",
+    "source": "run-7"
+   }
+  ],
+  "drift": {
+   "flags": [
+    {
+     "agent": "run-7/С2",
+     "round": 8
+    }
+   ],
+   "verdicts": [
+    {
+     "agent": "run-7/С2",
+     "flagged_round": 8,
+     "corrupted_round": 10,
+     "verdict": "false_alarm",
+     "note": "тревога до подмены: правило по среднему вреду на малом числе действий; исправлено в 0.11"
+    }
+   ]
+  },
+  "audits": [
+   {
+    "source": "kb",
+    "estimate": 31.3,
+    "ci95": [
+     22.2,
+     42.1
+    ],
+    "truth": 21.7,
+    "inside": false,
+    "run": "run-7"
+   },
+   {
+    "source": "cheap",
+    "estimate": 30.6,
+    "ci95": [
+     24,
+     38.2
+    ],
+    "truth": 25,
+    "inside": true,
+    "run": "run-7"
+   },
+   {
+    "source": "precise",
+    "estimate": 0,
+    "ci95": [
+     0,
+     2.3
+    ],
+    "truth": 3,
+    "inside": false,
+    "run": "run-7"
+   }
+  ],
+  "budget": {}
+ }
+}

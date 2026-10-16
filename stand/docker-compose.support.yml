@@ -1,0 +1,53 @@
+# Стенд «Поддержка», прогон 7: агенты поддержки отвечают клиентам магазина-песочницы — вопросы, статусы, возвраты, жалобы,
+# мошенники. Оркестратор: бюджет вреда (сколько самостоятельных действий доверить), подбор команды потомков, рецепты для
+# новичка, обнаружение подмены агента, аудит базы знаний и служб CRM. Деньги и клиенты ненастоящие.
+# Модель — GigaChat; ключ — в ../stand.env строкой GIGACHAT_AUTH_KEY=... (в чат не вставлять).
+name: xonta-stand-support
+services:
+  stand-support:
+    build:
+      context: ..
+      dockerfile: stand/Dockerfile.stand
+    image: xonta-stand:0.10.0
+    container_name: xonta-stand-support
+    user: "${STAND_UID:-1000}:${STAND_GID:-1000}"
+    restart: on-failure:3
+    env_file: ../stand.env
+    environment:
+      STAND_DIR: /stand-data/support
+      LLM_PROVIDER: gigachat
+      LLM_BASE_URL: ""
+      AGENT_MODEL: GigaChat-2
+      SENIOR_MODEL: GigaChat-2-Max
+      GIGACHAT_SCOPE: GIGACHAT_API_PERS
+      LLM_MAX_CONCURRENCY: "1"
+      TOTAL_ROUNDS: "${SUP_ROUNDS:-16}"
+      TASKS_PER_ROUND: "20"
+      EXAM_EVERY: "2"
+      EXAM_SIZE: "150"
+      SUP_VALIDATION_SIZE: "140"
+      SUP_POLICIES: "orch,orch,fixed,fixed,orch"
+      SUP_STREAMS: "A,B,A,B,C"
+      SUP_NEWCOMER: "5"
+      SUP_NEWCOMER_ROUND: "8"
+      SUP_CORRUPT_AGENT: "2"
+      SUP_CORRUPT_ROUND: "10"
+      SUP_FIXED_ACTIONS: "20"
+      SUP_TOOLS_BUDGET: "400"
+      SUP_HARM_BUDGET: "2000"
+      SUP_SWEEP_ROUNDS: "2,8"
+      SUP_SWEEP_N: "50"
+      SUP_SEED: "sup-7"
+      ADVICE_CONTROL: "0.25"
+      AGENT_LLM_BUDGET_TOKENS: "30000000"
+      SENIOR_LLM_BUDGET_TOKENS: "10000000"
+      STAND_LLM_BUDGET_TOKENS: "${SUP_STAND_BUDGET:-90000000}"
+    command: ["node", "stand/support-run.js"]
+    volumes:
+      - ../stand-data:/stand-data
+    cpus: "0.5"
+    mem_limit: 640m
+    pids_limit: 240
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }

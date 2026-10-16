@@ -1,0 +1,11 @@
+{
+  "_readme": "eval — товары для оценки (не пересекаются с traffic). Категории — goods:<латиница>. sources: market обязателен для фазы 1; остальные площадки — для поставщика с 11-го раунда. Адрес Маркета — страница отзывов вида https://market.yandex.ru/product--<имя>/<id>/reviews",
+  "eval": [
+    { "key": "e-phone-1", "title": "Смартфон …", "model": "…", "category": "goods:smartphones",
+      "sources": { "market": "https://market.yandex.ru/product--…/…/reviews", "otzovik": "https://otzovik.com/reviews/…/", "irecommend": "https://irecommend.ru/content/…", "ozon": "https://www.ozon.ru/product/…/", "wildberries": "https://www.wildberries.ru/catalog/…/feedbacks", "mvideo": "https://www.mvideo.ru/products/…/reviews" } }
+  ],
+  "traffic": [
+    { "key": "t-phone-1", "title": "Смартфон …", "model": "…", "category": "goods:smartphones",
+      "sources": { "market": "https://market.yandex.ru/product--…/…/reviews" } }
+  ]
+}

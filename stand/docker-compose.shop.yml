@@ -1,0 +1,70 @@
+# Стенд «Закупки», прогон 6: агенты-закупщики тратят ТЕСТОВЫЕ деньги — товары и платные инструменты; источник вариантов
+# (агент №3) частично искажает карточки, рой проверяющих (потомки до 2 уровней) проверяет их платно и отсеивает негодные.
+# Новое: лимит из бюджета риска владельца, оркестратор проверяет самоулучшения агентов, отдельный бюджет на проверки,
+# советник — один совет за раз; 4 покупателя — две пары «с оркестратором / без» на разных потоках заданий.
+# Модель — GigaChat (бесплатный объём для физлиц: GigaChat-2 и GigaChat-2-Max), один поток запросов.
+# Ключ авторизации GigaChat — в ../stand.env строкой GIGACHAT_AUTH_KEY=... (в чат не вставлять).
+# Изоляция как у прошлых прогонов: свой проект, без портов, ограничения ресурсов; рабочие сервисы xonta не затрагиваются.
+name: xonta-stand-shop
+services:
+  stand-shop:
+    build:
+      context: ..
+      dockerfile: stand/Dockerfile.stand
+    image: xonta-stand:0.9.0
+    container_name: xonta-stand-shop
+    user: "${STAND_UID:-1000}:${STAND_GID:-1000}"
+    restart: on-failure:3
+    env_file: ../stand.env
+    environment:
+      STAND_DIR: /stand-data/shop
+      LLM_PROVIDER: gigachat
+      LLM_BASE_URL: ""
+      AGENT_MODEL: GigaChat-2
+      SENIOR_MODEL: GigaChat-2-Max
+      GIGACHAT_SCOPE: GIGACHAT_API_PERS
+      LLM_MAX_CONCURRENCY: "1"
+      GEO_CONCURRENCY: "1"
+      TOTAL_ROUNDS: "${SHOP_ROUNDS:-16}"
+      TASKS_PER_ROUND: "20"
+      EXAM_EVERY: "2"
+      EXAM_SIZE: "150"
+      SHOP_POLICIES: "orch,orch,fixed,fixed"
+      SHOP_STREAMS: "A,B,A,B"
+      SHOP_SEED: "shop-6"
+      SHOP_RISK_BUDGET: "10000"
+      SHOP_LIMIT_MAX_STEP: "2"
+      SHOP_CHECK_BUDGET: "3000"
+      SHOP_VALIDATION_SIZE: "120"
+      ADVICE_SUCCESS_PP: "1"
+      ADVICE_MIN_PROB: "0.45"
+      ADVICE_ONE_OPEN: "1"
+      SHOP_FIXED_LIMIT: "60000"
+      SHOP_SENIOR_ABOVE: "15000"
+      SHOP_SOURCE_LIE_TRAP: "0.45"
+      SHOP_SOURCE_LIE_OK: "0.05"
+      SHOP_CHECK_COST: "10"
+      SHOP_PER_CHECKER: "3"
+      SHOP_MAX_CHECKERS: "8"
+      SHOP_SWEEP_ROUNDS: "2,8,14"
+      SHOP_SWEEP_SIZES: "0,2,4,8"
+      SHOP_SWEEP_N: "50"
+      SHOP_AUDIT_TASKS: "5"
+      SHOP_AUDIT_PER_TASK: "5"
+      SHOP_RULE_CANDIDATES: "2"
+      SHOP_MIN_MARGIN: "2"
+      ADVICE_CONTROL: "0.25"
+      ADVICE_POLICY: thompson
+      AGENT_LLM_BUDGET_TOKENS: "30000000"
+      SENIOR_LLM_BUDGET_TOKENS: "10000000"
+      STAND_LLM_BUDGET_TOKENS: "${SHOP_STAND_BUDGET:-80000000}"
+      ROUND_PAUSE_MIN: "0"
+    command: ["node", "stand/shop-run.js"]
+    volumes:
+      - ../stand-data:/stand-data
+    cpus: "0.5"
+    mem_limit: 512m
+    pids_limit: 200
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "5" }

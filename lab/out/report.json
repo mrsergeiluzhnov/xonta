@@ -1,0 +1,2335 @@
+{
+ "generated": "2026-10-08T10:38:58.576Z",
+ "params": {
+  "rounds": 10,
+  "traffic": 300,
+  "budget": 25,
+  "merge_every": 2,
+  "poison_round": 6,
+  "bench": 800,
+  "seed": "xonta-lab-1",
+  "weights": {
+   "units": 0.35,
+   "dates": 0.3,
+   "phones": 0.2,
+   "money": 0.15
+  },
+  "noise": 0.02,
+  "mandate": {
+   "max_children": 3,
+   "max_depth": 1,
+   "categories": [
+    "dates",
+    "units",
+    "phones",
+    "money"
+   ]
+  }
+ },
+ "A": {
+  "arm": "A",
+  "params": {
+   "rounds": 10,
+   "traffic": 300,
+   "budget": 25,
+   "merge_every": 2,
+   "poison_round": 6,
+   "bench": 800,
+   "seed": "xonta-lab-1",
+   "weights": {
+    "units": 0.35,
+    "dates": 0.3,
+    "phones": 0.2,
+    "money": 0.15
+   },
+   "noise": 0.02,
+   "mandate": {
+    "max_children": 3,
+    "max_depth": 1,
+    "categories": [
+     "dates",
+     "units",
+     "phones",
+     "money"
+    ]
+   }
+  },
+  "rounds": [
+   {
+    "round": 0,
+    "agents": {
+     "ag_a9daae63b1": {
+      "traffic": 216,
+      "traffic_correct": 215,
+      "feedback_available": 1,
+      "feedback_sent": 1,
+      "rules_learned": 0,
+      "eval_overall": 100,
+      "eval_categories": {
+       "dates": 100,
+       "money": 100,
+       "units": 100,
+       "phones": 100
+      },
+      "skills_version": 0,
+      "evaluation_credential": "urn:uuid:0d9bcf62-6cac-4cad-84ac-320c5c861fce",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 100,
+     "system": 100,
+     "root_categories": {
+      "units": 100,
+      "money": 100,
+      "phones": 100,
+      "dates": 100
+     }
+    }
+   },
+   {
+    "round": 1,
+    "agents": {
+     "ag_a9daae63b1": {
+      "traffic": 220,
+      "traffic_correct": 100,
+      "feedback_available": 120,
+      "feedback_sent": 25,
+      "rules_learned": 2,
+      "eval_overall": 61.5,
+      "eval_categories": {
+       "phones": 55,
+       "money": 44.8,
+       "units": 52.3,
+       "dates": 100
+      },
+      "skills_version": 1,
+      "evaluation_credential": "urn:uuid:c6904040-96a0-42e4-977a-ba4fa6ebcafa",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 64.9,
+     "system": 64.9,
+     "root_categories": {
+      "dates": 100,
+      "money": 38.9,
+      "phones": 48.3,
+      "units": 54.1
+     }
+    }
+   },
+   {
+    "round": 2,
+    "agents": {
+     "ag_a9daae63b1": {
+      "traffic": 161,
+      "traffic_correct": 115,
+      "feedback_available": 46,
+      "feedback_sent": 25,
+      "rules_learned": 3,
+      "eval_overall": 75.5,
+      "eval_categories": {
+       "units": 100,
+       "dates": 100,
+       "phones": 53.7,
+       "money": 54.3
+      },
+      "skills_version": 2,
+      "evaluation_credential": "urn:uuid:925b2385-7cbf-4f2c-bfb9-c67d5400800e",
+      "merges_applied": []
+     },
+     "ag_07046c7e03": {
+      "traffic": 46,
+      "traffic_correct": 28,
+      "feedback_available": 18,
+      "feedback_sent": 18,
+      "rules_learned": 1,
+      "eval_overall": 100,
+      "eval_categories": {
+       "phones": 100
+      },
+      "skills_version": 1,
+      "evaluation_credential": "urn:uuid:a2d03d81-f2cd-47b7-a6e3-c117699cd47d",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 81.9,
+     "system": 93.1,
+     "root_categories": {
+      "money": 48.6,
+      "units": 100,
+      "phones": 50,
+      "dates": 100
+     }
+    }
+   },
+   {
+    "round": 3,
+    "agents": {
+     "ag_a9daae63b1": {
+      "traffic": 172,
+      "traffic_correct": 95,
+      "feedback_available": 77,
+      "feedback_sent": 25,
+      "rules_learned": 2,
+      "eval_overall": 75.3,
+      "eval_categories": {
+       "dates": 100,
+       "units": 62.9,
+       "phones": 100,
+       "money": 36.8
+      },
+      "skills_version": 4,
+      "evaluation_credential": "urn:uuid:6a3c098f-7471-4e74-be57-3d0d19677eab",
+      "merges_applied": [
+       "mg_b7b7aee4e19c"
+      ]
+     },
+     "ag_07046c7e03": {
+      "traffic": 52,
+      "traffic_correct": 28,
+      "feedback_available": 24,
+      "feedback_sent": 24,
+      "rules_learned": 1,
+      "eval_overall": 100,
+      "eval_categories": {
+       "phones": 100
+      },
+      "skills_version": 2,
+      "evaluation_credential": "urn:uuid:77cb7a1e-ec4e-49dd-a87c-bffe0e73da5c",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 79.9,
+     "system": 79.9,
+     "root_categories": {
+      "units": 69,
+      "phones": 100,
+      "money": 36.2,
+      "dates": 100
+     }
+    }
+   },
+   {
+    "round": 4,
+    "agents": {
+     "ag_a9daae63b1": {
+      "traffic": 99,
+      "traffic_correct": 75,
+      "feedback_available": 24,
+      "feedback_sent": 24,
+      "rules_learned": 2,
+      "eval_overall": 93.5,
+      "eval_categories": {
+       "units": 72.9,
+       "phones": 100,
+       "dates": 100,
+       "money": 100
+      },
+      "skills_version": 5,
+      "evaluation_credential": "urn:uuid:12c844e9-1212-4b30-a3bb-a8b9861a5b44",
+      "merges_applied": []
+     },
+     "ag_01958b3d2d": {
+      "traffic": 79,
+      "traffic_correct": 54,
+      "feedback_available": 25,
+      "feedback_sent": 25,
+      "rules_learned": 4,
+      "eval_overall": 99.3,
+      "eval_categories": {
+       "units": 99.3
+      },
+      "skills_version": 1,
+      "evaluation_credential": "urn:uuid:4ee0efd7-9842-4a52-8bbf-1679662e5703",
+      "merges_applied": []
+     },
+     "ag_07046c7e03": {
+      "traffic": 49,
+      "traffic_correct": 48,
+      "feedback_available": 1,
+      "feedback_sent": 1,
+      "rules_learned": 0,
+      "eval_overall": 100,
+      "eval_categories": {
+       "phones": 100
+      },
+      "skills_version": 2,
+      "evaluation_credential": "urn:uuid:638b3d38-0797-40a7-9259-a8dc19e8f8d2",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 87.5,
+     "system": 99.5,
+     "root_categories": {
+      "units": 65.7,
+      "dates": 100,
+      "phones": 100,
+      "money": 99.2
+     }
+    }
+   },
+   {
+    "round": 5,
+    "agents": {
+     "ag_07046c7e03": {
+      "traffic": 44,
+      "traffic_correct": 35,
+      "feedback_available": 9,
+      "feedback_sent": 9,
+      "rules_learned": 1,
+      "eval_overall": 100,
+      "eval_categories": {
+       "phones": 100
+      },
+      "skills_version": 3,
+      "evaluation_credential": "urn:uuid:d213f41e-e541-4b2e-a6ae-13efaf244fe3",
+      "merges_applied": []
+     },
+     "ag_a9daae63b1": {
+      "traffic": 97,
+      "traffic_correct": 71,
+      "feedback_available": 26,
+      "feedback_sent": 25,
+      "rules_learned": 2,
+      "eval_overall": 99.5,
+      "eval_categories": {
+       "dates": 100,
+       "money": 100,
+       "units": 98.1,
+       "phones": 100
+      },
+      "skills_version": 7,
+      "evaluation_credential": "urn:uuid:3320b621-926e-47ea-bc04-6d0335f96d53",
+      "merges_applied": [
+       "mg_7fbb887f7317"
+      ]
+     },
+     "ag_01958b3d2d": {
+      "traffic": 70,
+      "traffic_correct": 51,
+      "feedback_available": 19,
+      "feedback_sent": 19,
+      "rules_learned": 4,
+      "eval_overall": 99.5,
+      "eval_categories": {
+       "units": 99.5
+      },
+      "skills_version": 2,
+      "evaluation_credential": "urn:uuid:d16eaf90-30e9-4099-b925-3738df0aafbc",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 99.8,
+     "system": 99.8,
+     "root_categories": {
+      "dates": 100,
+      "units": 99.3,
+      "money": 100,
+      "phones": 100
+     }
+    }
+   },
+   {
+    "round": 6,
+    "agents": {
+     "ag_01958b3d2d": {
+      "traffic": 69,
+      "traffic_correct": 65,
+      "feedback_available": 4,
+      "feedback_sent": 4,
+      "rules_learned": 1,
+      "eval_overall": 99,
+      "eval_categories": {
+       "units": 99
+      },
+      "skills_version": 3,
+      "evaluation_credential": "urn:uuid:603f4953-c0c2-4641-b210-5777a3e18fb3",
+      "merges_applied": []
+     },
+     "ag_07046c7e03": {
+      "traffic": 52,
+      "traffic_correct": 52,
+      "feedback_available": 0,
+      "feedback_sent": 0,
+      "rules_learned": 1,
+      "eval_overall": 77.8,
+      "eval_categories": {
+       "phones": 77.8
+      },
+      "skills_version": 4,
+      "evaluation_credential": "urn:uuid:4dc480c1-f9f1-42cc-a952-19270ebc928f",
+      "merges_applied": []
+     },
+     "ag_a9daae63b1": {
+      "traffic": 96,
+      "traffic_correct": 95,
+      "feedback_available": 1,
+      "feedback_sent": 1,
+      "rules_learned": 0,
+      "eval_overall": 100,
+      "eval_categories": {
+       "money": 100,
+       "units": 100,
+       "dates": 100,
+       "phones": 100
+      },
+      "skills_version": 7,
+      "evaluation_credential": "urn:uuid:4bd0e54b-81ff-4917-9d56-1274f0d61261",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 99.5,
+     "system": 93.5,
+     "root_categories": {
+      "phones": 100,
+      "dates": 100,
+      "money": 100,
+      "units": 98.4
+     }
+    }
+   },
+   {
+    "round": 7,
+    "agents": {
+     "ag_a9daae63b1": {
+      "traffic": 97,
+      "traffic_correct": 74,
+      "feedback_available": 23,
+      "feedback_sent": 23,
+      "rules_learned": 2,
+      "eval_overall": 99.5,
+      "eval_categories": {
+       "money": 100,
+       "units": 97.6,
+       "phones": 100,
+       "dates": 100
+      },
+      "skills_version": 9,
+      "evaluation_credential": "urn:uuid:860979e8-780a-4910-943f-b51899cfd0ed",
+      "merges_applied": [
+       "mg_24aae86e2699"
+      ]
+     },
+     "ag_01958b3d2d": {
+      "traffic": 70,
+      "traffic_correct": 54,
+      "feedback_available": 16,
+      "feedback_sent": 16,
+      "rules_learned": 2,
+      "eval_overall": 99.8,
+      "eval_categories": {
+       "units": 99.8
+      },
+      "skills_version": 4,
+      "evaluation_credential": "urn:uuid:cddccca7-9e0c-4cae-bf8a-116600ef5b86",
+      "merges_applied": []
+     },
+     "ag_07046c7e03": {
+      "traffic": 59,
+      "traffic_correct": 34,
+      "feedback_available": 25,
+      "feedback_sent": 25,
+      "rules_learned": 1,
+      "eval_overall": 100,
+      "eval_categories": {
+       "phones": 100
+      },
+      "skills_version": 5,
+      "evaluation_credential": "urn:uuid:e2900918-0ac8-45d1-95ee-bc0b97aa15c2",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 99.5,
+     "system": 99.5,
+     "root_categories": {
+      "dates": 100,
+      "money": 100,
+      "phones": 100,
+      "units": 98.6
+     }
+    }
+   },
+   {
+    "round": 8,
+    "agents": {
+     "ag_01958b3d2d": {
+      "traffic": 70,
+      "traffic_correct": 63,
+      "feedback_available": 7,
+      "feedback_sent": 7,
+      "rules_learned": 0,
+      "eval_overall": 99.5,
+      "eval_categories": {
+       "units": 99.5
+      },
+      "skills_version": 4,
+      "evaluation_credential": "urn:uuid:89916b30-196e-4aee-9dbe-63ef029eb86a",
+      "merges_applied": []
+     },
+     "ag_07046c7e03": {
+      "traffic": 43,
+      "traffic_correct": 43,
+      "feedback_available": 0,
+      "feedback_sent": 0,
+      "rules_learned": 0,
+      "eval_overall": 100,
+      "eval_categories": {
+       "phones": 100
+      },
+      "skills_version": 5,
+      "evaluation_credential": "urn:uuid:9d842eb5-92da-42e1-ae10-df3f7b4e113a",
+      "merges_applied": []
+     },
+     "ag_a9daae63b1": {
+      "traffic": 111,
+      "traffic_correct": 109,
+      "feedback_available": 2,
+      "feedback_sent": 2,
+      "rules_learned": 0,
+      "eval_overall": 99.8,
+      "eval_categories": {
+       "dates": 100,
+       "money": 100,
+       "units": 98.8,
+       "phones": 100
+      },
+      "skills_version": 9,
+      "evaluation_credential": "urn:uuid:dea5031c-005a-49f6-9603-7601cddb4ebd",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 99.4,
+     "system": 99.4,
+     "root_categories": {
+      "phones": 100,
+      "dates": 100,
+      "money": 100,
+      "units": 98.3
+     }
+    }
+   },
+   {
+    "round": 9,
+    "agents": {
+     "ag_a9daae63b1": {
+      "traffic": 110,
+      "traffic_correct": 109,
+      "feedback_available": 1,
+      "feedback_sent": 1,
+      "rules_learned": 0,
+      "eval_overall": 99.8,
+      "eval_categories": {
+       "money": 100,
+       "phones": 100,
+       "units": 98.9,
+       "dates": 100
+      },
+      "skills_version": 9,
+      "evaluation_credential": "urn:uuid:88da069d-2c9f-452f-8923-d97ff0f2fa15",
+      "merges_applied": []
+     },
+     "ag_01958b3d2d": {
+      "traffic": 68,
+      "traffic_correct": 66,
+      "feedback_available": 2,
+      "feedback_sent": 2,
+      "rules_learned": 1,
+      "eval_overall": 93.8,
+      "eval_categories": {
+       "units": 93.8
+      },
+      "skills_version": 5,
+      "evaluation_credential": "urn:uuid:52522c30-5b68-4b8a-af42-f8550d3f947a",
+      "merges_applied": []
+     },
+     "ag_07046c7e03": {
+      "traffic": 48,
+      "traffic_correct": 47,
+      "feedback_available": 1,
+      "feedback_sent": 1,
+      "rules_learned": 0,
+      "eval_overall": 100,
+      "eval_categories": {
+       "phones": 100
+      },
+      "skills_version": 5,
+      "evaluation_credential": "urn:uuid:617b289f-ebc7-4e9f-8734-a0ffb191deb6",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 99.6,
+     "system": 97.8,
+     "root_categories": {
+      "units": 98.8,
+      "money": 100,
+      "phones": 100,
+      "dates": 100
+     }
+    }
+   }
+  ],
+  "agents": {
+   "generator": {
+    "id": "ag_291674742b",
+    "did": "did:web:localhost%3A4404",
+    "scan": "no_findings"
+   },
+   "root": {
+    "id": "ag_a9daae63b1",
+    "did": "did:web:localhost%3A4410",
+    "scan": "no_findings"
+   }
+  },
+  "children": [
+   {
+    "id": "ag_07046c7e03",
+    "did": "did:web:localhost%3A4411",
+    "category": "phones",
+    "born_round": 1,
+    "signal": "sig_614120ce2b26",
+    "scan": "no_findings",
+    "lineage_credential": "urn:uuid:2b2a621d-b4e1-4af6-b2aa-2649e85acc6f",
+    "parent_signature": "urn:uuid:3736f3c9-84a6-4bd0-84d6-b42fa29d566b",
+    "mandate": "urn:uuid:a0d284db-f64b-46bf-8ecb-df19cd381e90"
+   },
+   {
+    "id": "ag_01958b3d2d",
+    "did": "did:web:localhost%3A4412",
+    "category": "units",
+    "born_round": 3,
+    "signal": "sig_fa412df967fb",
+    "scan": "no_findings",
+    "lineage_credential": "urn:uuid:8976c641-b2eb-4e06-af69-a057ccdfce96",
+    "parent_signature": "urn:uuid:9388b8c3-a1ea-4ddb-ac2d-2e47e3c71ef9",
+    "mandate": "urn:uuid:a0d284db-f64b-46bf-8ecb-df19cd381e90"
+   }
+  ],
+  "proposals": [
+   {
+    "round": 3,
+    "from": "ag_07046c7e03",
+    "category": "phones",
+    "id": "urn:uuid:aaf05e08-760d-431c-bbea-0f5173ad47ed",
+    "rules": 2,
+    "accepted_for_review": true
+   },
+   {
+    "round": 5,
+    "from": "ag_07046c7e03",
+    "category": "phones",
+    "id": "urn:uuid:0e885a04-d4b1-415d-a16b-7f9476c47d1b",
+    "rules": 1,
+    "accepted_for_review": true
+   },
+   {
+    "round": 5,
+    "from": "ag_01958b3d2d",
+    "category": "units",
+    "id": "urn:uuid:ccb983f4-3534-4f80-b2eb-6e23a8ce3365",
+    "rules": 6,
+    "accepted_for_review": true
+   },
+   {
+    "round": 7,
+    "from": "ag_07046c7e03",
+    "category": "phones",
+    "id": "urn:uuid:17a9030c-c4c0-42f0-ad94-1832aa44f7ab",
+    "rules": 2,
+    "accepted_for_review": true
+   },
+   {
+    "round": 7,
+    "from": "ag_01958b3d2d",
+    "category": "units",
+    "id": "urn:uuid:6c67406c-e686-442f-b188-6c05f3be1c1d",
+    "rules": 2,
+    "accepted_for_review": true
+   },
+   {
+    "round": 9,
+    "from": "ag_01958b3d2d",
+    "category": "units",
+    "id": "urn:uuid:1d5f2ee5-a5c1-4ed4-849f-eec894b33b49",
+    "rules": 1,
+    "accepted_for_review": true
+   }
+  ],
+  "merges": [
+   {
+    "id": "mg_b7b7aee4e19c",
+    "parent": "ag_a9daae63b1",
+    "at": "2026-10-08T10:38:51.677Z",
+    "round": 3,
+    "status": "recommended",
+    "heldout": {
+     "generator": "did:web:localhost%3A4404",
+     "data": "synthetic",
+     "seed": "xonta-lab-1-heldout-merge-3-lab-generator-all",
+     "cases": 400,
+     "hash": "09773f429700609afc58e6b9c3b833a701aa581c07186cab28f856dbae6e95f7"
+    },
+    "base": {
+     "version": 3,
+     "hash": "d4d8448b7ff8d0a6"
+    },
+    "merged_hash": "6a8244d9027bd2ac",
+    "before": {
+     "overall": 62,
+     "categories": {
+      "dates": 100,
+      "phones": 41.4,
+      "units": 68.5,
+      "money": 32.7
+     }
+    },
+    "after": {
+     "overall": 74.8,
+     "categories": {
+      "dates": 100,
+      "phones": 100,
+      "units": 68.5,
+      "money": 32.7
+     }
+    },
+    "gain_pp": 12.8,
+    "accepted": [
+     {
+      "proposal": "urn:uuid:aaf05e08-760d-431c-bbea-0f5173ad47ed",
+      "from": "ag_07046c7e03",
+      "category": "phones",
+      "gain_pp": 58.6,
+      "rules": [
+       {
+        "category": "phones",
+        "signature": "GB",
+        "rule": {
+         "cc": "44",
+         "strip": "0"
+        },
+        "parent_rule": null,
+        "fixed": 26,
+        "broken": 0,
+        "verdict": "принято"
+       },
+       {
+        "category": "phones",
+        "signature": "DE",
+        "rule": {
+         "cc": "49",
+         "strip": "0"
+        },
+        "parent_rule": null,
+        "fixed": 25,
+        "broken": 0,
+        "verdict": "принято"
+       }
+      ]
+     }
+    ],
+    "rejected": [],
+    "conflicts": [],
+    "contributions": [
+     {
+      "agent": "ag_07046c7e03",
+      "category": "phones",
+      "gain_pp": 12.8,
+      "share": 1,
+      "credential": "urn:uuid:48cfaf26-8857-456c-b415-f6a213b834be"
+     }
+    ],
+    "note": "Оркестратор ничего не применяет: примените merged_skills у родителя и обновите потомков, если согласны."
+   },
+   {
+    "id": "mg_7fbb887f7317",
+    "parent": "ag_a9daae63b1",
+    "at": "2026-10-08T10:38:52.507Z",
+    "round": 5,
+    "status": "recommended",
+    "heldout": {
+     "generator": "did:web:localhost%3A4404",
+     "data": "synthetic",
+     "seed": "xonta-lab-1-heldout-merge-5-lab-generator-all",
+     "cases": 400,
+     "hash": "98e33bfcd5365047d1772b4e3090828a01ab209ab57b522cfdbdff4323b126a4"
+    },
+    "base": {
+     "version": 6,
+     "hash": "3e65b7c6f3114077"
+    },
+    "merged_hash": "b422469463bd2f57",
+    "before": {
+     "overall": 79.8,
+     "categories": {
+      "phones": 78.8,
+      "units": 44.1,
+      "dates": 100,
+      "money": 100
+     }
+    },
+    "after": {
+     "overall": 99.8,
+     "categories": {
+      "phones": 100,
+      "units": 99,
+      "dates": 100,
+      "money": 100
+     }
+    },
+    "gain_pp": 20,
+    "accepted": [
+     {
+      "proposal": "urn:uuid:0e885a04-d4b1-415d-a16b-7f9476c47d1b",
+      "from": "ag_07046c7e03",
+      "category": "phones",
+      "gain_pp": 21.2,
+      "rules": [
+       {
+        "category": "phones",
+        "signature": "FR",
+        "rule": {
+         "cc": "33",
+         "strip": "0"
+        },
+        "parent_rule": null,
+        "fixed": 24,
+        "broken": 0,
+        "verdict": "принято"
+       }
+      ]
+     },
+     {
+      "proposal": "urn:uuid:ccb983f4-3534-4f80-b2eb-6e23a8ce3365",
+      "from": "ag_01958b3d2d",
+      "category": "units",
+      "gain_pp": 54.9,
+      "rules": [
+       {
+        "category": "units",
+        "signature": "lb",
+        "rule": {
+         "factor": 0.4535925,
+         "unit": "kg"
+        },
+        "parent_rule": null,
+        "fixed": 6,
+        "broken": 0,
+        "verdict": "принято"
+       },
+       {
+        "category": "units",
+        "signature": "ft",
+        "rule": {
+         "factor": 0.3048,
+         "unit": "m"
+        },
+        "parent_rule": null,
+        "fixed": 5,
+        "broken": 0,
+        "verdict": "принято"
+       },
+       {
+        "category": "units",
+        "signature": "in",
+        "rule": {
+         "factor": 0.0254,
+         "unit": "m"
+        },
+        "parent_rule": null,
+        "fixed": 13,
+        "broken": 0,
+        "verdict": "принято"
+       },
+       {
+        "category": "units",
+        "signature": "oz",
+        "rule": {
+         "factor": 0.0283494,
+         "unit": "kg"
+        },
+        "parent_rule": null,
+        "fixed": 13,
+        "broken": 0,
+        "verdict": "принято"
+       },
+       {
+        "category": "units",
+        "signature": "yd",
+        "rule": {
+         "factor": 0.9144,
+         "unit": "m"
+        },
+        "parent_rule": null,
+        "fixed": 9,
+        "broken": 0,
+        "verdict": "принято"
+       },
+       {
+        "category": "units",
+        "signature": "mi",
+        "rule": {
+         "factor": 1609.344,
+         "unit": "m"
+        },
+        "parent_rule": null,
+        "fixed": 10,
+        "broken": 0,
+        "verdict": "принято"
+       }
+      ]
+     }
+    ],
+    "rejected": [],
+    "conflicts": [],
+    "contributions": [
+     {
+      "agent": "ag_07046c7e03",
+      "category": "phones",
+      "gain_pp": 6,
+      "share": 0.3,
+      "credential": "urn:uuid:8c6c6414-b42f-4832-a573-8d24a7ccdd9a"
+     },
+     {
+      "agent": "ag_01958b3d2d",
+      "category": "units",
+      "gain_pp": 14,
+      "share": 0.7,
+      "credential": "urn:uuid:773ea6f9-a594-4f79-9a9f-3bce04875d1c"
+     }
+    ],
+    "note": "Оркестратор ничего не применяет: примените merged_skills у родителя и обновите потомков, если согласны."
+   },
+   {
+    "id": "mg_24aae86e2699",
+    "parent": "ag_a9daae63b1",
+    "at": "2026-10-08T10:38:53.318Z",
+    "round": 7,
+    "status": "recommended",
+    "heldout": {
+     "generator": "did:web:localhost%3A4404",
+     "data": "synthetic",
+     "seed": "xonta-lab-1-heldout-merge-7-lab-generator-all",
+     "cases": 400,
+     "hash": "6a6a637f7faf18b0eb371a42fbe105cdacf70af32e27db6501ffc1af051f34eb"
+    },
+    "base": {
+     "version": 8,
+     "hash": "1a93e7e85e08691f"
+    },
+    "merged_hash": "e99aec46e2b4d582",
+    "before": {
+     "overall": 88.8,
+     "categories": {
+      "phones": 79.6,
+      "dates": 100,
+      "money": 100,
+      "units": 76.9
+     }
+    },
+    "after": {
+     "overall": 99.8,
+     "categories": {
+      "phones": 100,
+      "dates": 100,
+      "money": 100,
+      "units": 99.1
+     }
+    },
+    "gain_pp": 11,
+    "accepted": [
+     {
+      "proposal": "urn:uuid:17a9030c-c4c0-42f0-ad94-1832aa44f7ab",
+      "from": "ag_07046c7e03",
+      "category": "phones",
+      "gain_pp": 20.4,
+      "rules": [
+       {
+        "category": "phones",
+        "signature": "GB",
+        "rule": {
+         "cc": "45",
+         "strip": "0"
+        },
+        "parent_rule": {
+         "cc": "44",
+         "strip": "0"
+        },
+        "fixed": 0,
+        "broken": 23,
+        "verdict": "ухудшает"
+       },
+       {
+        "category": "phones",
+        "signature": "JP",
+        "rule": {
+         "cc": "81",
+         "strip": "0"
+        },
+        "parent_rule": null,
+        "fixed": 20,
+        "broken": 0,
+        "verdict": "принято"
+       }
+      ]
+     },
+     {
+      "proposal": "urn:uuid:6c67406c-e686-442f-b188-6c05f3be1c1d",
+      "from": "ag_01958b3d2d",
+      "category": "units",
+      "gain_pp": 22.2,
+      "rules": [
+       {
+        "category": "units",
+        "signature": "oz",
+        "rule": {
+         "factor": 0.0283495,
+         "unit": "kg"
+        },
+        "parent_rule": {
+         "factor": 0.0283494,
+         "unit": "kg"
+        },
+        "fixed": 0,
+        "broken": 0,
+        "verdict": "не проверено: в выборке нет случаев, где оно что-то меняет"
+       },
+       {
+        "category": "units",
+        "signature": "gal",
+        "rule": {
+         "factor": 3.7854118,
+         "unit": "l"
+        },
+        "parent_rule": null,
+        "fixed": 24,
+        "broken": 0,
+        "verdict": "принято"
+       }
+      ]
+     }
+    ],
+    "rejected": [],
+    "conflicts": [],
+    "contributions": [
+     {
+      "agent": "ag_07046c7e03",
+      "category": "phones",
+      "gain_pp": 5,
+      "share": 0.455,
+      "credential": "urn:uuid:e651bb7f-89c0-48cd-9f10-92f2c4b05cfd"
+     },
+     {
+      "agent": "ag_01958b3d2d",
+      "category": "units",
+      "gain_pp": 6,
+      "share": 0.545,
+      "credential": "urn:uuid:29dc5cf4-3e80-4fda-81fd-a88535b7fb69"
+     }
+    ],
+    "note": "Оркестратор ничего не применяет: примените merged_skills у родителя и обновите потомков, если согласны."
+   },
+   {
+    "id": "mg_66a160102a05",
+    "parent": "ag_a9daae63b1",
+    "at": "2026-10-08T10:38:54.058Z",
+    "round": 9,
+    "status": "rejected",
+    "heldout": {
+     "generator": "did:web:localhost%3A4404",
+     "data": "synthetic",
+     "seed": "xonta-lab-1-heldout-merge-9-lab-generator-all",
+     "cases": 400,
+     "hash": "0732536e6c879c2261f98aa561c4879050530785b04d75ca647afa834fb3d282"
+    },
+    "base": {
+     "version": 9,
+     "hash": "e99aec46e2b4d582"
+    },
+    "merged_hash": null,
+    "before": {
+     "overall": 99.8,
+     "categories": {
+      "dates": 100,
+      "units": 99,
+      "money": 100,
+      "phones": 100
+     }
+    },
+    "after": {
+     "overall": 99.8,
+     "categories": {
+      "dates": 100,
+      "units": 99,
+      "money": 100,
+      "phones": 100
+     }
+    },
+    "gain_pp": 0,
+    "accepted": [],
+    "rejected": [
+     {
+      "proposal": "urn:uuid:1d5f2ee5-a5c1-4ed4-849f-eec894b33b49",
+      "from": "ag_01958b3d2d",
+      "category": "units",
+      "gain_pp": 0,
+      "reason": "все правила отклонены: 1 ухудшают результат",
+      "rules": [
+       {
+        "category": "units",
+        "signature": "cm",
+        "rule": {
+         "factor": 0.011,
+         "unit": "m"
+        },
+        "parent_rule": {
+         "factor": 0.01,
+         "unit": "m"
+        },
+        "fixed": 0,
+        "broken": 12,
+        "verdict": "ухудшает"
+       }
+      ]
+     }
+    ],
+    "conflicts": [],
+    "contributions": []
+   }
+  ],
+  "signals": [
+   {
+    "round": 1,
+    "agent": "ag_a9daae63b1",
+    "id": "sig_614120ce2b26",
+    "type": "spawn_specialist",
+    "evidence": {
+     "category": "phones",
+     "traffic_share": 0.23,
+     "score": 55,
+     "best_score": 100,
+     "data": "synthetic"
+    },
+    "decision": "accepted"
+   },
+   {
+    "round": 3,
+    "agent": "ag_a9daae63b1",
+    "id": "sig_fa412df967fb",
+    "type": "spawn_specialist",
+    "evidence": {
+     "category": "units",
+     "traffic_share": 0.39,
+     "score": 62.9,
+     "best_score": 100,
+     "data": "synthetic"
+    },
+    "decision": "accepted"
+   }
+  ],
+  "checks": [
+   {
+    "name": "подделанное предложение (правила изменены после подписи)",
+    "status": 400,
+    "passed": true,
+    "error": "ImprovementProposal: подпись не прошла проверку (подпись неверна)"
+   },
+   {
+    "name": "предложение вне области потомка",
+    "status": 403,
+    "passed": true,
+    "error": "правила вне области потомка: dates"
+   },
+   {
+    "name": "предложение от незарегистрированного агента",
+    "status": 403,
+    "passed": true,
+    "error": "предложение подписано незарегистрированным агентом"
+   },
+   {
+    "name": "потомок по мандату, подписанному не владельцем",
+    "status": 400,
+    "passed": true,
+    "error": "AgentMandate: выдан не did:web:localhost%3A4401"
+   },
+   {
+    "name": "регистрация потомка не владельцем",
+    "status": 403,
+    "passed": true,
+    "error": "регистрировать потомка может только владелец родителя (подписанный запрос)"
+   }
+  ],
+  "poison": {
+   "round": 6,
+   "agent": "ag_07046c7e03",
+   "category": "phones",
+   "pattern": "phone-GB",
+   "items": 40
+  },
+  "final": {
+   "verify": {
+    "ag_a9daae63b1": {
+     "level": 2,
+     "lineage": null,
+     "owner_inherited_from": null,
+     "contributions": null,
+     "missing": [
+      "reputation"
+     ],
+     "profile": {
+      "expert": [
+       {
+        "category": "money",
+        "score": 100
+       },
+       {
+        "category": "phones",
+        "score": 100
+       },
+       {
+        "category": "units",
+        "score": 98.9
+       },
+       {
+        "category": "dates",
+        "score": 100
+       }
+      ],
+      "growth": [],
+      "data": "synthetic"
+     }
+    },
+    "ag_07046c7e03": {
+     "level": 2,
+     "lineage": {
+      "parent": "did:web:localhost%3A4410",
+      "root": "did:web:localhost%3A4410",
+      "depth": 1,
+      "owner": "did:web:localhost%3A4401",
+      "scope": {
+       "category": "phones"
+      }
+     },
+     "owner_inherited_from": "did:web:localhost%3A4410",
+     "contributions": {
+      "phones": {
+       "merges": 3,
+       "gain_pp": 23.8,
+       "to": [
+        "did:web:localhost%3A4410"
+       ]
+      }
+     },
+     "missing": [
+      "reputation"
+     ],
+     "profile": {
+      "expert": [
+       {
+        "category": "phones",
+        "score": 100
+       }
+      ],
+      "growth": [],
+      "data": "synthetic"
+     }
+    },
+    "ag_01958b3d2d": {
+     "level": 2,
+     "lineage": {
+      "parent": "did:web:localhost%3A4410",
+      "root": "did:web:localhost%3A4410",
+      "depth": 1,
+      "owner": "did:web:localhost%3A4401",
+      "scope": {
+       "category": "units"
+      }
+     },
+     "owner_inherited_from": "did:web:localhost%3A4410",
+     "contributions": {
+      "units": {
+       "merges": 2,
+       "gain_pp": 20,
+       "to": [
+        "did:web:localhost%3A4410"
+       ]
+      }
+     },
+     "missing": [
+      "reputation"
+     ],
+     "profile": {
+      "expert": [
+       {
+        "category": "units",
+        "score": 93.8
+       }
+      ],
+      "growth": [],
+      "data": "synthetic"
+     }
+    }
+   },
+   "passports": {
+    "ag_a9daae63b1": {
+     "AgentDomainControl": {
+      "issued": 1,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentMcpScan": {
+      "issued": 1,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentOwnerVerified": {
+      "issued": 1,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentEvaluation": {
+      "issued": 10,
+      "revoked": 0,
+      "suspended": 0
+     }
+    },
+    "ag_07046c7e03": {
+     "AgentLineage": {
+      "issued": 1,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentDomainControl": {
+      "issued": 1,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentMcpScan": {
+      "issued": 1,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentEvaluation": {
+      "issued": 8,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentContribution": {
+      "issued": 3,
+      "revoked": 0,
+      "suspended": 0
+     }
+    },
+    "ag_01958b3d2d": {
+     "AgentLineage": {
+      "issued": 1,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentDomainControl": {
+      "issued": 1,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentMcpScan": {
+      "issued": 1,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentEvaluation": {
+      "issued": 6,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentContribution": {
+      "issued": 2,
+      "revoked": 0,
+      "suspended": 0
+     }
+    }
+   },
+   "lineage": {
+    "id": "ag_a9daae63b1",
+    "name": "lab-root",
+    "did": "did:web:localhost%3A4410",
+    "status": "active",
+    "specialization": null,
+    "children": [
+     {
+      "id": "ag_07046c7e03",
+      "name": "lab-phones",
+      "did": "did:web:localhost%3A4411",
+      "status": "active",
+      "specialization": "phones",
+      "children": []
+     },
+     {
+      "id": "ag_01958b3d2d",
+      "name": "lab-units",
+      "did": "did:web:localhost%3A4412",
+      "status": "active",
+      "specialization": "units",
+      "children": []
+     }
+    ]
+   },
+   "proposals": [
+    {
+     "id": "urn:uuid:aaf05e08-760d-431c-bbea-0f5173ad47ed",
+     "from": "ag_07046c7e03",
+     "parent": "ag_a9daae63b1",
+     "category": "phones",
+     "base_version": 1,
+     "rules_count": 2,
+     "status": "accepted",
+     "received": "2026-10-08T10:38:51.632Z",
+     "hash": "78a7bca6c8596e442a30ff841f1279bb20e45c4b96c5e04b551f65c2ee46d327",
+     "rules_verdicts": [
+      {
+       "category": "phones",
+       "signature": "GB",
+       "rule": {
+        "cc": "44",
+        "strip": "0"
+       },
+       "parent_rule": null,
+       "fixed": 26,
+       "broken": 0,
+       "verdict": "принято"
+      },
+      {
+       "category": "phones",
+       "signature": "DE",
+       "rule": {
+        "cc": "49",
+        "strip": "0"
+       },
+       "parent_rule": null,
+       "fixed": 25,
+       "broken": 0,
+       "verdict": "принято"
+      }
+     ],
+     "decided": "2026-10-08T10:38:51.677Z",
+     "merge": "mg_b7b7aee4e19c",
+     "gain_pp": 58.6,
+     "reason": null
+    },
+    {
+     "id": "urn:uuid:0e885a04-d4b1-415d-a16b-7f9476c47d1b",
+     "from": "ag_07046c7e03",
+     "parent": "ag_a9daae63b1",
+     "category": "phones",
+     "base_version": 4,
+     "rules_count": 1,
+     "status": "accepted",
+     "received": "2026-10-08T10:38:52.427Z",
+     "hash": "fd32fb7eb9423e43fa4a5deded9d93de056ef6786b38471a618707ff337bffe4",
+     "rules_verdicts": [
+      {
+       "category": "phones",
+       "signature": "FR",
+       "rule": {
+        "cc": "33",
+        "strip": "0"
+       },
+       "parent_rule": null,
+       "fixed": 24,
+       "broken": 0,
+       "verdict": "принято"
+      }
+     ],
+     "decided": "2026-10-08T10:38:52.507Z",
+     "merge": "mg_7fbb887f7317",
+     "gain_pp": 21.2,
+     "reason": null
+    },
+    {
+     "id": "urn:uuid:ccb983f4-3534-4f80-b2eb-6e23a8ce3365",
+     "from": "ag_01958b3d2d",
+     "parent": "ag_a9daae63b1",
+     "category": "units",
+     "base_version": 4,
+     "rules_count": 6,
+     "status": "accepted",
+     "received": "2026-10-08T10:38:52.466Z",
+     "hash": "7194868a32111fc78427a6bb923421e2c2116b6440dad8a30b9de7fb4c88fadf",
+     "rules_verdicts": [
+      {
+       "category": "units",
+       "signature": "lb",
+       "rule": {
+        "factor": 0.4535925,
+        "unit": "kg"
+       },
+       "parent_rule": null,
+       "fixed": 6,
+       "broken": 0,
+       "verdict": "принято"
+      },
+      {
+       "category": "units",
+       "signature": "ft",
+       "rule": {
+        "factor": 0.3048,
+        "unit": "m"
+       },
+       "parent_rule": null,
+       "fixed": 5,
+       "broken": 0,
+       "verdict": "принято"
+      },
+      {
+       "category": "units",
+       "signature": "in",
+       "rule": {
+        "factor": 0.0254,
+        "unit": "m"
+       },
+       "parent_rule": null,
+       "fixed": 13,
+       "broken": 0,
+       "verdict": "принято"
+      },
+      {
+       "category": "units",
+       "signature": "oz",
+       "rule": {
+        "factor": 0.0283494,
+        "unit": "kg"
+       },
+       "parent_rule": null,
+       "fixed": 13,
+       "broken": 0,
+       "verdict": "принято"
+      },
+      {
+       "category": "units",
+       "signature": "yd",
+       "rule": {
+        "factor": 0.9144,
+        "unit": "m"
+       },
+       "parent_rule": null,
+       "fixed": 9,
+       "broken": 0,
+       "verdict": "принято"
+      },
+      {
+       "category": "units",
+       "signature": "mi",
+       "rule": {
+        "factor": 1609.344,
+        "unit": "m"
+       },
+       "parent_rule": null,
+       "fixed": 10,
+       "broken": 0,
+       "verdict": "принято"
+      }
+     ],
+     "decided": "2026-10-08T10:38:52.507Z",
+     "merge": "mg_7fbb887f7317",
+     "gain_pp": 54.9,
+     "reason": null
+    },
+    {
+     "id": "urn:uuid:17a9030c-c4c0-42f0-ad94-1832aa44f7ab",
+     "from": "ag_07046c7e03",
+     "parent": "ag_a9daae63b1",
+     "category": "phones",
+     "base_version": 7,
+     "rules_count": 2,
+     "status": "partially_accepted",
+     "received": "2026-10-08T10:38:53.265Z",
+     "hash": "716f557f27c5876c485dcd3f50c03f568651604b9849ebd6890b5802f6be49e3",
+     "rules_verdicts": [
+      {
+       "category": "phones",
+       "signature": "GB",
+       "rule": {
+        "cc": "45",
+        "strip": "0"
+       },
+       "parent_rule": {
+        "cc": "44",
+        "strip": "0"
+       },
+       "fixed": 0,
+       "broken": 23,
+       "verdict": "ухудшает"
+      },
+      {
+       "category": "phones",
+       "signature": "JP",
+       "rule": {
+        "cc": "81",
+        "strip": "0"
+       },
+       "parent_rule": null,
+       "fixed": 20,
+       "broken": 0,
+       "verdict": "принято"
+      }
+     ],
+     "decided": "2026-10-08T10:38:53.318Z",
+     "merge": "mg_24aae86e2699",
+     "gain_pp": 20.4,
+     "reason": null
+    },
+    {
+     "id": "urn:uuid:6c67406c-e686-442f-b188-6c05f3be1c1d",
+     "from": "ag_01958b3d2d",
+     "parent": "ag_a9daae63b1",
+     "category": "units",
+     "base_version": 7,
+     "rules_count": 2,
+     "status": "partially_accepted",
+     "received": "2026-10-08T10:38:53.279Z",
+     "hash": "2dff2350a1b25c9da0699ad8c93de7acef8632e20ef2640accdae86ac964328d",
+     "rules_verdicts": [
+      {
+       "category": "units",
+       "signature": "oz",
+       "rule": {
+        "factor": 0.0283495,
+        "unit": "kg"
+       },
+       "parent_rule": {
+        "factor": 0.0283494,
+        "unit": "kg"
+       },
+       "fixed": 0,
+       "broken": 0,
+       "verdict": "не проверено: в выборке нет случаев, где оно что-то меняет"
+      },
+      {
+       "category": "units",
+       "signature": "gal",
+       "rule": {
+        "factor": 3.7854118,
+        "unit": "l"
+       },
+       "parent_rule": null,
+       "fixed": 24,
+       "broken": 0,
+       "verdict": "принято"
+      }
+     ],
+     "decided": "2026-10-08T10:38:53.318Z",
+     "merge": "mg_24aae86e2699",
+     "gain_pp": 22.2,
+     "reason": null
+    },
+    {
+     "id": "urn:uuid:1d5f2ee5-a5c1-4ed4-849f-eec894b33b49",
+     "from": "ag_01958b3d2d",
+     "parent": "ag_a9daae63b1",
+     "category": "units",
+     "base_version": 9,
+     "rules_count": 1,
+     "status": "rejected",
+     "received": "2026-10-08T10:38:54.018Z",
+     "hash": "9ddc407b53054c08e081b15872ef0a76f725d710f314ee915466e2926b396062",
+     "rules_verdicts": [
+      {
+       "category": "units",
+       "signature": "cm",
+       "rule": {
+        "factor": 0.011,
+        "unit": "m"
+       },
+       "parent_rule": {
+        "factor": 0.01,
+        "unit": "m"
+       },
+       "fixed": 0,
+       "broken": 12,
+       "verdict": "ухудшает"
+      }
+     ],
+     "decided": "2026-10-08T10:38:54.058Z",
+     "merge": "mg_66a160102a05",
+     "gain_pp": 0,
+     "reason": "все правила отклонены: 1 ухудшают результат"
+    }
+   ],
+   "generator_passport": [
+    "AgentDomainControl",
+    "AgentMcpScan"
+   ],
+   "anchor": {
+    "root": "a5e3702a539d9fc3084c14538f42d40db2d2f06769bbb87711d24c0b9144e0e0",
+    "events": 61,
+    "chained_to": null,
+    "methods": [
+     {
+      "type": "opentimestamps",
+      "ok": false,
+      "error": "Failed to create timestamp: need at least 2 attestations but received 0 within timeout"
+     }
+    ]
+   },
+   "inclusion_example": {
+    "event": {
+     "ts": "2026-10-08T10:38:51.677Z",
+     "kind": "issued",
+     "credential": "urn:uuid:48cfaf26-8857-456c-b415-f6a213b834be",
+     "type": "AgentContribution",
+     "subject": "did:web:localhost%3A4411",
+     "credential_hash": "dafbafb63b20d2013a183300f08dc6e3324010a9bbcd82473c278ca095b7a815",
+     "at": "2026-10-08T10:38:51.677Z",
+     "hash": "a43367a44f19b03dd81844ab401e6fefbd07a47f46bb2e663f1724d079dc0af1"
+    },
+    "root": "a5e3702a539d9fc3084c14538f42d40db2d2f06769bbb87711d24c0b9144e0e0",
+    "anchored_at": "2026-10-08T10:38:54.286Z",
+    "proof": [
+     {
+      "side": "right",
+      "hash": "319ff0bd6a71e0d7d4b2b7feddef92a7c685f4fc7192018664e92f3f7dc2bfd8"
+     },
+     {
+      "side": "left",
+      "hash": "aa648cb2e41d786ca1f24f0d3aad4dba3d50abff2dd39f2b666d7f8bf48757b7"
+     },
+     {
+      "side": "right",
+      "hash": "3976483193aa48cf562d0bfff85af2927d7d171d1e3b266f07f637121b0d8802"
+     },
+     {
+      "side": "right",
+      "hash": "b9bd78db6964c3d6db335914e6a8fbda6930f4fcc16582fa78276d1af9e170b0"
+     },
+     {
+      "side": "left",
+      "hash": "f2782936ae2c98eeb79d164394ddcf1c3a5593699389c2a895634e0baca9fb3a"
+     },
+     {
+      "side": "right",
+      "hash": "133331bfee221aeffddb79898a87b698d9dd0bb8b942fd8b7f3d91a40de1c105"
+     }
+    ],
+    "method": [
+     {
+      "type": "opentimestamps",
+      "ok": false
+     }
+    ]
+   },
+   "cascade": {
+    "revoked": "ag_a9daae63b1",
+    "descendants_suspended": [
+     "ag_07046c7e03",
+     "ag_01958b3d2d"
+    ],
+    "child_level_after": 0,
+    "child_status_after": "suspended"
+   },
+   "learners": [
+    {
+     "id": "ag_a9daae63b1",
+     "category": null,
+     "version": 9,
+     "feedback_items": 152,
+     "rules_learned": 13,
+     "history": [
+      {
+       "at": "2026-10-08T10:38:51.681Z",
+       "event": "apply",
+       "source": "mg_b7b7aee4e19c",
+       "version": 4,
+       "hash": "6a8244d9027bd2ac"
+      },
+      {
+       "at": "2026-10-08T10:38:52.510Z",
+       "event": "apply",
+       "source": "mg_7fbb887f7317",
+       "version": 7,
+       "hash": "b422469463bd2f57"
+      },
+      {
+       "at": "2026-10-08T10:38:53.321Z",
+       "event": "apply",
+       "source": "mg_24aae86e2699",
+       "version": 9,
+       "hash": "e99aec46e2b4d582"
+      }
+     ]
+    },
+    {
+     "id": "ag_07046c7e03",
+     "category": "phones",
+     "version": 5,
+     "feedback_items": 118,
+     "rules_learned": 5,
+     "history": []
+    },
+    {
+     "id": "ag_01958b3d2d",
+     "category": "units",
+     "version": 5,
+     "feedback_items": 73,
+     "rules_learned": 12,
+     "history": []
+    }
+   ]
+  }
+ },
+ "B": {
+  "arm": "B",
+  "params": {
+   "rounds": 10,
+   "traffic": 300,
+   "budget": 25,
+   "merge_every": 2,
+   "poison_round": 6,
+   "bench": 800,
+   "seed": "xonta-lab-1",
+   "weights": {
+    "units": 0.35,
+    "dates": 0.3,
+    "phones": 0.2,
+    "money": 0.15
+   },
+   "noise": 0.02,
+   "mandate": {
+    "max_children": 3,
+    "max_depth": 1,
+    "categories": [
+     "dates",
+     "units",
+     "phones",
+     "money"
+    ]
+   }
+  },
+  "rounds": [
+   {
+    "round": 0,
+    "agents": {
+     "ag_c9d23b9ad1": {
+      "traffic": 216,
+      "traffic_correct": 215,
+      "feedback_available": 1,
+      "feedback_sent": 1,
+      "rules_learned": 0,
+      "eval_overall": 100,
+      "eval_categories": {
+       "dates": 100,
+       "money": 100,
+       "units": 100,
+       "phones": 100
+      },
+      "skills_version": 0,
+      "evaluation_credential": "urn:uuid:a71c0e2d-2c6c-4fd9-8db9-d458d9bdc172",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 100,
+     "system": 100,
+     "root_categories": {
+      "units": 100,
+      "money": 100,
+      "phones": 100,
+      "dates": 100
+     }
+    }
+   },
+   {
+    "round": 1,
+    "agents": {
+     "ag_c9d23b9ad1": {
+      "traffic": 220,
+      "traffic_correct": 100,
+      "feedback_available": 120,
+      "feedback_sent": 25,
+      "rules_learned": 2,
+      "eval_overall": 61.5,
+      "eval_categories": {
+       "phones": 55,
+       "money": 44.8,
+       "units": 52.3,
+       "dates": 100
+      },
+      "skills_version": 1,
+      "evaluation_credential": "urn:uuid:4e23184b-7260-4555-8d21-000d62efa997",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 64.9,
+     "system": 64.9,
+     "root_categories": {
+      "dates": 100,
+      "money": 38.9,
+      "phones": 48.3,
+      "units": 54.1
+     }
+    }
+   },
+   {
+    "round": 2,
+    "agents": {
+     "ag_c9d23b9ad1": {
+      "traffic": 207,
+      "traffic_correct": 143,
+      "feedback_available": 64,
+      "feedback_sent": 25,
+      "rules_learned": 3,
+      "eval_overall": 75.5,
+      "eval_categories": {
+       "units": 100,
+       "dates": 100,
+       "phones": 53.7,
+       "money": 54.3
+      },
+      "skills_version": 2,
+      "evaluation_credential": "urn:uuid:507a6980-329e-43fc-b98d-6b756914ec8c",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 81.9,
+     "system": 81.9,
+     "root_categories": {
+      "money": 48.6,
+      "units": 100,
+      "phones": 50,
+      "dates": 100
+     }
+    }
+   },
+   {
+    "round": 3,
+    "agents": {
+     "ag_c9d23b9ad1": {
+      "traffic": 224,
+      "traffic_correct": 110,
+      "feedback_available": 114,
+      "feedback_sent": 25,
+      "rules_learned": 2,
+      "eval_overall": 57.8,
+      "eval_categories": {
+       "dates": 100,
+       "units": 62.9,
+       "phones": 34.6,
+       "money": 36.8
+      },
+      "skills_version": 3,
+      "evaluation_credential": "urn:uuid:e5e48133-2808-40a9-b747-da9f666f2f21",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 67.1,
+     "system": 67.1,
+     "root_categories": {
+      "units": 69,
+      "phones": 36.6,
+      "money": 36.2,
+      "dates": 100
+     }
+    }
+   },
+   {
+    "round": 4,
+    "agents": {
+     "ag_c9d23b9ad1": {
+      "traffic": 227,
+      "traffic_correct": 149,
+      "feedback_available": 78,
+      "feedback_sent": 25,
+      "rules_learned": 4,
+      "eval_overall": 68.5,
+      "eval_categories": {
+       "units": 97.9,
+       "phones": 37.7,
+       "dates": 100,
+       "money": 38.3
+      },
+      "skills_version": 4,
+      "evaluation_credential": "urn:uuid:68502fbe-d1b5-4de5-9cce-1643aceebbd2",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 74.8,
+     "system": 74.8,
+     "root_categories": {
+      "units": 99,
+      "dates": 100,
+      "phones": 25.8,
+      "money": 34.1
+     }
+    }
+   },
+   {
+    "round": 5,
+    "agents": {
+     "ag_c9d23b9ad1": {
+      "traffic": 211,
+      "traffic_correct": 117,
+      "feedback_available": 94,
+      "feedback_sent": 25,
+      "rules_learned": 3,
+      "eval_overall": 61.5,
+      "eval_categories": {
+       "dates": 100,
+       "money": 22.9,
+       "units": 93.2,
+       "phones": 25.8
+      },
+      "skills_version": 5,
+      "evaluation_credential": "urn:uuid:bc6deb04-d71a-449a-9738-d459326e91a5",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 70.3,
+     "system": 70.3,
+     "root_categories": {
+      "dates": 100,
+      "units": 90.1,
+      "money": 23.1,
+      "phones": 23.9
+     }
+    }
+   },
+   {
+    "round": 6,
+    "agents": {
+     "ag_c9d23b9ad1": {
+      "traffic": 217,
+      "traffic_correct": 154,
+      "feedback_available": 63,
+      "feedback_sent": 25,
+      "rules_learned": 5,
+      "eval_overall": 80.8,
+      "eval_categories": {
+       "money": 25.2,
+       "units": 100,
+       "dates": 100,
+       "phones": 100
+      },
+      "skills_version": 6,
+      "evaluation_credential": "urn:uuid:1857422a-c61d-4f0b-a2cf-dfa9bb3403dc",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 87.5,
+     "system": 87.5,
+     "root_categories": {
+      "phones": 100,
+      "dates": 100,
+      "money": 24.6,
+      "units": 99.2
+     }
+    }
+   },
+   {
+    "round": 7,
+    "agents": {
+     "ag_c9d23b9ad1": {
+      "traffic": 226,
+      "traffic_correct": 159,
+      "feedback_available": 67,
+      "feedback_sent": 25,
+      "rules_learned": 3,
+      "eval_overall": 69.5,
+      "eval_categories": {
+       "money": 19,
+       "units": 98.8,
+       "phones": 75,
+       "dates": 100
+      },
+      "skills_version": 7,
+      "evaluation_credential": "urn:uuid:36f3fff7-5468-4a28-ad55-1b6b0132999e",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 85.3,
+     "system": 85.3,
+     "root_categories": {
+      "dates": 100,
+      "money": 25.4,
+      "phones": 80.4,
+      "units": 99.3
+     }
+    }
+   },
+   {
+    "round": 8,
+    "agents": {
+     "ag_c9d23b9ad1": {
+      "traffic": 224,
+      "traffic_correct": 176,
+      "feedback_available": 48,
+      "feedback_sent": 25,
+      "rules_learned": 4,
+      "eval_overall": 94.8,
+      "eval_categories": {
+       "dates": 100,
+       "money": 79.8,
+       "units": 98.8,
+       "phones": 100
+      },
+      "skills_version": 8,
+      "evaluation_credential": "urn:uuid:5f207894-67a5-4e86-aa2b-ef4a2f911f6f",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 95.6,
+     "system": 95.6,
+     "root_categories": {
+      "phones": 100,
+      "dates": 100,
+      "money": 72.1,
+      "units": 98.6
+     }
+    }
+   },
+   {
+    "round": 9,
+    "agents": {
+     "ag_c9d23b9ad1": {
+      "traffic": 226,
+      "traffic_correct": 219,
+      "feedback_available": 7,
+      "feedback_sent": 7,
+      "rules_learned": 1,
+      "eval_overall": 100,
+      "eval_categories": {
+       "money": 100,
+       "phones": 100,
+       "units": 100,
+       "dates": 100
+      },
+      "skills_version": 9,
+      "evaluation_credential": "urn:uuid:5de342ff-e5cc-42c1-ad50-a82a4fae7b2b",
+      "merges_applied": []
+     }
+    },
+    "bench": {
+     "root": 99.8,
+     "system": 99.8,
+     "root_categories": {
+      "units": 99.2,
+      "money": 100,
+      "phones": 100,
+      "dates": 100
+     }
+    }
+   }
+  ],
+  "agents": {
+   "generator": {
+    "id": "ag_0df981e531",
+    "did": "did:web:localhost%3A4504",
+    "scan": "no_findings"
+   },
+   "root": {
+    "id": "ag_c9d23b9ad1",
+    "did": "did:web:localhost%3A4510",
+    "scan": "no_findings"
+   }
+  },
+  "children": [],
+  "proposals": [],
+  "merges": [],
+  "signals": [
+   {
+    "round": 1,
+    "agent": "ag_c9d23b9ad1",
+    "id": "sig_6883024f1bbc",
+    "type": "spawn_specialist",
+    "evidence": {
+     "category": "phones",
+     "traffic_share": 0.23,
+     "score": 55,
+     "best_score": 100,
+     "data": "synthetic"
+    },
+    "decision": "ignored (контроль)"
+   },
+   {
+    "round": 2,
+    "agent": "ag_c9d23b9ad1",
+    "id": "sig_ecc1b6ddf2df",
+    "type": "spawn_specialist",
+    "evidence": {
+     "category": "phones",
+     "traffic_share": 0.24,
+     "score": 53.7,
+     "best_score": 100,
+     "data": "synthetic"
+    },
+    "decision": "ignored (контроль)"
+   },
+   {
+    "round": 3,
+    "agent": "ag_c9d23b9ad1",
+    "id": "sig_90cf0810fd8e",
+    "type": "spawn_specialist",
+    "evidence": {
+     "category": "units",
+     "traffic_share": 0.34,
+     "score": 62.9,
+     "best_score": 100,
+     "data": "synthetic"
+    },
+    "decision": "ignored (контроль)"
+   },
+   {
+    "round": 4,
+    "agent": "ag_c9d23b9ad1",
+    "id": "sig_3262cb73e37b",
+    "type": "spawn_specialist",
+    "evidence": {
+     "category": "phones",
+     "traffic_share": 0.24,
+     "score": 37.7,
+     "best_score": 100,
+     "data": "synthetic"
+    },
+    "decision": "ignored (контроль)"
+   },
+   {
+    "round": 5,
+    "agent": "ag_c9d23b9ad1",
+    "id": "sig_371f4bf805e2",
+    "type": "spawn_specialist",
+    "evidence": {
+     "category": "phones",
+     "traffic_share": 0.24,
+     "score": 25.8,
+     "best_score": 100,
+     "data": "synthetic"
+    },
+    "decision": "ignored (контроль)"
+   },
+   {
+    "round": 7,
+    "agent": "ag_c9d23b9ad1",
+    "id": "sig_78779d011276",
+    "type": "spawn_specialist",
+    "evidence": {
+     "category": "phones",
+     "traffic_share": 0.24,
+     "score": 75,
+     "best_score": 100,
+     "data": "synthetic"
+    },
+    "decision": "ignored (контроль)"
+   }
+  ],
+  "checks": [],
+  "poison": null,
+  "final": {
+   "verify": {
+    "ag_c9d23b9ad1": {
+     "level": 2,
+     "lineage": null,
+     "owner_inherited_from": null,
+     "contributions": null,
+     "missing": [
+      "reputation"
+     ],
+     "profile": {
+      "expert": [
+       {
+        "category": "units",
+        "score": 100
+       },
+       {
+        "category": "dates",
+        "score": 100
+       },
+       {
+        "category": "phones",
+        "score": 100
+       }
+      ],
+      "growth": [
+       {
+        "category": "money",
+        "score": 25.2
+       }
+      ],
+      "data": "synthetic"
+     }
+    }
+   },
+   "passports": {
+    "ag_c9d23b9ad1": {
+     "AgentDomainControl": {
+      "issued": 1,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentMcpScan": {
+      "issued": 1,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentOwnerVerified": {
+      "issued": 1,
+      "revoked": 0,
+      "suspended": 0
+     },
+     "AgentEvaluation": {
+      "issued": 10,
+      "revoked": 0,
+      "suspended": 0
+     }
+    }
+   },
+   "lineage": {
+    "id": "ag_c9d23b9ad1",
+    "name": "lab-root",
+    "did": "did:web:localhost%3A4510",
+    "status": "active",
+    "specialization": null,
+    "children": []
+   },
+   "proposals": [],
+   "generator_passport": [
+    "AgentDomainControl",
+    "AgentMcpScan"
+   ],
+   "anchor": {
+    "root": "dfaf27b7c2c1d5e4698d3038bbf0e95f46d1be54a7b7fcc6e0efac6c89984bfd",
+    "events": 17,
+    "chained_to": null,
+    "methods": [
+     {
+      "type": "opentimestamps",
+      "ok": false,
+      "error": "Failed to create timestamp: need at least 2 attestations but received 0 within timeout"
+     }
+    ]
+   },
+   "learners": [
+    {
+     "id": "ag_c9d23b9ad1",
+     "category": null,
+     "version": 9,
+     "feedback_items": 208,
+     "rules_learned": 27,
+     "history": []
+    }
+   ]
+  }
+ }
+}

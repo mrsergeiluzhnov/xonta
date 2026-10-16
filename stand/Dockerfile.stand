@@ -1,0 +1,22 @@
+# Образ стенда (прогон 5 и дальше): как основной, плюс корневой и промежуточный сертификаты НУЦ Минцифры —
+# их требуют адреса Сбера (OAuth GigaChat). Если сертификаты не скачались, сборка продолжается: GigaChat тогда не подключится,
+# остальное работает. Рабочий образ паспорта (Dockerfile в корне) не меняется.
+FROM node:22-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+RUN apk add --no-cache python3 py3-pip wget ca-certificates && pip3 install --no-cache-dir --break-system-packages opentimestamps-client
+RUN mkdir -p /usr/local/share/ru-ca \
+ && (wget -q -O /usr/local/share/ru-ca/root.crt https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt; \
+     wget -q -O /usr/local/share/ru-ca/sub.crt https://gu-st.ru/content/lending/russian_trusted_sub_ca_pem.crt; true) \
+ && for f in /usr/local/share/ru-ca/*.crt; do tr -d "\r" < "$f"; echo; done > /usr/local/share/ru-ca/bundle.pem 2>/dev/null; \
+    grep -q "BEGIN CERTIFICATE" /usr/local/share/ru-ca/bundle.pem && echo "сертификаты НУЦ Минцифры добавлены" || echo "ВНИМАНИЕ: сертификаты НУЦ Минцифры не скачались"
+ENV NODE_EXTRA_CA_CERTS=/usr/local/share/ru-ca/bundle.pem
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY src ./src
+COPY suites ./suites
+COPY skills ./skills
+COPY stand ./stand
+COPY lab/agentkit.js ./lab/agentkit.js
+USER node
+CMD ["node", "stand/shop-run.js"]

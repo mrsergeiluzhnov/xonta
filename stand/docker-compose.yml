@@ -1,0 +1,29 @@
+# Стенд «Отзывы» — изолированно от рабочих сервисов (mcp.xonta.ru, xonta.ru):
+# - отдельный проект compose «xonta-stand», своя сеть, свой каталог данных;
+# - ни одного порта наружу и на хост: оркестратор и агенты общаются внутри контейнера;
+# - ограничение процессора, памяти и логов, чтобы не отнимать ресурсы у сайта и MCP-сервера.
+name: xonta-stand
+services:
+  stand:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: xonta-stand:0.4.0
+    # права на файлы данных — как у пользователя сервера (export STAND_UID=$(id -u) STAND_GID=$(id -g))
+    user: "${STAND_UID:-1000}:${STAND_GID:-1000}"
+    container_name: xonta-stand
+    restart: "no"
+    env_file: ../stand.env
+    environment:
+      STAND_DIR: /stand-data
+      PRODUCTS_FILE: /app/stand/products.json
+    command: ["node", "stand/run.js"]
+    volumes:
+      - ../stand-data:/stand-data
+      - ./products.json:/app/stand/products.json:ro
+    cpus: "0.5"
+    mem_limit: 512m
+    pids_limit: 200
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
