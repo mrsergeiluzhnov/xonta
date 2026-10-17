@@ -1,18 +1,65 @@
 # Xonta Agent Passport
 
-**Паспорт ИИ-агента и оркестратор A2O2A.** Проверяемые аттестаты для ИИ-агентов (W3C Verifiable Credentials 2.0), проверка MCP-серверов на скрытые инструкции, агент-тестер, репутация по реальному трафику и сигналы владельцу — без изменения кода чужих агентов.
+**Открытая инфраструктура доверия для ИИ-агентов.** Тесты агент прошёл. А можно ли пустить его в работу с деньгами и данными клиентов, и насколько? Xonta отвечает на это доказательствами, которые может проверить кто угодно, а не оценкой «из 100», которой надо поверить на слово.
 
 *English summary below.*
 
-> Статус: **0.12, экспериментальная версия.** Ядро паспорта, механика потомков, оркестратор-советник, книга опыта, обмен опытом между оркестраторами и надзор за потомками работают и проверены тестами и прогонами на стенде (`stand/`, `lab/`). Часть спецификации пока описана, но не реализована (см. «Чего ещё нет»).
+> Статус: **0.13.2, экспериментальная версия.** Всё описанное ниже работает и проверено тестами и прогонами на стенде (`stand/`, `lab/`). Часть спецификации пока только описана (см. «Чего ещё нет»).
 
-## Зачем
+## Как это устроено: VERIFY → GOVERN → LEARN
 
-К сервису всё чаще приходит не человек, а ИИ-агент. Паспорт отвечает на три вопроса: **кто за агентом стоит, кто это подтвердил и как агент вёл себя раньше.** Паспорт — это не один документ от одного центра, а набор независимых аттестатов от разных выдающих. Уровень доверия считает тот, кто проверяет, по своим правилам.
+**VERIFY — кто это и что он умеет на деле.** У агента свой DID и ключ, подтверждённый домен и владелец. Его MCP-сервер проверяется на скрытые инструкции, а отпечаток инструментов запоминается: если описания тихо поменяли, проверка теряет силу. Экзамен проходит на скрытых заданиях с известным ответом, и считается не «точность», а вред в рублях на одно действие. Каждый итог — подписанный аттестат W3C Verifiable Credentials 2.0.
+
+**GOVERN — что ему можно прямо сейчас.** Владелец задаёт бюджет вреда, например «за период готов потерять 2 000 ₽». Делим его на вред на действие и получаем число самостоятельных действий, остальное агент передаёт человеку. Лимит растёт постепенно и урезается сразу, как только работа расходится с экзаменом. Помощники-потомки работают по мандату: что им можно вызывать и как часто. Шлюз проверяет каждый вызов до того, как пропустить его дальше. Испортившегося потомка надзор ведёт по ступеням: наблюдение, ограничение, карантин, отзыв.
+
+**LEARN — доверие уточняется с каждым действием.** Оркестратор советует (поставить проверяющих, дать цель, откатить навыки), часть советов нарочно не исполняет для контроля и записывает исходы в книгу опыта. Оркестраторы делятся опытом между собой, но ничего не берут на веру: проверяют подпись, доказательства и сам приём на своих заданиях. Общего центра, которому все обязаны верить, нет.
 
 Паспорт подтверждает проверки на их дату, а **не безопасность агента** и не соответствие закону.
 
-## Что умеет версия 0.2
+## Результат за 5 минут
+
+```bash
+git clone https://github.com/mrsergeiluzhnov/xonta-agent-passport
+cd xonta-agent-passport && npm ci
+npm run trust-report
+```
+
+Команда поднимает оркестратор, подключает демонстрационного агента поддержки (на заглушке модели, без ключей и без сети), проверяет его и печатает отчёт. Отчёт и все аттестаты сохраняются в `trust-report/`. Пример:
+
+| Проверка | Итог | Доказательство |
+|---|---|---|
+| Управление доменом | ✓ | аттестат 72aa8af7… |
+| Владелец | ✓ проверен вручную по договору | аттестат c735a008… |
+| MCP-сервер: признаки скрытых инструкций | не найдены | аттестат 43b32c87…, отпечаток инструментов |
+| Экзамен на скрытых обращениях | 60 обращений, верно 90% | аттестат 96f8f3b6… |
+| Вред на одно самостоятельное действие | 390 ₽ | тот же аттестат |
+
+Один и тот же агент, одни и те же доказательства, разные проверяющие:
+
+| Проверяющий | Бюджет вреда | Самостоятельных действий за период |
+|---|---|---|
+| Интернет-магазин | 2 000 ₽ | 5 |
+| Банк | 300 ₽ | 0 — только советует, решает человек |
+
+Так и задумано: доверие не свойство агента, а решение того, кто его пускает. С настоящей моделью: `LLM_PROVIDER=gigachat AGENT_MODEL=GigaChat-2 npm run trust-report`.
+
+## Срез по публичным MCP-серверам
+
+`npm run mcp-survey` берёт удалённые серверы из открытого реестра MCP и к каждому делает одно подключение и один запрос списка инструментов. Сами инструменты не вызываются. Считается только то, что измеряется объективно: доступен ли сервер, просит ли авторизацию, может ли доказать, кто он (DID-документ на домене), есть ли в описаниях инструментов признаки скрытых инструкций. При повторном срезе видно, у кого описания сменились без смены версии.
+
+В сводку (`REPORT.md`) идут только цифры, без названий серверов. Подробности по каждому серверу сохраняются отдельно, для себя. Рейтинга «безопасно / опасно» нет: признак — это совпадение с эвристикой, а не доказательство злого умысла.
+
+## Что уже показали эксперименты
+
+Девять прогонов в песочнице (сначала на YandexGPT, потом на GigaChat), деньги и клиенты тестовые. Коротко из прогона 9:
+- агенты, получившие проверенный опыт другого оркестратора, вышли на полную самостоятельность к раунду 5, а обучавшиеся с нуля — к раунду 9;
+- оркестратор с поддельными доказательствами не получил ни одного агента;
+- потомок, который постепенно испортился и начал DDoS, пойман и отозван, из 15 400 его вызовов не прошёл ни один;
+- агенты без оркестратора за то же время ушли в минус на 700 с лишним тысяч тестовых рублей.
+
+Подробности и как повторить — в [stand/README.md](stand/README.md).
+
+## Подробно: что умеет версия 0.2
 
 | Возможность | Как устроено |
 | --- | --- |
@@ -142,7 +189,7 @@ curl -X POST $BASE/v1/verify -H "Content-Type: application/json" -d '{"agent":"'
 
 ## English summary
 
-**Xonta Agent Passport** is an open-source reference implementation of an *agent passport*: a set of independent, verifiable attestations about an AI agent (W3C VC 2.0, `eddsa-jcs-2022`, byte-identical to the W3C test vector), `did:web` identifiers, Bitstring Status List revocation, daily Merkle anchoring with OpenTimestamps, an MCP server scanner for tool-poisoning signs, and an **A2O2A** (agent → orchestrator → agent) gateway with a signed tester agent, traffic-based reputation and owner-facing signals (scale out, extract a deterministic tool chain, spawn a specialist). Version 0.2 adds descendants: an owner-signed mandate plus a parent-signed lineage credential, signed improvement proposals evaluated rule-by-rule on held-out data from an independent generator agent, ablation-based contribution credentials, and cascade suspension. A reproducible experiment (`npm run lab`, see `lab/REPORT.md`) compares a root agent with descendants against a lone control. Versions 0.3–0.12 add the orchestrator: exams with a harm budget, controlled advice with signed outcomes, an experience book kept across runs, verified experience exchange between orchestrators with signed track records, and supervision of descendants (mandate-enforced call limits at the gateway, canaries, quarantine and revocation). The orchestrator only recommends; it never changes connected agents. The verifier computes the trust level from its own policy.
+**Xonta Agent Passport** is an open-source reference implementation of an *agent passport*: a set of independent, verifiable attestations about an AI agent (W3C VC 2.0, `eddsa-jcs-2022`, byte-identical to the W3C test vector), `did:web` identifiers, Bitstring Status List revocation, daily Merkle anchoring with OpenTimestamps, an MCP server scanner for tool-poisoning signs, and an **A2O2A** (agent → orchestrator → agent) gateway with a signed tester agent, traffic-based reputation and owner-facing signals (scale out, extract a deterministic tool chain, spawn a specialist). Version 0.2 adds descendants: an owner-signed mandate plus a parent-signed lineage credential, signed improvement proposals evaluated rule-by-rule on held-out data from an independent generator agent, ablation-based contribution credentials, and cascade suspension. A reproducible experiment (`npm run lab`, see `lab/REPORT.md`) compares a root agent with descendants against a lone control. Versions 0.3–0.12 add the orchestrator: exams with a harm budget, controlled advice with signed outcomes, an experience book kept across runs, verified experience exchange between orchestrators with signed track records, and supervision of descendants (mandate-enforced call limits at the gateway, canaries, quarantine and revocation). `npm run trust-report` produces an evidence-based report for a demo agent in a few minutes, with autonomy computed per verifier policy rather than a single score. The orchestrator only recommends; it never changes connected agents. The verifier computes the trust level from its own policy.
 
 ## Лицензия
 
