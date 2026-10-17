@@ -155,7 +155,8 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     // доля серьёзных вредных действий на экзамене — основа проверки на расхождение в работе
     const auto = Object.values(per).filter((x) => x.autonomous), severe = auto.filter((x) => x.harm >= CFG.drift_severe).length;
     if (exp && !measure_only && !rec.support?.served) { exp.track("agent", { domain: "support" }); rec.support = { ...(rec.support || {}), served: true }; }
-    rec.support = { ...(rec.support || {}), exam_harm: metrics.harm_per_action ?? 0, exam_severe: { k: severe, n: auto.length }, exam_round: round, evaluation: vc.id, measure_only };
+    const hm = auto.length ? auto.reduce((a, x) => a + x.harm, 0) / auto.length : 0, hsd = auto.length > 1 ? Math.round(Math.sqrt(auto.reduce((a, x) => a + (x.harm - hm) ** 2, 0) / (auto.length - 1))) : null;
+    rec.support = { ...(rec.support || {}), exam_harm: metrics.harm_per_action ?? 0, exam_harm_sd: hsd, exam_severe: { k: severe, n: auto.length }, exam_round: round, evaluation: vc.id, measure_only };
     const tr = setTrust(rec, trustOf(rec), { evaluation: vc.id });
     const adv = measure_only ? { created: [], resolved: [] } : onExam(rec, round);
     return { credential: vc, metrics, types, trust: tr, skills: { version: skills.version, hash: skills.hash }, advice: adv.created, advice_resolved: adv.resolved };
@@ -206,7 +207,9 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     const med = (v) => { const x = [...v].sort((a, b) => a - b); return x[Math.floor(x.length / 2)]; };
     return { harm: Math.round(med(peers.map((a) => (harmBy[a.did] || 0) / acts[a.did]))), severe_share: med(peers.map((a) => (sevBy[a.did] || 0) / acts[a.did])), peers: peers.length };
   }
-  const harmParams = (he) => ({ mu0: he, delta: Math.max(CFG.harm_delta, he), h: Math.max(CFG.harm_h, 10 * he), critical: Math.max(CFG.harm_critical, 3 * he), min_crit: CFG.harm_min_crit });
+  // порог h — не меньше 5 стандартных отклонений вреда агента на экзамене: у агента без команды вред «тяжёлый» (редкие
+  // крупные возвраты), и одна-две такие ошибки — его обычная работа, а не подмена
+  const harmParams = (he, sd = null) => ({ mu0: he, delta: Math.max(CFG.harm_delta, he), h: Math.max(CFG.harm_h, 10 * he, 5 * (sd || 0)), critical: Math.max(CFG.harm_critical, 3 * he), min_crit: CFG.harm_min_crit });
   function bypassOf(rec) {
     const team = caps()[rec.id]?.team || "none"; if (team === "none") return null;
     const cur = curPeriodOf(), from = Math.max(1, rec.support?.cfg_from ?? 0);
@@ -250,7 +253,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     const cusumAlarm = cs.score >= CFG.cusum_h && cs.severe >= CFG.cusum_min_severe;
     // 0.13.3: пороги — от собственной нормы агента. У агента без команды крупный вред бывает и на экзамене; ловим
     // сдвиг хотя бы вдвое против его нормы, а не против нормы агента с проверяющими
-    const hp = harmParams(heT);
+    const hp = harmParams(heT, rec.support?.exam_harm_sd);
     const ch = cusumHarm(harmSeq(rec, seqFrom), hp), harmAlarm = ch.alarm_at != null;
     const bypass = bypassOf(rec);
     // до первой тревоги «два периода подряд» и «с момента урезания» не смотрят дальше смены конфигурации по совету
@@ -274,7 +277,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
       const advAfter = changes().some((x) => x.agent === rec.id && String(x.kind).startsWith("advice:") && dp != null && x.round >= dp);
       const recheck = rec.support?.owner_recheck_at && rec.support.owner_recheck_at > da;
       const freshExam = dp != null && (rec.support?.exam_round ?? -1) > dp;
-      const after = dp != null ? severeSince(rec, dp + 1) : { n: 0, k: 0 }, afterHarm = dp != null ? cusumHarm(harmSeq(rec, dp + 1), harmParams(heT)) : null;
+      const after = dp != null ? severeSince(rec, dp + 1) : { n: 0, k: 0 }, afterHarm = dp != null ? cusumHarm(harmSeq(rec, dp + 1), harmParams(heT, rec.support?.exam_harm_sd)) : null;
       const cause = childOut ? `испорченный потомок ${ci2.child} ${store.get("agents", {})[ci2.child]?.status === "revoked" ? "отозван" : "на карантине"}` : advAfter ? "конфигурация сменена по совету оркестратора" : recheck ? "владелец провёл повторную проверку" : null;
       if (freshExam && cause) recover = { why: `${cause}; новый экзамен после тревоги сдан` };
       else if (freshExam && driftLevel !== "severe" && after.n >= CFG.recover_n && after.k === 0 && afterHarm?.alarm_at == null) recover = { why: `после тревоги ${after.n} самостоятельных действий без серьёзного вреда; новый экзамен сдан` };
