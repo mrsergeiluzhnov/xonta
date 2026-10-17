@@ -127,14 +127,16 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
     const t = book().track, adv = (t.advice || []).filter((a) => !a.confounded), y = (a) => (a.success ? 1 : 0);
     const treated = adv.filter((a) => a.arm !== "control"), control = adv.filter((a) => a.arm === "control");
     const rate = (l) => (l.length ? Math.round(100 * l.filter((a) => a.success).length / l.length) / 100 : null);
-    const base = adv.length ? adv.reduce((s, a) => s + y(a), 0) / adv.length : 0;
+    const baseT = treated.length ? treated.reduce((s, a) => s + y(a), 0) / treated.length : 0;
     const drift = t.drift || { flags: [], verdicts: [] };
     const budget = Object.fromEntries(Object.entries(t.budget || {}).map(([d, x]) => [d, { periods: x.periods, within_share: x.periods ? Math.round(100 * x.within / x.periods) / 100 : null }]));
     const audits = t.audits || [];
     const imports = (t.imports || []).reduce((m, x) => { const k = x.peer; (m[k] ||= { validated: 0, rejected: 0, bad_evidence: 0 }); if (x.status === "validated") m[k].validated++; if (x.status === "rejected") m[k].rejected++; if (x.status === "bad_evidence") m[k].bad_evidence++; return m; }, {});
     return {
       agents_served: t.agents || {}, runs: book().runs.length,
-      advice: { measured: adv.length, treated_success: rate(treated), control_success: rate(control), brier: adv.length ? Math.round(10000 * adv.reduce((s, a) => s + (a.pred - y(a)) ** 2, 0) / adv.length) / 10000 : null, baseline_brier: adv.length ? Math.round(10000 * adv.reduce((s, a) => s + (base - y(a)) ** 2, 0) / adv.length) / 10000 : null },
+      // 0.14.1: прогноз — это вероятность успеха выполненного совета, поэтому Брайер и база считаются только по выполненным.
+      // В контроле совет не выполнялся, его «успех» почти всегда 0, и прогноз 0.6–0.7 там не про то (run-10r)
+      advice: { measured: adv.length, treated_success: rate(treated), control_success: rate(control), brier: treated.length ? Math.round(10000 * treated.reduce((s, a) => s + (a.pred - y(a)) ** 2, 0) / treated.length) / 10000 : null, baseline_brier: treated.length ? Math.round(10000 * treated.reduce((s, a) => s + (baseT - y(a)) ** 2, 0) / treated.length) / 10000 : null, brier_n: treated.length },
       budget_adherence: budget,
       stale_experience: (t.stale || []).length,
       descendants: (() => { const d = t.descendants || { incidents: [], verdicts: [] }; return { incidents: d.incidents.length, caught: d.verdicts.filter((v) => v.verdict === "caught").length, false_alarms: d.verdicts.filter((v) => v.verdict === "false_alarm").length, missed: d.verdicts.filter((v) => v.verdict === "missed").length }; })(),
@@ -256,7 +258,9 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
   // с которым прогноз смешивается со средней долей успехов, — тот, что дал наименьшую ошибку Брайера. Нужно не меньше
   // min_n исходов; иначе null (прогноз как есть)
   function calibration(domain = null, { min_n = 10 } = {}) {
-    const l = (book().track.advice || []).filter((a) => !a.confounded && (!domain || !a.domain || a.domain === domain) && typeof (a.raw ?? a.pred) === "number");
+    // 0.14.1: только выполненные советы — прогноз про них; с контрольными база была ~0.5 и тянула вниз прогнозы, хотя
+    // выполненные советы удавались в 3 случаях из 4
+    const l = (book().track.advice || []).filter((a) => !a.confounded && a.arm !== "control" && (!domain || !a.domain || a.domain === domain) && typeof (a.raw ?? a.pred) === "number");
     if (l.length < min_n) return null;
     const y = (a) => (a.success ? 1 : 0), base = l.reduce((s, a) => s + y(a), 0) / l.length;
     let best = { w: 1, brier: Infinity };

@@ -517,10 +517,13 @@ await t("0.14.1: отказ от команды с крупным вредом �
   work("a7", 10, 20, { spend: 1, auto: false });
   const t10 = sup.review("a7", { round: 10 });
   assert.equal(t10.recover, null, "совет и экзамен без возврата команды — не повод снимать тревогу"); assert.equal(t10.limit, 0); assert.equal(t10.team_back, false);
-  // команда снова вызывается — причина устранена, тревога снимается, лимит растёт с 3
+  // команда снова вызывается, но при тяжёлой тревоге у агента 0 действий — чистой работы после совета нет, решает владелец
   work("a7", 11, 20, { auto: false }); store.update("agents", {}, (a) => { a.a7.support.exam_round = 11; });
+  assert.equal(sup.review("a7", { round: 11 }).recover, null, "совет без чистой работы после него — не причина");
+  // владелец провёл повторную проверку, команда вызывается, экзамен сдан — тревога снята, лимит растёт с 3
+  store.update("agents", {}, (a) => { a.a7.support.owner_recheck_at = new Date(Date.now() + 1000).toISOString(); });
   const t11 = sup.review("a7", { round: 11 });
-  assert.ok(t11.recover, "команда вернулась — тревога снята"); assert.equal(t11.limit, 3);
+  assert.ok(t11.recover, "команда вернулась и владелец проверил — тревога снята"); assert.equal(t11.limit, 3);
   const h = store.get("agents", {}).a7.support; assert.equal(h.drift_cause, undefined); assert.equal(h.drift_history.at(-1).cause, "bypass");
 
   // лёгкая тревога из-за отказа от команды без вреда, потом крупный вред без команды — становится тяжёлой
@@ -531,6 +534,18 @@ await t("0.14.1: отказ от команды с крупным вредом �
   work("a8", 15, 15, { spend: 1, auto: false }); sup.review("a8", { round: 15 });
   work("a8", 16, 3, { spend: 1, harm: { 0: 7000 } }); work("a8", 16, 17, { spend: 1, auto: false });
   const t9 = sup.review("a8", { round: 16 }); assert.equal(t9.drift_level, "severe"); assert.equal(t9.limit, 0);
+
+  // лёгкая тревога: совет выполнен, но после него меньше 6 чистых действий — тревога держится; 6 чистых и команда на месте — снята
+  store.put("sup_caps", { ...store.get("sup_caps", {}), a9: { team: "check", actions: [] } });
+  mk("a9"); for (const p of [17, 18, 19]) work("a9", p, 20); work("a9", 20, 5, { spend: 1 });
+  assert.equal(sup.review("a9", { round: 20, checkpoint: true }).drift_level, "mild");
+  work("a9", 20, 15, { spend: 1, auto: false }); sup.review("a9", { round: 20 });
+  store.update("sup_changes", [], (l) => { l.push({ agent: "a9", round: 21, kind: "advice:rollback", ref: "adv2" }); });
+  store.update("agents", {}, (a) => { a.a9.support.exam_round = 22; });
+  work("a9", 22, 3); work("a9", 22, 17, { auto: false });
+  assert.equal(sup.review("a9", { round: 22 }).recover, null, "3 чистых действия после совета — мало");
+  work("a9", 23, 3); work("a9", 23, 17, { auto: false });
+  assert.ok(sup.review("a9", { round: 23 }).recover, "6 чистых действий после совета, команда на месте — снята");
 });
 
 await t("0.14.1: вызов от DID с двумя регистрациями засчитывается свежей, а не отозванной записи прошлого прогона", async () => {
@@ -546,6 +561,17 @@ await t("0.14.1: вызов от DID с двумя регистрациями з
   assert.equal(r.ok, false); assert.match(r.reason, /на карантине/);
   const st = store.get("guardian", { agents: {} }).agents;
   assert.equal(st.cur?.pending.blocked, 1, "заблокированный вызов записан текущему потомку"); assert.equal(st.old, undefined);
+});
+
+await t("0.14.1: калибровка и Брайер — только по выполненным советам, контроль не тянет прогноз вниз", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createIssuer } = await import("../src/issuer.js"), { createExperience } = await import("../src/experience.js");
+  const dir = mkdtempSync(join(tmpdir(), "cal-")), store = openStore(dir), issuer = createIssuer({ store, publicUrl: "http://localhost:4994", dataDir: dir });
+  const exp = createExperience({ store, issuer, resolver: { keyFor: async () => { throw new Error("нет сети"); } }, publicUrl: "http://localhost:4994", name: "T" });
+  for (let i = 0; i < 12; i++) exp.track("advice", { pred: 0.6, raw: 0.6, success: i % 4 !== 0, arm: "treated", domain: "support" });
+  for (let i = 0; i < 12; i++) exp.track("advice", { pred: 0.6, raw: 0.6, success: false, arm: "control", domain: "support" });
+  const c = exp.calibration("support"); assert.equal(c.n, 12); assert.ok(Math.abs(c.base - 0.75) < 0.01, JSON.stringify(c));
+  const tr = exp.trackSummary().advice; assert.equal(tr.brier_n, 12); assert.equal(tr.measured, 24);
 });
 
 console.log(`\nALL PASSED (${passed})`);

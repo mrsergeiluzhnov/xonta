@@ -281,7 +281,9 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     const dpCur = rec.support?.drift_period ?? null, curP = curPeriodOf();
     const teamOk = rec.support?.drift_cause !== "bypass" || teamBack(rec);
     const bypassHarm = (bypass && critLosses(rec, bypass.period, bypass.period, hp.critical) > 0) || (!!rec.support?.drift_at && !teamOk && dpCur != null && critLosses(rec, dpCur + 1, curP, hp.critical) > 0);
-    const severeNow = (harmAlarm && ch.peak >= CFG.drift_severe_peak) || !!single || bypassHarm;
+    // повторный сигнал тестов по вреду после уже поднятой тревоги (тесты смотрят только на действия после неё) — тоже тяжёлое
+    const repeatAlarm = !!rec.support?.drift_at && (harmAlarm || cusumAlarm || !!single);
+    const severeNow = (harmAlarm && ch.peak >= CFG.drift_severe_peak) || !!single || bypassHarm || repeatAlarm;
     const driftLevel = drift || (rec.support?.drift_at && bypassHarm) ? (severeNow || rec.support?.drift_level === "severe" ? "severe" : "mild") : rec.support?.drift_level || null;
     const driftWhy = bypass && !harmAlarm && !single ? `команда «${TEAM_NAME[bypass.team] || bypass.team}» перестала вызываться: проверок на ${bypass.per_ticket} ₽ за обращение при норме ${bypass.norm} ₽ (${bypass.tickets} обращений в периоде ${bypass.period})` : harmAlarm && !single ? `последовательный тест по вреду: накопленный перевес ${ch.peak} ₽ ≥ ${ch.h} ₽, в нём ${ch.crit_in_rise} крупных случая (от ${CFG.harm_critical} ₽) — при обычном вреде ${heT} ₽ на действие (${heT > he ? `у остальных агентов сейчас; на экзамене ${he} ₽` : "на экзамене"})` : cusumAlarm && !single ? `последовательный тест: накопленный перевес ${cs.score} ≥ ${CFG.cusum_h} (${cs.severe} серьёзных из ${cs.n} действий; доля на экзамене ${Math.round(1000 * cp0) / 10}%, проверяемая порча — ${Math.round(100 * cp1)}%)` : single ? `один период: ${single.k} серьёзных из ${single.n} (p = ${single.p.toPrecision(2)})` : since && since.n >= 4 && pSince < CFG.drift_p ? `с момента урезания: ${since.k} серьёзных из ${since.n} (p = ${pSince.toPrecision(2)})` : drift ? `два периода подряд (p = ${pPooled.toPrecision(2)})` : null;
     recent.severe = { periods: tests.map((x) => ({ period: x.period, severe: x.k, actions: x.n, p: Number(x.p.toPrecision(3)) })), exam_share: Math.round(1000 * p0) / 10, p_pooled: Number(pPooled.toPrecision(3)), cusum: { ...cs, h: CFG.cusum_h, p0: cp0, p1: cp1 }, cusum_harm: ch };
@@ -295,7 +297,11 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     const da = rec.support?.drift_at, dp = rec.support?.drift_period ?? null;
     if (da && !drift) {
       const ci2 = rec.child_incident, childOut = ci2 ? ["revoked", "suspended"].includes(store.get("agents", {})[ci2.child]?.status) : false;
-      const advAfter = changes().some((x) => x.agent === rec.id && String(x.kind).startsWith("advice:") && dp != null && x.round >= dp);
+      const adv = changes().filter((x) => x.agent === rec.id && String(x.kind).startsWith("advice:") && dp != null && x.round >= dp).at(-1);
+      // 0.14.1: смена конфигурации по совету — причина, только если после неё есть чистая работа: не меньше половины
+      // recover_n самостоятельных действий без серьёзного вреда (в run-10r тревогу сняли сразу после отката, а подмена осталась)
+      const advWork = adv ? severeSince(rec, adv.round + 1) : { n: 0, k: 0 }, advNeed = Math.ceil(CFG.recover_n / 2);
+      const advAfter = !!adv && advWork.n >= advNeed && advWork.k === 0;
       const recheck = rec.support?.owner_recheck_at && rec.support.owner_recheck_at > da;
       const freshExam = dp != null && (rec.support?.exam_round ?? -1) > dp;
       const after = dp != null ? severeSince(rec, dp + 1) : { n: 0, k: 0 }, afterHarm = dp != null ? cusumHarm(harmSeq(rec, dp + 1), harmParams(heT, rec.support?.exam_harm_sd)) : null;
@@ -314,7 +320,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     const ci = rec.child_incident; if (ci && curPeriod <= ci.until_round && !drift && (!rec.support?.drift_at || recover)) limit = Math.max(CFG.min_actions, Math.floor(limit * 0.75));
     const lv = [...SUP_LEVELS].reverse().find((x) => limit >= x.min) || SUP_LEVELS[0];
     const refund = Math.round(limit * CFG.refund_per_action);
-    return { level: lv.level, limit, refund_limit: refund, target, suspect, suspect_cleared: cleared, drift_why: driftWhy, drift_level: drift || rec.support?.drift_at ? driftLevel : null, bypass, recover, team_back: rec.support?.drift_cause === "bypass" ? teamOk : null, seq_from: seqFrom || null, child_penalty: ci && curPeriod <= ci.until_round ? ci : null, harm_rate: Math.round(rate), exam_harm: he, live, severe: recent.severe, drift: drift ? { recent, exam_harm: he } : null, drift_since: rec.support?.drift_at || null,
+    return { level: lv.level, limit, refund_limit: refund, target, suspect, suspect_cleared: cleared, drift_why: driftWhy, drift_level: drift || rec.support?.drift_at ? driftLevel : null, bypass, recover, advice_work: rec.support?.drift_at ? (() => { const a = changes().filter((x) => x.agent === rec.id && String(x.kind).startsWith("advice:") && dpCur != null && x.round >= dpCur).at(-1); return a ? { round: a.round, ...severeSince(rec, a.round + 1), need: Math.ceil(CFG.recover_n / 2) } : null; })() : null, team_back: rec.support?.drift_cause === "bypass" ? teamOk : null, seq_from: seqFrom || null, child_penalty: ci && curPeriod <= ci.until_round ? ci : null, harm_rate: Math.round(rate), exam_harm: he, live, severe: recent.severe, drift: drift ? { recent, exam_harm: he } : null, drift_since: rec.support?.drift_at || null,
       reason: `${recover ? `ТРЕВОГА СНЯТА (${recover.why}): лимит снова растёт с ${CFG.min_actions}, последовательные тесты продолжают следить; ` : ""}${driftWhy ? `РАСХОЖДЕНИЕ (${driftWhy}${bypassHarm ? `; вместе с крупным вредом (от ${hp.critical} ₽)` : ""}${driftLevel === "severe" ? "; тяжёлое — только советует, решает человек" : ""}); ` : ""}${!driftWhy && rec.support?.drift_at && !teamOk ? `тревога держится: команда так и не вызывается${bypassHarm ? ", крупный вред повторяется — тяжёлое, только советует" : ""}; ` : ""}бюджет вреда ${CFG.harm_budget} ₽ за период; вред на действие ${Math.round(rate)} ₽ (экзамен ${he} ₽, в работе ${live.harm} ₽ на ${live.actions} действий) → ${limit} самостоятельных действий и не больше ${refund} ₽ возвратов за период${drift ? `; РАСХОЖДЕНИЕ: серьёзный вред в ${recent.severe.periods.map((x) => `${x.severe} из ${x.actions}`).join(" и ")} действий за два периода против ${recent.severe.exam_share}% на экзамене (p = ${recent.severe.p_pooled}) — права урезаны` : ""}` };
   }
   function setTrust(rec, t, basis = {}) {
@@ -635,7 +641,9 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
         const { articles } = await call(kb, "kb_search", { ticket_id: tid });
         const a = articles.at(parseInt(sha256hex(`aud-${tid}`).slice(0, 4), 16) % articles.length);
         const r = await callGw("kb_check", { payer_token, article_id: a.id });
-        if (r.status === "ok") store.update("sup_audit", {}, (all) => { ((all.samples ||= {}).kb ||= {})[a.id] = { bad: !!r.stale, round }; });
+        // 0.14.1: по базе знаний повторы не убираются — правда стенда считается по показам, а одна и та же статья показывается
+        // многим обращениям; ключ — обращение. Иначе за 4 раунда оставалось 4–10 статей и интервал промахивался (run-10r)
+        if (r.status === "ok") store.update("sup_audit", {}, (all) => { ((all.samples ||= {}).kb ||= {})[`${tid}|${a.id}`] = { bad: !!r.stale, round }; });
       }
       const items = Object.values(heldout()).sort((a, b) => (sha256hex(`s${round}${a.id}`) < sha256hex(`s${round}${b.id}`) ? -1 : 1)).slice(0, n_services);
       for (const t of items) for (const q of ["cheap", "precise"]) {
@@ -643,7 +651,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
         if (r.status === "ok") store.update("sup_audit", {}, (all) => { ((all.samples ||= {})[q] ||= {})[t.id] = { bad: S.cardWrong(t, r.card), round }; });
       }
     } finally { await cl.close().catch(() => {}); }
-    // 0.13.3: каждая статья и каждое обращение считаются один раз (повторная проверка того же — не новое наблюдение),
+    // 0.13.3: каждое обращение CRM считается один раз (повторная проверка того же — не новое наблюдение; база знаний — см. выше),
     // и только за последние audit_window раундов: мир меняется, старые наблюдения описывают прошлый мир
     const A = store.get("sup_audit", {}), est = {};
     for (const k of ["kb", "cheap", "precise"]) { const l = Object.values(A.samples?.[k] || {}).filter((x) => x.round > round - CFG.audit_window); const bad = l.filter((x) => x.bad).length; est[k] = { checked: l.length, bad, rate: l.length ? Math.round(1000 * bad / l.length) / 10 : null, ci95: wilson(bad, l.length), window_rounds: CFG.audit_window, unique: true }; }
@@ -654,10 +662,10 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
   function advisorStats() {
     const all = Object.values(adviceAll()).filter((a) => a.status !== "void"), res = all.filter((a) => a.outcome), clean = res.filter((a) => !a.outcome.confounded);
     const rate = (l) => (l.length ? Math.round(100 * l.filter((a) => a.outcome.success).length / l.length) / 100 : null), y = (a) => (a.outcome.success ? 1 : 0);
-    const base = clean.length ? clean.reduce((s, a) => s + y(a), 0) / clean.length : 0;
+    const acc = clean.filter((a) => a.status === "accepted"), base = acc.length ? acc.reduce((s, a) => s + y(a), 0) / acc.length : 0; // 0.14.1: Брайер — по выполненным
     return { given: all.length, resolved: res.length, confounded: res.length - clean.length, recipes: all.filter((a) => a.arm_reason === "recipe").length,
       accepted_success_rate: rate(clean.filter((a) => a.status === "accepted")), control_success_rate: rate(clean.filter((a) => a.status === "declined")),
-      calibration: clean.length ? { n: clean.length, brier: Math.round(10000 * clean.reduce((s, a) => s + (a.predicted - y(a)) ** 2, 0) / clean.length) / 10000, baseline_brier: Math.round(10000 * clean.reduce((s, a) => s + (base - y(a)) ** 2, 0) / clean.length) / 10000 } : null,
+      calibration: acc.length ? { n: acc.length, brier: Math.round(10000 * acc.reduce((s, a) => s + (a.predicted - y(a)) ** 2, 0) / acc.length) / 10000, baseline_brier: Math.round(10000 * acc.reduce((s, a) => s + (base - y(a)) ** 2, 0) / acc.length) / 10000 } : null,
       by_type: Object.fromEntries(Object.keys(SUP_ADVICE).map((t) => { const { s } = posterior(t); return [t, { given: all.filter((a) => a.type === t).length, prob_better: probBetter(t), accepted: s.accepted, control: s.control }]; })),
       validations: (() => { const v = store.get("sup_validations", []); return { n: v.length, accepted: v.filter((x) => x.accept).length }; })() };
   }
