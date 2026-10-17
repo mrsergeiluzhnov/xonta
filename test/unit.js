@@ -383,4 +383,14 @@ await t("0.12: смена эпохи меняет срок возврата, в�
   assert.ok(binomTail(3, 8, 0.03) < 0.005, "3 неверных из 8 контрольных при норме 3% — сигнал");
 });
 
+await t("0.13: последовательный тест подмены — две крупные ошибки подряд ловятся, одна случайная нет", async () => {
+  const { cusumHarm, cusumSevere } = await import("../src/support.js");
+  const honest = Array.from({ length: 150 }, (_, i) => (i === 40 ? 3000 : i % 15 === 0 ? 800 : i % 5 === 0 ? 200 : 0)); // одна утечка и обычные мелкие ошибки
+  assert.equal(cusumHarm(honest, { mu0: 60 }).alarm_at, null, "одна крупная ошибка у честного агента — не тревога");
+  const corrupted = [...Array(60).fill(0), 16610, ...Array(19).fill(0), 14200, ...Array(7).fill(0)]; // как агент 5 в прогоне 9
+  const c = cusumHarm(corrupted, { mu0: 33 });
+  assert.equal(c.alarm_at, 81, "тревога на второй крупной ошибке");
+  assert.equal(cusumSevere([true, true, true, true, false], 0.05, 0.25, 5).alarm_at, 4, "доля серьёзных ошибок: четыре подряд при норме 5% — тревога");
+});
+
 console.log(`\nALL PASSED (${passed})`);

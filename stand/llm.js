@@ -24,15 +24,16 @@ async function acquire() { if (!MAXC()) return; if (active < MAXC()) { active++;
 function release() { if (!MAXC()) return; active--; const w = waiters.shift(); if (w) w(); }
 
 export function createLLM({ provider = process.env.LLM_PROVIDER || "mock", model, apiKey = process.env.LLM_API_KEY, baseUrl = process.env.LLM_BASE_URL,
-  budgetTokens = Number(process.env.LLM_BUDGET_TOKENS || 3_000_000), usageFile = null, role = "agent", mock = null, shared = null } = {}) {
+  budgetTokens = Number(process.env.LLM_BUDGET_TOKENS || 3_000_000), usageFile = null, role = "agent", mock = null, shared = null, tag = null, onLog = null } = {}) {
+  // tag() — метки к записи расхода (например, фаза работы и раунд); onLog(row) — учёт расхода у вызывающего (цена ответа)
   // shared — общий бюджет на несколько ролей (например, на всех агентов стенда): { used, limit }
   const usage = { calls: 0, input: 0, output: 0, errors: 0 };
-  const log = (row) => { if (!usageFile) return; try { mkdirSync(dirname(usageFile), { recursive: true }); appendFileSync(usageFile, JSON.stringify({ ts: new Date().toISOString(), role, model, ...row }) + "\n"); } catch {} };
+  const log = (row) => { const full = { ts: new Date().toISOString(), role, model, ...(tag ? tag() : {}), ...row }; try { onLog?.(full); } catch {} if (!usageFile) return; try { mkdirSync(dirname(usageFile), { recursive: true }); appendFileSync(usageFile, JSON.stringify(full) + "\n"); } catch {} };
 
   async function raw(system, user, { maxTokens = 2000, temperature = 0 } = {}) {
     if (usage.input + usage.output >= budgetTokens) throw new Error(`бюджет токенов исчерпан (${budgetTokens})`);
     if (shared && shared.used >= shared.limit) throw new Error(`общий бюджет токенов стенда исчерпан (${shared.limit})`);
-    if (provider === "mock") { const text = mock(system, user); usage.calls++; usage.input += Math.ceil((system.length + user.length) / 4); usage.output += Math.ceil(text.length / 4); return text; }
+    if (provider === "mock") { const text = mock(system, user), inT = Math.ceil((system.length + user.length) / 4), outT = Math.ceil(text.length / 4); usage.calls++; usage.input += inT; usage.output += outT; log({ in: inT, out: outT, mock: true }); return text; }
     if (!apiKey && !(provider === "gigachat" && process.env.GIGACHAT_AUTH_KEY)) throw new Error("не задан LLM_API_KEY (или GIGACHAT_AUTH_KEY для GigaChat)");
     // повторы: при 429 (лимит запросов) и 5xx — до LLM_RETRIES попыток с растущей паузой (не больше 30 с)
     const RETRIES = Number(process.env.LLM_RETRIES || 5);

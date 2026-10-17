@@ -1,6 +1,6 @@
 {
   "name": "xonta-agent-passport",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Agent passport and A2O2A orchestrator: verifiable attestations, MCP server checks, tester agent, signals for AI agents",
   "type": "module",
   "license": "Apache-2.0",

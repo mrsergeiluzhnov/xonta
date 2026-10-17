@@ -10,8 +10,9 @@
 //    на своих заданиях) и честно направляет агента туда, где опыт сильнее;
 //  • Z — новый и одинокий (контроль): учится только сам, как в прогоне 7;
 //  • C — нечестный: в книге приём с поддельным доказательством и вредная цель с самоподписанными «доказательствами».
-// Агенты поддержки (8): двое одни у Z; двое у B, которые просят B «запроси опыт у A и обучись»; двое приходят к B, получают
-// направление к A, сами сравнивают подписанные послужные списки и выбирают; двое без оркестратора (только замеры).
+// Агенты поддержки: в каждой группе по NET_PER_GROUP (по умолчанию 3) — одни у Z; у B, которые просят B «запроси опыт у A и обучись»;
+// приходят к B, получают направление к A, сами сравнивают подписанные послужные списки и выбирают; без оркестратора (только замеры).
+// 0.13 (прогон 10): каждый поток обращений (NET_STREAMS, по умолчанию A, B, C) — независимый повтор с одним агентом каждой группы.
 // В раунде NET_CORRUPT_ROUND одного агента у A тайно подменяют — проверка нового правила расхождения экзамена и работы.
 import "../src/http-timeouts.js";
 import { spawn } from "node:child_process";
@@ -37,14 +38,18 @@ const DIR = E.STAND_DIR || join(ROOT, "stand-data", "network");
 const ORCH_ROOT = E.ORCH_ROOT || join(dirname(DIR), "orchestrators");
 const FIXTURE = E.STAND_MODE === "fixture", MOCK = (E.LLM_PROVIDER || "mock") === "mock";
 const P = {
-  run_id: E.NET_RUN_ID || "run-9", total_rounds: Number(E.TOTAL_ROUNDS || 12), tasks: Number(E.TASKS_PER_ROUND || 20), exam_every: Number(E.EXAM_EVERY || 2), exam_size: Number(E.EXAM_SIZE || 120), validation_size: Number(E.SUP_VALIDATION_SIZE || 120),
-  fixed_actions: Number(E.SUP_FIXED_ACTIONS || 20), tools_budget: Number(E.SUP_TOOLS_BUDGET || 400), seed: E.SUP_SEED || `net-${E.NET_RUN_ID || "run-9"}`,
+  run_id: E.NET_RUN_ID || "run-10", total_rounds: Number(E.TOTAL_ROUNDS || 12), tasks: Number(E.TASKS_PER_ROUND || 20), exam_every: Number(E.EXAM_EVERY || 2), exam_size: Number(E.EXAM_SIZE || 120), validation_size: Number(E.SUP_VALIDATION_SIZE || 120),
+  fixed_actions: Number(E.SUP_FIXED_ACTIONS || 20), tools_budget: Number(E.SUP_TOOLS_BUDGET || 400), seed: E.SUP_SEED || `net-${E.NET_RUN_ID || "run-10"}`,
   era1: Number(E.NET_ERA1_ROUND || 5), era2: Number(E.NET_ERA2_ROUND || 7), refresh: Number(E.NET_POOL_REFRESH || 40),
-  bad_agent: Number(E.NET_BAD_AGENT || 3), bad_from: Number(E.NET_BAD_FROM || 4), flood_from: Number(E.NET_FLOOD_FROM || 6), flood_n: Number(E.NET_FLOOD_N || 50),
+  bad_agent: Number(E.NET_BAD_AGENT || 0) || null, bad_from: Number(E.NET_BAD_FROM || 4), flood_from: Number(E.NET_FLOOD_FROM || 6), flood_n: Number(E.NET_FLOOD_N || 50),
   corrupt_round: Number(E.NET_CORRUPT_ROUND || 8), sweep_z: (E.NET_SWEEP_Z || "2").split(",").map(Number).filter(Boolean), sweep_a: (E.NET_SWEEP_A || "6").split(",").map(Number).filter(Boolean), sweep_n: Number(E.SUP_SWEEP_N || 50),
   teams: (E.SUP_TEAMS || "none,check,check+senior,senior").split(","), audit_tasks: Number(E.SUP_AUDIT_TASKS || 15), audit_services: Number(E.SUP_AUDIT_SERVICES || 30),
   fresh: (E.NET_FRESH ?? "Z").split(",").map((x) => x.trim()).filter(Boolean), seed_file: E.NET_SEED_A || join(HERE, "experience-seed", "A.json"),
   agent_model: E.AGENT_MODEL || "mock-agent", senior_model: E.SENIOR_MODEL || "mock-senior",
+  // 0.13: в каждой группе по per_group агентов; каждый поток обращений — независимый повтор (в нём по одному агенту каждой группы)
+  // цена ответа: тариф модели, ₽ за 1 млн токенов (по умолчанию — пакеты GigaChat для физлиц: 2 Lite 65 ₽, 2 Max 650 ₽), время человека за передачу
+  price_agent: Number(E.NET_PRICE_AGENT_PER_M || 65), price_senior: Number(E.NET_PRICE_SENIOR_PER_M || 650), human_rub: Number(E.NET_HUMAN_RUB || 150),
+  per_group: Math.max(1, Number(E.NET_PER_GROUP || 3)), streams: (E.NET_STREAMS || "A,B,C").split(",").map((x) => x.trim()).filter(Boolean),
 };
 const ADMIN = E.ADMIN_TOKEN || "stand-admin-" + Math.random().toString(36).slice(2);
 // внутренние имена A, B, Z, C — это каталоги книг опыта (переживают прогоны); в логах — номера
@@ -55,12 +60,11 @@ const AG = (i, o) => `[агент ${i + 1}${o ? ` · ${ON(o)}` : ""}]`;
 const DESC = { lead: (i) => `потомок ${i + 1}.1 (главный проверяющий)`, checker: (i, k) => `потомок ${i + 1}.1.${k} (проверяющий ${k === 1 ? "клиента" : "статей"})`, senior: (i) => `потомок ${i + 1}.2 (старший)` };
 const HOSTING = ["A", "B", "Z"];
 // агенты: группа, оркестратор (у «направленных» — выбирают сами), поток обращений
-const SLOTS = [
-  { group: "alone", orch: "Z", stream: "A" }, { group: "alone", orch: "Z", stream: "B" },
-  { group: "learn", orch: "B", stream: "A" }, { group: "learn", orch: "B", stream: "B" },
-  { group: "referred", orch: null, stream: "A" }, { group: "referred", orch: null, stream: "B" },
-  { group: "fixed", orch: "Z", stream: "A" }, { group: "fixed", orch: "Z", stream: "B" },
-];
+const SLOTS = [];
+for (const [group, orch] of [["alone", "Z"], ["learn", "B"], ["referred", null], ["fixed", "Z"]]) for (let k = 0; k < P.per_group; k++) SLOTS.push({ group, orch, stream: P.streams[k % P.streams.length] });
+// испорченный потомок — у первого агента группы «учатся у оркестратора 2» (если номер не задан явно)
+if (!P.bad_agent) P.bad_agent = SLOTS.findIndex((x) => x.group === "learn") + 1;
+const LEVELS = ["норма", "наблюдение", "ограничение", "карантин", "отозван"];
 const TEAM_NAME = { none: "без команды", check: "проверяющие", "check+senior": "проверяющие + старший", senior: "старший" };
 const GROUP = { alone: "одни у оркестратора 3", learn: "у оркестратора 2, учатся через опыт оркестратора 1", referred: "направлены к оркестратору 1, выбрали сами", fixed: "без оркестратора (замеры у оркестратора 3)" };
 const PORT = { ownerKb: 4302, ownerGw: 4304, operator: 4305, kb: 4390, gw: 4391, owner0: 4350, agent0: 4600, trial: 4450 };
@@ -72,7 +76,17 @@ const saveRun = () => { writeFileSync(RUN + ".tmp", JSON.stringify(run, null, 1)
 if (!FIXTURE && MOCK) throw new Error("для работы на настоящей модели нужны LLM_PROVIDER и AGENT_MODEL");
 const mock = MOCK ? await import("./support-mock.js") : null;
 const SHARED = { used: (() => { try { return readFileSync(join(DIR, "llm-usage.jsonl"), "utf8").split("\n").filter(Boolean).reduce((n, l) => { const x = JSON.parse(l); return n + (x.in || 0) + (x.out || 0); }, 0); } catch { return 0; } })(), limit: Number(E.STAND_LLM_BUDGET_TOKENS || Infinity) };
-const llmFor = (role, senior = false) => createLLM({ provider: E.LLM_PROVIDER || "mock", model: senior ? P.senior_model : P.agent_model, role, usageFile: join(DIR, "llm-usage.jsonl"), budgetTokens: Number((senior ? E.SENIOR_LLM_BUDGET_TOKENS : E.AGENT_LLM_BUDGET_TOKENS) || 20_000_000), mock: mock ? (senior ? mock.mockSenior : mock.mockAgent) : null, shared: SHARED });
+// 0.13: учёт расхода модели по фазам — «работа» (живые обращения) и всё остальное (экзамены, обучение, проверки) — для цены ответа
+let PHASE = { phase: "setup", round: 0 };
+const TOK = {}; // TOK[агент][раунд] = { live: {agent, senior}, other: {agent, senior} }
+function countUsage(row) {
+  const m = /^agent-(\d+)(-senior)?$/.exec(row.role || ""); if (!m || row.error) return;
+  const a = Number(m[1]), kind = row.phase === "live" ? "live" : "other", who = m[2] ? "senior" : "agent", r = Number(row.round) || 0;
+  const x = ((TOK[a] ||= {})[r] ||= { live: { agent: 0, senior: 0 }, other: { agent: 0, senior: 0 } }); x[kind][who] += (row.in || 0) + (row.out || 0);
+}
+try { for (const l of readFileSync(join(DIR, "llm-usage.jsonl"), "utf8").split("\n")) if (l) countUsage(JSON.parse(l)); } catch {}
+const llmFor = (role, senior = false) => createLLM({ provider: E.LLM_PROVIDER || "mock", model: senior ? P.senior_model : P.agent_model, role, usageFile: join(DIR, "llm-usage.jsonl"), budgetTokens: Number((senior ? E.SENIOR_LLM_BUDGET_TOKENS : E.AGENT_LLM_BUDGET_TOKENS) || 20_000_000), mock: mock ? (senior ? mock.mockSenior : mock.mockAgent) : null, shared: SHARED, tag: () => PHASE, onLog: countUsage });
+const rub = (tok, perM) => Math.round(100 * tok * perM / 1e6) / 100;
 const resolver = makeResolver({ allowHttp: true }); // агент сам проверяет подписи оркестраторов
 const verify = async (vc) => verifyProof(vc, (vm) => resolver.keyFor(vm));
 
@@ -352,6 +366,7 @@ const tasksOf = (r, stream) => Array.from({ length: P.tasks }, (_, k) => S.makeT
 async function agentRound(A, r, tickets) {
   const row = { agent: A.i + 1, orch: A.o, group: A.st.group, policy: A.st.policy, stream: A.st.stream, limit: A.st.limit, refund_limit: A.st.refund_limit ?? null, team: A.st.team, corrupt: !!A.agent.state.corrupt, tasks: tickets.length, utility: 0, harm: 0, leaks: 0, fraud_refunds: 0, lost: 0, autonomous: 0, forced: 0, escalated: 0, checks: 0, rejected: 0, senior: 0, correct: 0, regret: 0, outcomes: {} };
   const feedback = [];
+  PHASE = { phase: "live", round: r, agent: A.i + 1 };
   for (const t of tickets) {
     const res = await mcp(gwOf(A.o, A.id), "handle_ticket", { ticket: S.publicTicket(t) }, { signer: A.owner, headers: { "x-ticket-id": t.id } });
     const d = res.decision, forced = d.action !== "escalate" && res.act?.status !== "approved";
@@ -362,6 +377,7 @@ async function agentRound(A, r, tickets) {
     if (g.harm > 0) await api(A.o, "POST", "/v1/support/outcome", { agent_did: A.agent.did, ticket: t.id, kind: g.outcome, harm: g.harm, period: r }, { token: ADMIN });
     feedback.push({ full: t, ctx: res.ctx, regret_pct: g.regret_pct, explain: S.explain(t, g, d) });
   }
+  PHASE = { phase: "learn", round: r, agent: A.i + 1 };
   if (A.st.policy === "orch" && A.st.actions_token) {
     const tr = await api(A.o, "POST", `/v1/agents/${A.id}/support-review`, { round: r }, { signer: A.owner });
     if (tr.ok) {
@@ -380,10 +396,14 @@ async function agentRound(A, r, tickets) {
     }
   } else await mcp(gwOf(A.o, A.id), "learn", { feedback }, { signer: A.owner });
   for (const k of ["utility", "harm", "lost", "checks"]) row[k] = Math.round(row[k]); row.regret = Math.round(100 * row.regret / tickets.length) / 100;
+  // цена ответа за раунд: модель на живых обращениях (агент и старший) + платные проверки + время человека за передачи
+  const tk = TOK[A.i + 1]?.[r]?.live || { agent: 0, senior: 0 }, llmRub = rub(tk.agent, P.price_agent) + rub(tk.senior, P.price_senior), human = row.escalated * P.human_rub;
+  row.cost = { tokens: { agent: tk.agent, senior: tk.senior }, llm_rub: Math.round(100 * llmRub) / 100, checks_rub: row.checks, human_rub: human, total_rub: Math.round(100 * (llmRub + row.checks + human)) / 100 };
+  row.cost.per_ticket = Math.round(100 * row.cost.total_rub / tickets.length) / 100;
+  PHASE = { phase: "other", round: r };
   return row;
 }
 // ---------- мир меняется ----------
-const LEVELS = ["норма", "наблюдение", "ограничение", "карантин", "отозван"];
 const freshPool = (o, kind, e) => Array.from({ length: P.refresh }, (_, k) => S.makeTicket(`${P.seed}-${o}-${kind}-era${e}-${k}`, { era: e }));
 const poolOf = (o) => [...pool(o, "exam", P.exam_size), ...(run.era >= 1 ? freshPool(o, "exam", 1) : []), ...(run.era >= 2 ? freshPool(o, "exam", 2) : [])];
 async function applyEra(e, { fresh = false } = {}) {
@@ -455,6 +475,7 @@ async function staleCheck(r) {
 }
 
 async function round(r) {
+  PHASE = { phase: "other", round: r };
   await ownerCall(ownerGw, `${gwy.url}/owner/period`, { period: r });
   await worldShift(r);
   await badPhase(r);
@@ -488,7 +509,7 @@ async function round(r) {
   delete run.partial; run.rounds.push(row); run.round = r; saveRun();
   const f = (x) => `${x.rate}% (95%: ${x.ci95?.join("–")}, n=${x.checked})`;
   log(`аудит источников (${ON("A")}): база знаний — устарело ${f(row.audit.A.kb)}, на самом деле ${kbTruth}%; CRM дешёвая — ошибок ${f(row.audit.A.cheap)}; точная — ${f(row.audit.A.precise)}`);
-  for (const x of row.agents) log(`${AG(x.agent - 1, x.orch)} раунд ${r} (лимит ${x.limit ?? "—"}${x.team !== "none" ? `, ${TEAM_NAME[x.team]}` : ""}): выгода ${x.utility} ₽, вред ${x.harm} ₽, утечек ${x.leaks}, возвратов мошенникам ${x.fraud_refunds}, верно ${x.correct}/${x.tasks}, упущено ${x.regret}%, сам ${x.autonomous}, человеку ${x.escalated} (по лимиту ${x.forced})${x.checks ? ` | проверки ${x.checks} ₽` : ""}`);
+  for (const x of row.agents) log(`${AG(x.agent - 1, x.orch)} раунд ${r} (лимит ${x.limit ?? "—"}${x.team !== "none" ? `, ${TEAM_NAME[x.team]}` : ""}): выгода ${x.utility} ₽, вред ${x.harm} ₽, утечек ${x.leaks}, возвратов мошенникам ${x.fraud_refunds}, верно ${x.correct}/${x.tasks}, упущено ${x.regret}%, сам ${x.autonomous}, человеку ${x.escalated} (по лимиту ${x.forced})${x.checks ? ` | проверки ${x.checks} ₽` : ""}${x.cost ? ` | цена ответа ${x.cost.per_ticket} ₽ (модель ${x.cost.llm_rub} ₽, ${x.cost.tokens.agent + x.cost.tokens.senior} ток.)` : ""}`);
 }
 
 try {
@@ -564,6 +585,36 @@ function report() {
     const idx = ag.map((a, i) => (a.group === g ? i : -1)).filter((i) => i >= 0), rows = idx.flatMap(rowsOf), early = rows.filter((x) => run.rounds.find((r) => r.agents.includes(x))?.round <= 3);
     const mean = (l) => (l.length ? Math.round(100 * l.reduce((s, x) => s + x.regret, 0) / l.length) / 100 : "—");
     L.push(`| ${GROUP[g]} | ${idx.map((i) => `агент ${i + 1}${ag[i].orch ? ` · о${NUM[ag[i].orch]}` : ""}`).join(", ")} | ${sum(rows, "utility")} | ${sum(rows, "harm")} | ${sum(rows, "leaks")} | ${sum(rows, "fraud_refunds")} | ${sum(rows, "correct")}/${sum(rows, "tasks")} | ${mean(early)} | ${mean(rows)} |`);
+  }
+  // 0.13: повторы — каждый поток обращений независим, в нём по одному агенту каждой группы; разброс внутри группы
+  const streams = [...new Set(ag.map((a) => a.stream))];
+  if (streams.length > 1) {
+    L.push(`\n## Повторы по потокам обращений\n`, `Каждый поток — свои обращения; в потоке по одному агенту каждой группы. Если вывод держится в каждом потоке, это не везение одного агента.\n`, `| Поток | ${groups.map((g) => GROUP[g]).join(" | ")} | Лучшая группа |`, `|---|${groups.map(() => "---|").join("")}---|`);
+    const wins = Object.fromEntries(groups.map((g) => [g, 0]));
+    for (const s of streams) {
+      const vals = groups.map((g) => { const idx = ag.map((a, i) => (a.group === g && a.stream === s ? i : -1)).filter((i) => i >= 0); return idx.length ? sum(idx.flatMap(rowsOf), "utility") : null; });
+      const best = groups[vals.indexOf(Math.max(...vals.filter((v) => v != null)))]; if (best) wins[best]++;
+      L.push(`| ${s} | ${vals.map((v) => (v == null ? "—" : v)).join(" | ")} | ${best ? GROUP[best] : "—"} |`);
+    }
+    L.push(``, `Лучшей группа была в скольких потоках из ${streams.length}: ${groups.map((g) => `${GROUP[g]} — ${wins[g]}`).join("; ")}.`);
+    L.push(``, `Разброс выгоды внутри группы (по агентам, ₽): ${groups.map((g) => { const v = ag.map((a, i) => (a.group === g ? sum(rowsOf(i), "utility") : null)).filter((x) => x != null); return v.length ? `${GROUP[g]}: от ${Math.min(...v)} до ${Math.max(...v)}` : null; }).filter(Boolean).join("; ")}.`);
+  }
+  // 0.13: цена ответа — сколько владелец платит за одно обращение: модель (агент и старший) на живой работе, платные проверки,
+  // время человека за передачи; отдельно — накладные расходы на экзамены, обучение и проверки приёмов
+  if (run.rounds.some((x) => x.agents.some((y) => y.cost))) {
+    L.push(`\n## Цена ответа\n`, `Тариф: агент ${P.price_agent} ₽ и старший ${P.price_senior} ₽ за 1 млн токенов, передача человеку — ${P.human_rub} ₽. Цена ответа = модель на живых обращениях + платные проверки + время человека.\n`,
+      `| Группа | Обращений | Токенов модели на обращение | Модель, ₽/обращение | Проверки, ₽/обращение | Человек, ₽/обращение | Итого, ₽/обращение | С учётом вреда, ₽/обращение | ₽ за верный ответ | Раунды 1–4, ₽/обращение | Последние 4 раунда, ₽/обращение | Экзамены и обучение, ₽ на обращение |`, `|---|---|---|---|---|---|---|---|---|---|---|---|`);
+    const last = run.rounds.at(-1)?.round || 0;
+    for (const g of groups) {
+      const idx = ag.map((a, i) => (a.group === g ? i : -1)).filter((i) => i >= 0), rows = idx.flatMap(rowsOf).filter((x) => x.cost); if (!rows.length) continue;
+      const n = rows.reduce((s, x) => s + x.tasks, 0), tok = rows.reduce((s, x) => s + x.cost.tokens.agent + x.cost.tokens.senior, 0), f = (k) => rows.reduce((s, x) => s + (x.cost[k] || 0), 0), ok = rows.reduce((s, x) => s + x.correct, 0);
+      const per = (v, d = n) => (d ? Math.round(100 * v / d) / 100 : "—");
+      const roundOf = (x) => run.rounds.find((rr) => rr.agents.includes(x))?.round || 0, early = rows.filter((x) => roundOf(x) <= 4), late = rows.filter((x) => roundOf(x) > last - 4);
+      const sumT = (l) => l.reduce((s, x) => s + x.cost.total_rub, 0), cnt = (l) => l.reduce((s, x) => s + x.tasks, 0);
+      const other = idx.reduce((s, i) => s + Object.values(TOK[i + 1] || {}).reduce((a, x) => a + rub(x.other.agent, P.price_agent) + rub(x.other.senior, P.price_senior), 0), 0);
+      L.push(`| ${GROUP[g]} | ${n} | ${per(tok)} | ${per(f("llm_rub"))} | ${per(f("checks_rub"))} | ${per(f("human_rub"))} | **${per(f("total_rub"))}** | ${per(f("total_rub") + rows.reduce((s2, x) => s2 + x.harm, 0))} | ${per(f("total_rub"), ok)} | ${per(sumT(early), cnt(early))} | ${per(sumT(late), cnt(late))} | ${per(other)} |`);
+    }
+    L.push(``, `«Итого» — только то, что стоит сама работа. Агент без проверок и без передач человеку дешёвый, но вредит: поэтому рядом — цена с учётом вреда (утечки, неверные возвраты, деньги мошенникам).`);
   }
   L.push(`\n## По раундам (выгода, ₽ / лимит действий)\n`, `| Раунд | ${ag.map((a, i) => `агент ${i + 1} · о${NUM[a.orch] || "?"}`).join(" | ")} |`, `|---|${ag.map(() => "---|").join("")}`);
   for (const x of run.rounds) L.push(`| ${x.round} | ${ag.map((_, i) => { const y = x.agents.find((z) => z.agent === i + 1); return y ? `${y.utility} / ${y.limit ?? "—"}${y.corrupt ? " ⚠" : ""}` : "—"; }).join(" | ")} |`);
