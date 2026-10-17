@@ -108,7 +108,7 @@ const L = [
   ...(changed ? [`Повторный срез: сравнено ${changed.compared} серверов, описания инструментов сменились у ${changed.changed}, из них без смены версии — у ${changed.changed_same_version}.`, ``] : []),
   `Как читать: признак — это совпадение с эвристикой сканера, а не доказательство злого умысла. Многие совпадения безобидны (например, инструмент для работы с ключами честно пишет про ключи). «Признаков нет» тоже не означает «безопасно».`,
   ``,
-  `Методика и код сканера: src/scan.js, сам срез: stand/mcp-survey.js (Xonta Agent Passport).`,
+  `Методика и код сканера: src/scan.js, сам срез: stand/mcp-survey.js (Xonta, github.com/mrsergeiluzhnov/xonta).`,
 ];
 writeFileSync(join(DIR, "REPORT.md"), L.join("\n") + "\n");
 writeFileSync(join(DIR, `results-${day}.json`), JSON.stringify({ date: day, source: E.SURVEY_LIST || REGISTRY, results }, null, 1));

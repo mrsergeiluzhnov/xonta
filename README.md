@@ -1,6 +1,6 @@
-# Xonta Agent Passport
+# Xonta
 
-**Открытая инфраструктура доверия для ИИ-агентов.** Тесты агент прошёл. А можно ли пустить его в работу с деньгами и данными клиентов, и насколько? Xonta отвечает на это доказательствами, которые может проверить кто угодно, а не оценкой «из 100», которой надо поверить на слово.
+**Открытая инфраструктура доверия для ИИ-агентов.** Тесты агент прошёл. А можно ли пустить его в работу с деньгами и данными клиентов, и насколько? Xonta отвечает на это доказательствами, которые может проверить кто угодно, а не оценкой «из 100», которой надо поверить на слово. Паспорт агента (набор подписанных аттестатов) — одна из частей Xonta.
 
 *English summary below.*
 
@@ -19,8 +19,8 @@
 ## Результат за 5 минут
 
 ```bash
-git clone https://github.com/mrsergeiluzhnov/xonta-agent-passport
-cd xonta-agent-passport && npm ci
+git clone https://github.com/mrsergeiluzhnov/xonta
+cd xonta && npm ci
 npm run trust-report
 ```
 
@@ -189,7 +189,7 @@ curl -X POST $BASE/v1/verify -H "Content-Type: application/json" -d '{"agent":"'
 
 ## English summary
 
-**Xonta Agent Passport** is an open-source reference implementation of an *agent passport*: a set of independent, verifiable attestations about an AI agent (W3C VC 2.0, `eddsa-jcs-2022`, byte-identical to the W3C test vector), `did:web` identifiers, Bitstring Status List revocation, daily Merkle anchoring with OpenTimestamps, an MCP server scanner for tool-poisoning signs, and an **A2O2A** (agent → orchestrator → agent) gateway with a signed tester agent, traffic-based reputation and owner-facing signals (scale out, extract a deterministic tool chain, spawn a specialist). Version 0.2 adds descendants: an owner-signed mandate plus a parent-signed lineage credential, signed improvement proposals evaluated rule-by-rule on held-out data from an independent generator agent, ablation-based contribution credentials, and cascade suspension. A reproducible experiment (`npm run lab`, see `lab/REPORT.md`) compares a root agent with descendants against a lone control. Versions 0.3–0.12 add the orchestrator: exams with a harm budget, controlled advice with signed outcomes, an experience book kept across runs, verified experience exchange between orchestrators with signed track records, and supervision of descendants (mandate-enforced call limits at the gateway, canaries, quarantine and revocation). `npm run trust-report` produces an evidence-based report for a demo agent in a few minutes, with autonomy computed per verifier policy rather than a single score. The orchestrator only recommends; it never changes connected agents. The verifier computes the trust level from its own policy.
+**Xonta** is open trust infrastructure for AI agents. It includes an open-source reference implementation of an *agent passport*: a set of independent, verifiable attestations about an AI agent (W3C VC 2.0, `eddsa-jcs-2022`, byte-identical to the W3C test vector), `did:web` identifiers, Bitstring Status List revocation, daily Merkle anchoring with OpenTimestamps, an MCP server scanner for tool-poisoning signs, and an **A2O2A** (agent → orchestrator → agent) gateway with a signed tester agent, traffic-based reputation and owner-facing signals (scale out, extract a deterministic tool chain, spawn a specialist). Version 0.2 adds descendants: an owner-signed mandate plus a parent-signed lineage credential, signed improvement proposals evaluated rule-by-rule on held-out data from an independent generator agent, ablation-based contribution credentials, and cascade suspension. A reproducible experiment (`npm run lab`, see `lab/REPORT.md`) compares a root agent with descendants against a lone control. Versions 0.3–0.12 add the orchestrator: exams with a harm budget, controlled advice with signed outcomes, an experience book kept across runs, verified experience exchange between orchestrators with signed track records, and supervision of descendants (mandate-enforced call limits at the gateway, canaries, quarantine and revocation). `npm run trust-report` produces an evidence-based report for a demo agent in a few minutes, with autonomy computed per verifier policy rather than a single score. The orchestrator only recommends; it never changes connected agents. The verifier computes the trust level from its own policy.
 
 ## Лицензия
 
