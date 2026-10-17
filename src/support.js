@@ -194,6 +194,18 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
   // 0.13.3: агент с командой проверяющих вдруг перестал её звать. Вызовы потомков и платные проверки идут через
   // оркестратора и шлюз — скрыть это агент не может. Сравнение с его же нормой (₽ проверок на обращение) за прошлые
   // периоды с той же конфигурацией; работает и посреди периода (контрольная точка), до первого вреда
+  // 0.13.3: мир меняется для всех. Если вред вырос у всех агентов этого оркестратора, это не подмена конкретного агента.
+  // Норма для тестов — не ниже медианы свежего вреда на действие у остальных агентов (последние два периода, у кого
+  // не меньше 5 действий; нужно хотя бы два таких агента); то же для доли серьёзного вреда
+  function peerNorm(rec) {
+    const l = ledger(), last = curPeriodOf(), from = last - 1, harmBy = {}, sevBy = {};
+    for (const x of l.losses || []) if ((Number(x.period) || 0) >= from) { harmBy[x.agent_did] = (harmBy[x.agent_did] || 0) + (x.harm || 0); if ((x.harm || 0) >= CFG.drift_severe) sevBy[x.agent_did] = (sevBy[x.agent_did] || 0) + 1; }
+    const acts = {}; for (const x of l.tx) if (x.kind === "action" && x.status === "approved" && x.action !== "escalate" && (Number(x.period) || 0) >= from) acts[x.agent_did] = (acts[x.agent_did] || 0) + 1;
+    const peers = Object.values(store.get("agents", {})).filter((a) => a.id !== rec.id && a.did !== rec.did && !a.parent && a.status === "active" && a.support?.exam_harm != null && (acts[a.did] || 0) >= 5 && !a.support?.drift_at);
+    if (peers.length < 2) return null;
+    const med = (v) => { const x = [...v].sort((a, b) => a - b); return x[Math.floor(x.length / 2)]; };
+    return { harm: Math.round(med(peers.map((a) => (harmBy[a.did] || 0) / acts[a.did]))), severe_share: med(peers.map((a) => (sevBy[a.did] || 0) / acts[a.did])), peers: peers.length };
+  }
   const harmParams = (he) => ({ mu0: he, delta: Math.max(CFG.harm_delta, he), h: Math.max(CFG.harm_h, 10 * he), critical: Math.max(CFG.harm_critical, 3 * he), min_crit: CFG.harm_min_crit });
   function bypassOf(rec) {
     const team = caps()[rec.id]?.team || "none"; if (team === "none") return null;
@@ -219,7 +231,9 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     let limit = Math.min(target, Math.floor(top));
     // расхождение экзамена и работы: доля серьёзных вредных действий в работе значимо выше экзаменационной — подмена или
     // поломка. Биномиальный критерий: каждый из двух последних периодов p < drift_period_p и вместе p < drift_p
-    const recent = liveOf(rec, 2), sp = severeByPeriod(rec), es = rec.support?.exam_severe || { k: 0, n: 0 }, p0 = Math.min(0.9, Math.max(0.01, (es.k + 0.5) / (es.n + 1)));
+    const pn = peerNorm(rec), es = rec.support?.exam_severe || { k: 0, n: 0 };
+    const recent = liveOf(rec, 2), sp = severeByPeriod(rec), p0 = Math.min(0.9, Math.max(0.01, (es.k + 0.5) / (es.n + 1), pn?.severe_share ?? 0));
+    const heT = Math.max(he, pn?.harm ?? 0); // норма для тестов расхождения
     const tests = sp.map((x) => ({ ...x, p: binomTail(x.k, x.n, p0) })), pooled = tests.reduce((a, x) => ({ k: a.k + x.k, n: a.n + x.n }), { k: 0, n: 0 });
     const pPooled = binomTail(pooled.k, pooled.n, p0);
     // 0.12: (а) один явный период — сразу (≥10 действий и p < 0.005); (б) два периода подряд, как раньше;
@@ -236,7 +250,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     const cusumAlarm = cs.score >= CFG.cusum_h && cs.severe >= CFG.cusum_min_severe;
     // 0.13.3: пороги — от собственной нормы агента. У агента без команды крупный вред бывает и на экзамене; ловим
     // сдвиг хотя бы вдвое против его нормы, а не против нормы агента с проверяющими
-    const hp = harmParams(he);
+    const hp = harmParams(heT);
     const ch = cusumHarm(harmSeq(rec, seqFrom), hp), harmAlarm = ch.alarm_at != null;
     const bypass = bypassOf(rec);
     // до первой тревоги «два периода подряд» и «с момента урезания» не смотрят дальше смены конфигурации по совету
@@ -245,7 +259,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     // агент только советует, решает человек. Лёгкое — 3 действия под наблюдением
     const severeNow = (harmAlarm && ch.peak >= CFG.drift_severe_peak) || !!single;
     const driftLevel = drift ? (severeNow || rec.support?.drift_level === "severe" ? "severe" : "mild") : rec.support?.drift_level || null;
-    const driftWhy = bypass && !harmAlarm && !single ? `команда «${TEAM_NAME[bypass.team] || bypass.team}» перестала вызываться: проверок на ${bypass.per_ticket} ₽ за обращение при норме ${bypass.norm} ₽ (${bypass.tickets} обращений в периоде ${bypass.period})` : harmAlarm && !single ? `последовательный тест по вреду: накопленный перевес ${ch.peak} ₽ ≥ ${ch.h} ₽, в нём ${ch.crit_in_rise} крупных случая (от ${CFG.harm_critical} ₽) — при обычном вреде на экзамене ${he} ₽ на действие` : cusumAlarm && !single ? `последовательный тест: накопленный перевес ${cs.score} ≥ ${CFG.cusum_h} (${cs.severe} серьёзных из ${cs.n} действий; доля на экзамене ${Math.round(1000 * cp0) / 10}%, проверяемая порча — ${Math.round(100 * cp1)}%)` : single ? `один период: ${single.k} серьёзных из ${single.n} (p = ${single.p.toPrecision(2)})` : since && since.n >= 4 && pSince < CFG.drift_p ? `с момента урезания: ${since.k} серьёзных из ${since.n} (p = ${pSince.toPrecision(2)})` : drift ? `два периода подряд (p = ${pPooled.toPrecision(2)})` : null;
+    const driftWhy = bypass && !harmAlarm && !single ? `команда «${TEAM_NAME[bypass.team] || bypass.team}» перестала вызываться: проверок на ${bypass.per_ticket} ₽ за обращение при норме ${bypass.norm} ₽ (${bypass.tickets} обращений в периоде ${bypass.period})` : harmAlarm && !single ? `последовательный тест по вреду: накопленный перевес ${ch.peak} ₽ ≥ ${ch.h} ₽, в нём ${ch.crit_in_rise} крупных случая (от ${CFG.harm_critical} ₽) — при обычном вреде ${heT} ₽ на действие (${heT > he ? `у остальных агентов сейчас; на экзамене ${he} ₽` : "на экзамене"})` : cusumAlarm && !single ? `последовательный тест: накопленный перевес ${cs.score} ≥ ${CFG.cusum_h} (${cs.severe} серьёзных из ${cs.n} действий; доля на экзамене ${Math.round(1000 * cp0) / 10}%, проверяемая порча — ${Math.round(100 * cp1)}%)` : single ? `один период: ${single.k} серьёзных из ${single.n} (p = ${single.p.toPrecision(2)})` : since && since.n >= 4 && pSince < CFG.drift_p ? `с момента урезания: ${since.k} серьёзных из ${since.n} (p = ${pSince.toPrecision(2)})` : drift ? `два периода подряд (p = ${pPooled.toPrecision(2)})` : null;
     recent.severe = { periods: tests.map((x) => ({ period: x.period, severe: x.k, actions: x.n, p: Number(x.p.toPrecision(3)) })), exam_share: Math.round(1000 * p0) / 10, p_pooled: Number(pPooled.toPrecision(3)), cusum: { ...cs, h: CFG.cusum_h, p0: cp0, p1: cp1 }, cusum_harm: ch };
     // однажды замеченное расхождение держит права на минимуме до повторной проверки владельцем: экзамен его не снимает —
     // подменённый агент экзамен как раз сдаёт
@@ -260,7 +274,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
       const advAfter = changes().some((x) => x.agent === rec.id && String(x.kind).startsWith("advice:") && dp != null && x.round >= dp);
       const recheck = rec.support?.owner_recheck_at && rec.support.owner_recheck_at > da;
       const freshExam = dp != null && (rec.support?.exam_round ?? -1) > dp;
-      const after = dp != null ? severeSince(rec, dp + 1) : { n: 0, k: 0 }, afterHarm = dp != null ? cusumHarm(harmSeq(rec, dp + 1), harmParams(he)) : null;
+      const after = dp != null ? severeSince(rec, dp + 1) : { n: 0, k: 0 }, afterHarm = dp != null ? cusumHarm(harmSeq(rec, dp + 1), harmParams(heT)) : null;
       const cause = childOut ? `испорченный потомок ${ci2.child} ${store.get("agents", {})[ci2.child]?.status === "revoked" ? "отозван" : "на карантине"}` : advAfter ? "конфигурация сменена по совету оркестратора" : recheck ? "владелец провёл повторную проверку" : null;
       if (freshExam && cause) recover = { why: `${cause}; новый экзамен после тревоги сдан` };
       else if (freshExam && driftLevel !== "severe" && after.n >= CFG.recover_n && after.k === 0 && afterHarm?.alarm_at == null) recover = { why: `после тревоги ${after.n} самостоятельных действий без серьёзного вреда; новый экзамен сдан` };
