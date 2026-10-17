@@ -122,7 +122,7 @@ export function createPolicy(policy = {}) {
 async function connectUpstream({ url = null, command = null, args = [], env = {} }) {
   const client = new Client({ name: "xonta-gate", version: "0.1.0" });
   const transport = url ? new StreamableHTTPClientTransport(new URL(url)) : new StdioClientTransport({ command, args, env: { ...process.env, ...env }, stderr: "inherit" });
-  await client.connect(transport);
+  await client.connect(transport, { timeout: 300000 }); // первый запуск через npx может долго скачивать сервер
   return client;
 }
 
@@ -130,7 +130,7 @@ async function connectUpstream({ url = null, command = null, args = [], env = {}
 export async function startGate({ upstream, policy = {}, dir = join(homedir(), ".xonta-gate"), serve = "stdio", port = 4950, name = "xonta-gate" } = {}) {
   const pol = createPolicy(policy), audit = openAudit(dir), up = await connectUpstream(upstream);
   const refresh = async () => {
-    const { tools } = await up.listTools();
+    const { tools } = await up.listTools(undefined, { timeout: 300000 });
     const r = pol.setTools(tools);
     if (r.changed) { audit.write({ event: "tools_changed", fingerprint: pol.state.fingerprint, frozen: !!pol.state.frozen }); log("tool descriptions CHANGED during the session, actions frozen"); }
     for (const h of r.hidden) log(`blocked tool ${h.tool}: ${h.why}`);

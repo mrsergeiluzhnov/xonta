@@ -52,8 +52,8 @@ if (sub === "report") {
 if (!upstream) { out("nothing to wrap. Example: xonta-gate -- npx -y @modelcontextprotocol/server-filesystem ~/Documents   (or --url https://host/mcp). See xonta-gate help"); process.exit(1); }
 if (sub === "check") {
   const client = new Client({ name: "xonta-gate-check", version: "0.1.0" });
-  await client.connect(upstream.url ? new StreamableHTTPClientTransport(new URL(upstream.url)) : new StdioClientTransport({ command: upstream.command, args: upstream.args, stderr: "ignore" }));
-  const { tools } = await client.listTools(), pol = createPolicy(policy), r = pol.setTools(tools);
+  await client.connect(upstream.url ? new StreamableHTTPClientTransport(new URL(upstream.url)) : new StdioClientTransport({ command: upstream.command, args: upstream.args, stderr: "inherit" }), { timeout: 300000 });
+  const { tools } = await client.listTools(undefined, { timeout: 300000 }), pol = createPolicy(policy), r = pol.setTools(tools);
   out(`${tools.length} tools`);
   for (const t of tools) { const h = r.hidden.find((x) => x.tool === t.name); out(`  ${h ? "BLOCK " : pol.isAction(t.name) ? "action" : "read  "}  ${t.name}${h ? `  (${h.why})` : ""}`); }
   const warn = r.findings.filter((f) => f.severity !== "low" && !r.hidden.some((h) => h.tool === f.tool));
