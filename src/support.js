@@ -194,6 +194,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
   // 0.13.3: агент с командой проверяющих вдруг перестал её звать. Вызовы потомков и платные проверки идут через
   // оркестратора и шлюз — скрыть это агент не может. Сравнение с его же нормой (₽ проверок на обращение) за прошлые
   // периоды с той же конфигурацией; работает и посреди периода (контрольная точка), до первого вреда
+  const harmParams = (he) => ({ mu0: he, delta: Math.max(CFG.harm_delta, he), h: Math.max(CFG.harm_h, 10 * he), critical: Math.max(CFG.harm_critical, 3 * he), min_crit: CFG.harm_min_crit });
   function bypassOf(rec) {
     const team = caps()[rec.id]?.team || "none"; if (team === "none") return null;
     const cur = curPeriodOf(), from = Math.max(1, rec.support?.cfg_from ?? 0);
@@ -233,7 +234,10 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     // (г) 0.13: последовательный тест по всем действиям агента — ловит «тихого» подменённого на малом лимите
     const cp0 = Math.max(CFG.cusum_p0_floor, p0), cp1 = Math.min(0.9, Math.max(CFG.cusum_p1, 5 * cp0)), cs = cusumSevere(severeSeq(rec, seqFrom), cp0, cp1, CFG.cusum_h);
     const cusumAlarm = cs.score >= CFG.cusum_h && cs.severe >= CFG.cusum_min_severe;
-    const ch = cusumHarm(harmSeq(rec, seqFrom), { mu0: he, delta: CFG.harm_delta, h: CFG.harm_h, critical: CFG.harm_critical, min_crit: CFG.harm_min_crit }), harmAlarm = ch.alarm_at != null;
+    // 0.13.3: пороги — от собственной нормы агента. У агента без команды крупный вред бывает и на экзамене; ловим
+    // сдвиг хотя бы вдвое против его нормы, а не против нормы агента с проверяющими
+    const hp = harmParams(he);
+    const ch = cusumHarm(harmSeq(rec, seqFrom), hp), harmAlarm = ch.alarm_at != null;
     const bypass = bypassOf(rec);
     // до первой тревоги «два периода подряд» и «с момента урезания» не смотрят дальше смены конфигурации по совету
     const drift = harmAlarm || cusumAlarm || !!single || !!bypass || (testsEff.length === 2 && testsEff.every((x) => x.n >= 3 && x.p < CFG.drift_period_p) && pooled.n >= CFG.drift_min && pPooled < CFG.drift_p) || (!!since && since.n >= 4 && pSince < CFG.drift_p);
@@ -256,7 +260,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
       const advAfter = changes().some((x) => x.agent === rec.id && String(x.kind).startsWith("advice:") && dp != null && x.round >= dp);
       const recheck = rec.support?.owner_recheck_at && rec.support.owner_recheck_at > da;
       const freshExam = dp != null && (rec.support?.exam_round ?? -1) > dp;
-      const after = dp != null ? severeSince(rec, dp + 1) : { n: 0, k: 0 }, afterHarm = dp != null ? cusumHarm(harmSeq(rec, dp + 1), { mu0: he, delta: CFG.harm_delta, h: CFG.harm_h, critical: CFG.harm_critical, min_crit: CFG.harm_min_crit }) : null;
+      const after = dp != null ? severeSince(rec, dp + 1) : { n: 0, k: 0 }, afterHarm = dp != null ? cusumHarm(harmSeq(rec, dp + 1), harmParams(he)) : null;
       const cause = childOut ? `испорченный потомок ${ci2.child} ${store.get("agents", {})[ci2.child]?.status === "revoked" ? "отозван" : "на карантине"}` : advAfter ? "конфигурация сменена по совету оркестратора" : recheck ? "владелец провёл повторную проверку" : null;
       if (freshExam && cause) recover = { why: `${cause}; новый экзамен после тревоги сдан` };
       else if (freshExam && driftLevel !== "severe" && after.n >= CFG.recover_n && after.k === 0 && afterHarm?.alarm_at == null) recover = { why: `после тревоги ${after.n} самостоятельных действий без серьёзного вреда; новый экзамен сдан` };
