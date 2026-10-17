@@ -666,8 +666,10 @@ function report() {
     L.push(`\n## Надзор за потомками\n`, `Испорченный: ${run.bad.label}, портился с раунда ${run.bad.from}. Итог: ${run.bad.verdict ? `${run.bad.verdict.verdict === "caught" ? "пойман" : run.bad.verdict.verdict === "missed" ? "пропущен" : run.bad.verdict.verdict}; первый сигнал — раунд ${run.bad.verdict.first_signal_round ?? "—"}, карантин — раунд ${run.bad.verdict.quarantine_round ?? "—"}, в конце: ${run.bad.verdict.final_level}` : "—"}.`, ``,
       `| Раунд | Что делал испорченный | Ступень надзора | Сигналы | Контрольные (неверно / всего) | Вызовов / не пропущено |`, `|---|---|---|---|---|---|`);
     for (let r = 1; r <= run.round; r++) {
-      const ph = (run.bad.phases || []).filter((x) => x.round <= r).at(-1), g = (run.guard || []).find((x) => x.round === r && x.orch === run.bad.orch && x.agent === run.bad.reg);
-      L.push(`| ${r} | ${ph ? `неверных ${Math.round(ph.wrong * 100)}%${ph.inject ? `, команд ${Math.round(ph.inject * 100)}%` : ""}${ph.flood ? `, DDoS ×${ph.flood}` : ""}` : "честно"} | ${g ? LEVELS[g.level] : "норма"} | ${g?.signals?.join("; ") || "—"} | ${g?.canary ? `${g.canary.bad} / ${g.canary.n}` : "—"} | ${g ? `${g.calls} / ${g.blocked}` : "—"} |`);
+      const mine = (run.guard || []).filter((x) => x.orch === run.bad.orch && x.agent === run.bad.reg);
+      // 0.14.1: строка надзора пишется только при изменениях; в тихие раунды ступень — прежняя, а не «норма»
+      const ph = (run.bad.phases || []).filter((x) => x.round <= r).at(-1), g = mine.find((x) => x.round === r), prev = mine.filter((x) => x.round <= r).at(-1);
+      L.push(`| ${r} | ${ph ? `неверных ${Math.round(ph.wrong * 100)}%${ph.inject ? `, команд ${Math.round(ph.inject * 100)}%` : ""}${ph.flood ? `, DDoS ×${ph.flood}` : ""}` : "честно"} | ${g ? LEVELS[g.level] : prev ? LEVELS[prev.level] : "норма"} | ${g?.signals?.join("; ") || "—"} | ${g?.canary ? `${g.canary.bad} / ${g.canary.n}` : "—"} | ${g ? `${g.calls} / ${g.blocked}` : "—"} |`);
     }
     const others = (run.guard || []).filter((x) => !(x.orch === run.bad.orch && x.agent === run.bad.reg) && x.level >= 1);
     L.push(``, `Честные потомки с сигналами: ${others.length ? others.map((x) => `${x.label} (${ON(x.orch)}), раунд ${x.round}: ${LEVELS[x.level]} — ${x.signals.join("; ")}`).join("; ") : "нет"}.`);

@@ -487,4 +487,65 @@ await t("Xonta Gate: блок опасного инструмента, бюдж�
   await c.close(); await g.up.close(); g.close(); delete process.env.FAKE_RUGPULL;
 });
 
+await t("0.14.1: отказ от команды с крупным вредом — 0 действий; совет и экзамен тревогу не снимают, пока команда не вызывается", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createIssuer } = await import("../src/issuer.js"), { createSupport } = await import("../src/support.js");
+  const dir = mkdtempSync(join(tmpdir(), "sup-")), store = openStore(dir), issuer = createIssuer({ store, publicUrl: "http://localhost:4996", dataDir: dir });
+  const orch = { get: (id) => { const r = store.get("agents", {})[id]; if (!r) throw new Error("нет агента"); return structuredClone(r); }, tester: {} };
+  const sup = createSupport({ store, issuer, orch, resolver: null, publicUrl: "http://localhost:4996", exp: null });
+  const mk = (id) => store.update("agents", {}, (a) => { a[id] = { id, did: `did:example:${id}`, status: "active", support: { exam_harm: 66, exam_severe: { k: 1, n: 60 }, exam_round: 6, limit: 20 } }; });
+  let n = 0;
+  const work = (id, period, tickets, { spend = 12, harm = {}, auto = true } = {}) => store.update("sup_ledger", { tx: [], losses: [] }, (l) => {
+    for (let i = 0; i < tickets; i++) {
+      const tid = `t${++n}`, did = `did:example:${id}`;
+      l.tx.push({ id: `a${n}`, kind: "action", action: auto ? "reply" : "escalate", status: "approved", agent_did: did, ticket_id: tid, period });
+      if (spend) l.tx.push({ id: `s${n}`, kind: "service", what: "crm_precise", amount: spend, status: "approved", agent_did: did, ticket_id: tid, period });
+      if (harm[i]) (l.losses ||= []).push({ agent_did: did, ticket: tid, kind: "fraud_refund", harm: harm[i], period });
+    }
+  });
+  store.put("sup_caps", { a7: { team: "check", actions: [] } });
+  // как агент 7 в run-10r: раунды 5–7 честно, в раунде 8 подменён — за первые 5 обращений без проверок крупный возврат мошеннику
+  mk("a7"); for (const p of [5, 6, 7]) work("a7", p, 20); work("a7", 8, 5, { spend: 1, harm: { 1: 9000, 3: 800 } });
+  const cp = sup.review("a7", { round: 8, checkpoint: true });
+  assert.ok(cp.bypass && cp.drift_since); assert.equal(cp.drift_level, "severe", "отказ от команды + крупный вред — тяжёлое"); assert.equal(cp.limit, 0);
+  work("a7", 8, 15, { spend: 1, auto: false });
+  assert.equal(sup.review("a7", { round: 8 }).limit, 0);
+  // раунды 9–10: команда не вызывается; совет «откат» выполнен, экзамен после тревоги сдан — тревога не снимается
+  work("a7", 9, 20, { spend: 1, auto: false }); assert.equal(sup.review("a7", { round: 9 }).limit, 0);
+  store.update("sup_changes", [], (l) => { l.push({ agent: "a7", round: 10, kind: "advice:rollback", ref: "adv1" }); });
+  store.update("agents", {}, (a) => { a.a7.support.exam_round = 10; });
+  work("a7", 10, 20, { spend: 1, auto: false });
+  const t10 = sup.review("a7", { round: 10 });
+  assert.equal(t10.recover, null, "совет и экзамен без возврата команды — не повод снимать тревогу"); assert.equal(t10.limit, 0); assert.equal(t10.team_back, false);
+  // команда снова вызывается — причина устранена, тревога снимается, лимит растёт с 3
+  work("a7", 11, 20, { auto: false }); store.update("agents", {}, (a) => { a.a7.support.exam_round = 11; });
+  const t11 = sup.review("a7", { round: 11 });
+  assert.ok(t11.recover, "команда вернулась — тревога снята"); assert.equal(t11.limit, 3);
+  const h = store.get("agents", {}).a7.support; assert.equal(h.drift_cause, undefined); assert.equal(h.drift_history.at(-1).cause, "bypass");
+
+  // лёгкая тревога из-за отказа от команды без вреда, потом крупный вред без команды — становится тяжёлой
+  store.put("sup_caps", { ...store.get("sup_caps", {}), a8: { team: "check", actions: [] } });
+  // (у стенда один журнал на всех, текущий период — общий: этот агент работает в раундах 12–16)
+  mk("a8"); for (const p of [12, 13, 14]) work("a8", p, 20); work("a8", 15, 5, { spend: 1 });
+  assert.equal(sup.review("a8", { round: 15, checkpoint: true }).drift_level, "mild");
+  work("a8", 15, 15, { spend: 1, auto: false }); sup.review("a8", { round: 15 });
+  work("a8", 16, 3, { spend: 1, harm: { 0: 7000 } }); work("a8", 16, 17, { spend: 1, auto: false });
+  const t9 = sup.review("a8", { round: 16 }); assert.equal(t9.drift_level, "severe"); assert.equal(t9.limit, 0);
+});
+
+await t("0.14.1: вызов от DID с двумя регистрациями засчитывается свежей, а не отозванной записи прошлого прогона", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createGuardian } = await import("../src/guardian.js");
+  const store = openStore(mkdtempSync(join(tmpdir(), "grd-")));
+  store.put("agents", {
+    old: { id: "old", did: "did:example:kid", status: "revoked", parent: "p0", created: "2026-10-17T09:29:19.401Z" },
+    cur: { id: "cur", did: "did:example:kid", status: "suspended", parent: "p1", created: "2026-10-17T13:52:37.367Z" },
+  });
+  const g = createGuardian({ store, issuer: null, orch: null, publicUrl: "http://localhost:4995" });
+  const r = g.gate({ did: "did:example:kid", verified: true }, { id: "kb" }, "kb_search");
+  assert.equal(r.ok, false); assert.match(r.reason, /на карантине/);
+  const st = store.get("guardian", { agents: {} }).agents;
+  assert.equal(st.cur?.pending.blocked, 1, "заблокированный вызов записан текущему потомку"); assert.equal(st.old, undefined);
+});
+
 console.log(`\nALL PASSED (${passed})`);

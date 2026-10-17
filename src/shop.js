@@ -185,7 +185,7 @@ export function createShop({ store, issuer, orch, resolver, publicUrl }) {
     const inc = { id: `inc_${randomId(5)}`, at: new Date().toISOString(), agent_did, order, kind, amount, period, detail };
     const lost = loss ?? (kind === "scam" ? amount : kind === "wrong" ? 0.3 * amount : 0);
     store.update("shop_ledger", { tx: [], incidents: [] }, (l) => { if (lost > 0) (l.losses ||= []).push({ agent_did, order, kind, loss: lost, period, at: inc.at }); if (["scam", "violation"].includes(kind)) l.incidents.push(inc); });
-    const rec = Object.values(store.get("agents", {})).filter((a) => a.did === agent_did).sort((a, b) => (a.status === "retired") - (b.status === "retired"))[0];
+    const rec = Object.values(store.get("agents", {})).filter((a) => a.did === agent_did).sort((a, b) => (a.status === "retired") - (b.status === "retired") || String(b.created || "").localeCompare(String(a.created || "")))[0];
     if (rec && ["scam", "violation"].includes(kind)) issuer.issue("SpendingIncident", { id: agent_did, incident: inc }, { validDays: 365, agentId: rec.id });
     // потеря пересчитывает лимит сразу, не дожидаясь экзамена (только вниз; повышение — на экзамене или в конце периода)
     if (rec && lost > 0 && rec.shop) {

@@ -26,7 +26,9 @@ export function createGuardian({ store, issuer, orch, publicUrl, exp = null }) {
   const upd = (fn) => store.update("guardian", { agents: {}, round: 0 }, fn);
   const slot = (g, id) => (g.agents[id] ||= { level: 0, since: null, canary: { n: 0, bad: 0, rounds: [] }, pending: { scope: 0, rate: 0, injection: 0, calls: 0, blocked: 0 }, history: [], clean_rounds: 0 });
   const agentsAll = () => store.get("agents", {});
-  const byDid = (did) => { const l = Object.values(agentsAll()).filter((a) => a.did === did); return l.find((a) => a.status !== "retired") || l[0] || null; };
+  // 0.14.1: у одного DID бывает несколько регистраций (книги оркестратора переходят из прогона в прогон, отозванная запись
+  // прошлого прогона не уходит в «retired»). Берём самую свежую из действующих — иначе вызовы засчитываются старой записи
+  const byDid = (did) => Object.values(agentsAll()).filter((a) => a.did === did).sort((a, b) => (a.status === "retired") - (b.status === "retired") || String(b.created || "").localeCompare(String(a.created || "")))[0] || null;
   // мандат потомка: что ему можно вызывать через оркестратора и как часто (из подписанного мандата владельца или по умолчанию)
   function limitsOf(rec) {
     if (!rec?.parent) return null;

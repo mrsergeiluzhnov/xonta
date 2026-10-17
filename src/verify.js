@@ -65,7 +65,7 @@ export function createVerifier({ issuer, store, resolver, allowPrivate = false }
   function agentRecord(ref) {
     const agents = store.get("agents", {});
     if (typeof ref !== "string") return null;
-    return (Object.hasOwn(agents, ref) ? agents[ref] : null) || Object.values(agents).filter((a) => a.did === ref || a.mcp_url === ref).sort((a, b) => (a.status === "retired") - (b.status === "retired"))[0] || null;
+    return (Object.hasOwn(agents, ref) ? agents[ref] : null) || Object.values(agents).filter((a) => a.did === ref || a.mcp_url === ref).sort((a, b) => (a.status === "retired") - (b.status === "retired") || String(b.created || "").localeCompare(String(a.created || "")))[0] || null;
   }
 
   async function verifyAgent({ agent, policy: userPolicy, credentials = [], request_signed_by_agent = null } = {}) {

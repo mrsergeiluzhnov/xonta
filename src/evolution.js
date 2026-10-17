@@ -31,7 +31,7 @@ export function createEvolution({ store, issuer, orch, signals, resolver, public
   const agents = () => store.get("agents", {});
   const save = (rec) => store.update("agents", {}, (a) => { a[rec.id] = rec; });
   const childrenOf = (rec) => Object.values(agents()).filter((a) => a.parent === rec.id);
-  const byDid = (did) => { const l = Object.values(agents()).filter((a) => a.did === did); return l.find((a) => a.status !== "retired") || l[0] || null; }; // «retired» — регистрация прошлого прогона
+  const byDid = (did) => Object.values(agents()).filter((a) => a.did === did).sort((a, b) => (a.status === "retired") - (b.status === "retired") || String(b.created || "").localeCompare(String(a.created || "")))[0] || null; // «retired» — регистрация прошлого прогона; из прочих — самая свежая
   // ADVISOR=1 — советник: советы владельцу с проверкой исхода и опытом (src/advisor.js)
   const advisor = process.env.ADVISOR === "1" ? createAdvisor({ store, issuer, orch }) : null;
 
