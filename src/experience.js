@@ -71,7 +71,7 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
     upd((b) => {
       const t = b.track;
       if (kind === "agent") { (t.agents ||= {})[data.domain] = ((t.agents || {})[data.domain] || 0) + 1; }
-      if (kind === "advice") { (t.advice ||= []).push({ pred: data.pred, success: !!data.success, arm: data.arm, confounded: !!data.confounded, domain: data.domain }); if (t.advice.length > 3000) t.advice.splice(0, t.advice.length - 3000); }
+      if (kind === "advice") { (t.advice ||= []).push({ pred: data.pred, raw: data.raw ?? data.pred, success: !!data.success, arm: data.arm, confounded: !!data.confounded, domain: data.domain }); if (t.advice.length > 3000) t.advice.splice(0, t.advice.length - 3000); }
       if (kind === "budget") { const x = ((t.budget ||= {})[data.domain] ||= { periods: 0, within: 0 }); x.periods++; if (data.within) x.within++; }
       if (kind === "drift_flag") (t.drift ||= { flags: [], verdicts: [] }).flags.push({ agent: data.agent, round: data.round, at: new Date().toISOString() });
       if (kind === "drift_verdict") (t.drift ||= { flags: [], verdicts: [] }).verdicts.push({ agent: data.agent, flagged_round: data.flagged_round, corrupted_round: data.corrupted_round ?? null, verdict: data.verdict });
@@ -138,7 +138,7 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
       budget_adherence: budget,
       stale_experience: (t.stale || []).length,
       descendants: (() => { const d = t.descendants || { incidents: [], verdicts: [] }; return { incidents: d.incidents.length, caught: d.verdicts.filter((v) => v.verdict === "caught").length, false_alarms: d.verdicts.filter((v) => v.verdict === "false_alarm").length, missed: d.verdicts.filter((v) => v.verdict === "missed").length }; })(),
-      drift_alarms: { flags: drift.flags.length, confirmed: drift.verdicts.filter((v) => v.verdict === "confirmed").length, false_alarms: drift.verdicts.filter((v) => v.verdict === "false_alarm").length, missed: drift.verdicts.filter((v) => v.verdict === "missed").length },
+      drift_alarms: { flags: drift.flags.length, confirmed: drift.verdicts.filter((v) => v.verdict === "confirmed").length, false_alarms: drift.verdicts.filter((v) => v.verdict === "false_alarm").length, missed: drift.verdicts.filter((v) => v.verdict === "missed").length, descendant: drift.verdicts.filter((v) => v.verdict === "descendant").length },
       audit_accuracy: audits.length ? { checks: audits.length, truth_inside_ci: Math.round(100 * audits.filter((a) => a.inside).length / audits.length) / 100 } : null,
       peer_experience: imports, referrals: (t.referrals || []).length, archived_from: t.archived_from || [],
     };
@@ -252,7 +252,18 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
   // аудит-«правда» и вердикты о тревогах сообщает площадка (в стенде — оператор), когда правда становится известна
   // подделка доказательства для стенда: записать в книгу произвольное доказательство (аттестат и отпечаток как есть)
   const plantEvidence = ({ id, vc, digest }) => { upd((b) => { b.evidence[id] = { digest: digest || sha256hex(jcs(vc)), vc, live: false }; }); return { id }; };
-  return { record, track, prior, recipes, catalog, pack, trackRecord, trackSummary, seed, selfIssue, plantEvidence, evidence, learnFrom, settleForeign, peers, referral, book };
+  // 0.13.3: калибровка прогнозов советника по своим чистым исходам (прогноз до калибровки → успех): вес w ∈ [0, 1],
+  // с которым прогноз смешивается со средней долей успехов, — тот, что дал наименьшую ошибку Брайера. Нужно не меньше
+  // min_n исходов; иначе null (прогноз как есть)
+  function calibration(domain = null, { min_n = 10 } = {}) {
+    const l = (book().track.advice || []).filter((a) => !a.confounded && (!domain || !a.domain || a.domain === domain) && typeof (a.raw ?? a.pred) === "number");
+    if (l.length < min_n) return null;
+    const y = (a) => (a.success ? 1 : 0), base = l.reduce((s, a) => s + y(a), 0) / l.length;
+    let best = { w: 1, brier: Infinity };
+    for (let k = 0; k <= 10; k++) { const w = k / 10, b = l.reduce((s, a) => s + (w * (a.raw ?? a.pred) + (1 - w) * base - y(a)) ** 2, 0) / l.length; if (b < best.brier - 1e-9) best = { w, brier: b }; }
+    return { w: best.w, base: Math.round(1000 * base) / 1000, n: l.length, brier: Math.round(10000 * best.brier) / 10000 };
+  }
+  return { record, track, prior, recipes, catalog, pack, trackRecord, trackSummary, seed, selfIssue, plantEvidence, evidence, learnFrom, settleForeign, peers, referral, book, calibration };
 }
 
 export function mountExperience(app, { exp, wrap, admin }) {

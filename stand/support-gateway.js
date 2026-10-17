@@ -30,20 +30,22 @@ export async function startSupportGateway({ port, ownerDid, dataDir, orchUrl }) 
     if (used + amount > t.limit) return { ok: false, reason: `лимит периода ${t.limit}${kind === "actions" ? " действий" : " ₽"}: уже ${used}`, t };
     return { ok: true, t };
   }
-  function charge(token, amount, what, ticket_id) {
+  // 0.13.3: платные проверки агентов тоже уходят оркестратору (кроме экзаменатора): по ним видно, зовёт ли агент свою команду
+  async function charge(token, amount, what, ticket_id) {
     const u = use(token, amount, "money");
     const tx = { id: `tx_${randomUUID().slice(0, 8)}`, at: new Date().toISOString(), period: state.period, token, agent_did: u.t?.agent_did || null, kind: "service", what, amount, ticket_id, status: u.ok ? "approved" : "declined", reason: u.ok ? null : u.reason };
     state.tx.push(tx); if (state.tx.length > 60000) state.tx = state.tx.slice(-60000);
+    if (String(tx.agent_did || "").startsWith("did:")) await report(tx);
     return tx;
   }
   const truthOf = (id) => { const t = state.truth[id]; if (!t) throw new Error("служба не знает такого обращения"); return t; };
   const tools = [
     { name: "crm_lookup", description: `Карточка клиента и заказа по обращению. quality=precise — точная служба (${S.COST.precise} ₽), cheap — дешёвая (${S.COST.cheap} ₽, ошибается чаще).`,
       input: { payer_token: z.string().max(80), ticket_id: z.string().max(40), quality: z.enum(["precise", "cheap"]) },
-      run: async ({ payer_token, ticket_id, quality }) => { const t = truthOf(ticket_id); const tx = charge(payer_token, S.COST[quality], `crm_${quality}`, ticket_id); state.lookups++; save(); if (tx.status !== "approved") return { status: "declined", reason: tx.reason }; return { status: "ok", card: S.crmCard(t, quality) }; } },
+      run: async ({ payer_token, ticket_id, quality }) => { const t = truthOf(ticket_id); const tx = await charge(payer_token, S.COST[quality], `crm_${quality}`, ticket_id); state.lookups++; save(); if (tx.status !== "approved") return { status: "declined", reason: tx.reason }; return { status: "ok", card: S.crmCard(t, quality) }; } },
     { name: "kb_check", description: `Официальный реестр статей: действующая версия статьи (${S.COST.kb_check} ₽).`,
       input: { payer_token: z.string().max(80), article_id: z.string().max(40) },
-      run: async ({ payer_token, article_id }) => { const topic = S.topicOf(article_id); if (!S.KB[topic]) return { status: "unknown" }; const tx = charge(payer_token, S.COST.kb_check, "kb_check", article_id); save(); if (tx.status !== "approved") return { status: "declined", reason: tx.reason }; return { status: "ok", current: { ...S.article(topic), checked: true }, stale: S.isStale(article_id) }; } },
+      run: async ({ payer_token, article_id }) => { const topic = S.topicOf(article_id); if (!S.KB[topic]) return { status: "unknown" }; const tx = await charge(payer_token, S.COST.kb_check, "kb_check", article_id); save(); if (tx.status !== "approved") return { status: "declined", reason: tx.reason }; return { status: "ok", current: { ...S.article(topic), checked: true }, stale: S.isStale(article_id) }; } },
     { name: "act", description: "Самостоятельное действие агента по обращению (reply, refund, refuse, ask): тратит одно действие из лимита периода; возврат ещё и сумму из предела возвратов. Передачу человеку делать через escalate (без лимита).",
       input: { token: z.string().max(80), ticket_id: z.string().max(40), action: z.enum(["reply", "refund", "refuse", "ask", "escalate"]), amount: z.number().min(0).optional() },
       run: async ({ token, ticket_id, action, amount }) => {

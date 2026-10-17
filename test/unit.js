@@ -404,4 +404,58 @@ await t("0.13: аттестат не меняется, если выдавший
   assert.equal(credentialHash(rec.vc), rec.hash, "отпечаток сходится — подпись цела");
 });
 
+await t("0.13.3: отказ от команды, тяжёлая тревога, путь назад, сброс счёта после смены команды, калибровка", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createIssuer } = await import("../src/issuer.js"), { createSupport } = await import("../src/support.js"), { createExperience } = await import("../src/experience.js");
+  const dir = mkdtempSync(join(tmpdir(), "sup-")), store = openStore(dir), issuer = createIssuer({ store, publicUrl: "http://localhost:4997", dataDir: dir });
+  const orch = { get: (id) => { const r = store.get("agents", {})[id]; if (!r) throw new Error("нет агента"); return structuredClone(r); }, tester: {} };
+  const sup = createSupport({ store, issuer, orch, resolver: null, publicUrl: "http://localhost:4997", exp: null });
+  const mk = (id, extra = {}) => store.update("agents", {}, (a) => { a[id] = { id, did: `did:example:${id}`, status: "active", support: { exam_harm: 40, exam_severe: { k: 1, n: 60 }, exam_round: 2, limit: 20, ...extra } }; });
+  let n = 0;
+  // period: обращения агента; harm — вред по номеру обращения; spend — ₽ платных проверок на обращение
+  const work = (id, period, tickets, { spend = 12, harm = {}, auto = true } = {}) => store.update("sup_ledger", { tx: [], losses: [] }, (l) => {
+    for (let i = 0; i < tickets; i++) {
+      const tid = `t${++n}`, did = `did:example:${id}`;
+      l.tx.push({ id: `a${n}`, kind: "action", action: auto ? "reply" : "escalate", status: "approved", agent_did: did, ticket_id: tid, period });
+      if (spend) l.tx.push({ id: `s${n}`, kind: "service", what: "crm_precise", amount: spend, status: "approved", agent_did: did, ticket_id: tid, period });
+      if (harm[i]) (l.losses ||= []).push({ agent_did: did, ticket: tid, kind: "wrong_refund", harm: harm[i], period });
+    }
+  });
+  store.put("sup_caps", { a1: { team: "check", actions: [] }, a2: { team: "check", actions: [] }, a3: { team: "check", actions: [] } });
+
+  // 1. команда перестала вызываться — ловится посреди периода, до первого вреда; тревога лёгкая: 3 действия
+  mk("a1"); for (const p of [1, 2, 3]) work("a1", p, 20); work("a1", 4, 6, { spend: 1 });
+  const cp = sup.review("a1", { round: 4, checkpoint: true });
+  assert.ok(cp.bypass && cp.drift_since, "отказ от команды замечен"); assert.equal(cp.limit, 3); assert.equal(cp.drift_level, "mild");
+  // а у честного агента с той же нормой — тишина
+  mk("a3"); for (const p of [1, 2, 3]) work("a3", p, 20); work("a3", 4, 6);
+  assert.equal(sup.review("a3", { round: 4, checkpoint: true }).bypass, null);
+
+  // 2. крупный накопленный вред — тяжёлая тревога: 0 самостоятельных действий
+  mk("a2"); for (const p of [1, 2, 3]) work("a2", p, 20); work("a2", 4, 20, { harm: { 2: 12000, 5: 12000, 9: 12000 } });
+  const t2 = sup.review("a2", { round: 4 });
+  assert.ok(t2.drift_since); assert.equal(t2.drift_level, "severe"); assert.equal(t2.limit, 0);
+  // чистая работа сама по себе тяжёлую тревогу не снимает
+  for (const p of [5, 6, 7, 8, 9]) work("a2", p, 20, { auto: false });
+  store.update("agents", {}, (a) => { a.a2.support.exam_round = 8; });
+  assert.equal(sup.review("a2", { round: 9 }).limit, 0, "без устранённой причины — только советует");
+  // причина устранена (испорченный потомок отозван) и сдан новый экзамен — тревога снята, лимит растёт с 3
+  store.update("agents", {}, (a) => { a.kid = { id: "kid", did: "did:example:kid", status: "revoked", parent: "a2" }; a.a2.child_incident = { child: "kid", round: 4, until_round: 6 }; });
+  const t3 = sup.review("a2", { round: 9 });
+  assert.ok(t3.recover, "тревога снята"); assert.equal(t3.limit, 3); assert.equal(store.get("agents", {}).a2.support.drift_at, undefined);
+  assert.equal(store.get("agents", {}).a2.support.drift_history.length, 1, "история тревоги осталась");
+
+  // 3. вред из контрольного периода не идёт в тест после смены команды по совету
+  mk("a4", { seq_from: 5 }); store.put("sup_caps", { ...store.get("sup_caps", {}), a4: { team: "none", actions: [] } });
+  work("a4", 3, 3, { spend: 0, harm: { 0: 6000, 1: 3500, 2: 3200 } }); work("a4", 4, 3, { spend: 0, harm: { 0: 3100 } });
+  work("a4", 5, 3, { spend: 0 }); work("a4", 6, 3, { spend: 0 });
+  assert.equal(sup.review("a4", { round: 6 }).drift_since, null, "до смены команды — другой агент по сути");
+
+  // 4. калибровка: прогнозы «0.9», а успехов треть — прогноз сжимается к средней доле
+  const exp = createExperience({ store, issuer, resolver: { keyFor: async () => { throw new Error("нет сети"); } }, publicUrl: "http://localhost:4997", name: "T" });
+  assert.equal(exp.calibration("support"), null, "пока мало истории — как есть");
+  for (let i = 0; i < 12; i++) exp.track("advice", { pred: 0.9, raw: 0.9, success: i % 3 === 0, arm: "treated", domain: "support" });
+  const c = exp.calibration("support"); assert.ok(c.w < 0.5 && Math.abs(c.base - 0.333) < 0.01, JSON.stringify(c));
+});
+
 console.log(`\nALL PASSED (${passed})`);
