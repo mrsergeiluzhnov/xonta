@@ -36,11 +36,12 @@ export function createIssuer({ store, publicUrl, dataDir, contextUrl = `${public
     if (store.get("status", { next: 0, lists: {} }).next >= SIZE) throw Object.assign(new Error("список статусов заполнен — нужна ротация списка"), { status: 507 });
     const index = store.update("status", { next: 0, lists: {} }, (s) => { s.next += 1; }).next - 1;
     const vc = signCredential(
-      { ...credential({ id: `urn:uuid:${randomUUID()}`, type, issuer: did, subject, validDays, status: PURPOSES.map((p) => statusEntry(listUrl(p), index, p)) }), "@context": context },
+      // 0.13: копия содержимого — если вызывающий потом допишет что-то в свой объект, подписанный аттестат не изменится
+      { ...credential({ id: `urn:uuid:${randomUUID()}`, type, issuer: did, subject: structuredClone(subject), validDays, status: PURPOSES.map((p) => statusEntry(listUrl(p), index, p)) }), "@context": context },
       { privateKey, verificationMethod: vm },
     );
     const hash = credentialHash(vc);
-    store.update("credentials", {}, (c) => { c[vc.id] = { vc, hash, type, agentId, subject: subject.id, index, issuedAt: vc.validFrom }; });
+    store.update("credentials", {}, (c) => { c[vc.id] = { vc: structuredClone(vc), hash, type, agentId, subject: subject.id, index, issuedAt: vc.validFrom }; });
     event("issued", { credential: vc.id, type, subject: subject.id, credential_hash: hash });
     return vc;
   }

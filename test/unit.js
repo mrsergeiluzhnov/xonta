@@ -393,4 +393,15 @@ await t("0.13: последовательный тест подмены — дв
   assert.equal(cusumSevere([true, true, true, true, false], 0.05, 0.25, 5).alarm_at, 4, "доля серьёзных ошибок: четыре подряд при норме 5% — тревога");
 });
 
+await t("0.13: аттестат не меняется, если выдавший дописал что-то в свой объект после подписи", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createIssuer } = await import("../src/issuer.js"), { credentialHash } = await import("../src/vc.js");
+  const dir = mkdtempSync(join(tmpdir(), "iss-")), store = openStore(dir), issuer = createIssuer({ store, publicUrl: "http://localhost:4998", dataDir: dir });
+  const o = { success: true, n: 10 }, vc = issuer.issue("AdviceOutcome", { id: "did:example:a", outcome: o });
+  o.credential = vc.id; // так делал советник до 0.13
+  const rec = store.get("credentials", {})[vc.id];
+  assert.equal(rec.vc.credentialSubject.outcome.credential, undefined, "в сохранённый аттестат не попало");
+  assert.equal(credentialHash(rec.vc), rec.hash, "отпечаток сходится — подпись цела");
+});
+
 console.log(`\nALL PASSED (${passed})`);

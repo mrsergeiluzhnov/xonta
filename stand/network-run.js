@@ -193,7 +193,8 @@ const trialOf = (o) => ({ payer_token: run.ids.exam_token, team_url: gwOf(o, run
 run.source_truth ||= { articles: 0, stale: 0 };
 
 // ---------- выбор оркестратора «направленными» агентами: сами сравнивают подписанные послужные списки ----------
-function scoreOf(t) { const a = t.advice || {}; const served = Object.values(t.agents_served || {}).reduce((x, y) => x + y, 0); if (!served || (a.measured || 0) < 3 || a.treated_success == null) return null; return Math.round(100 * (a.treated_success - (a.control_success ?? 0))) / 100; }
+// 0.13: разница «выполненные против контроля» с поправкой на число измерений: 3 удачных совета без контроля не перевешивают 46 измеренных
+function scoreOf(t) { const a = t.advice || {}; const served = Object.values(t.agents_served || {}).reduce((x, y) => x + y, 0); if (!served || (a.measured || 0) < 3 || a.treated_success == null) return null; return Math.round(100 * (a.treated_success - (a.control_success ?? 0)) * Math.min(1, (a.measured || 0) / 20)) / 100; }
 async function chooseOrchestrator(i) {
   const ref = must(await api("B", "POST", "/v1/experience/referral", { domain: "support", category: "fraud", peer_urls: [O.A.url, O.C.url] }), "направление");
   const trB = must(await api("B", "GET", "/v1/experience/track-record"), "послужной список B"), sB = await verify(trB);
@@ -204,7 +205,7 @@ async function chooseOrchestrator(i) {
     const tr = await (await fetch(`${ref.to.url}/v1/experience/track-record`)).json(), sv = await verify(tr), cat = await (await fetch(`${ref.to.url}/v1/experience/catalog?domain=support`)).json();
     const sc = scoreOf(tr.credentialSubject), t = tr.credentialSubject;
     rec.to = { orch: o, signature: sv.ok, score: sc, track: t, fraud_entries: (cat.domains?.support?.fraud || []).map((e) => ({ technique: e.technique, prob_better: e.prob_better, evidence: e.evidence })) };
-    if (sv.ok && sc != null && sc > (rec.B.score ?? -1) && o !== "C") { choice = o; why = `подпись ✓; советы ${ON(o)} лучше контроля на ${sc} (успех ${t.advice.treated_success} против ${t.advice.control_success}, измерено ${t.advice.measured}); ложных тревог ${t.drift_alarms.false_alarms}, аудит: истина в интервале в ${t.audit_accuracy ? Math.round(100 * t.audit_accuracy.truth_inside_ci) : "—"}% проверок — честный список с ошибками; у оркестратора 2 ${rec.B.score == null ? "мало измерений" : `разница ${rec.B.score}`}` ; }
+    if (sv.ok && sc != null && sc > (rec.B.score ?? -1) && o !== "C") { choice = o; why = `подпись ✓; оценка ${ON(o)} ${sc} (успех советов ${t.advice.treated_success} против ${t.advice.control_success} у контроля, измерено ${t.advice.measured}; разница с поправкой на число измерений); ложных тревог ${t.drift_alarms.false_alarms}, аудит: истина в интервале в ${t.audit_accuracy ? Math.round(100 * t.audit_accuracy.truth_inside_ci) : "—"}% проверок — честный список с ошибками; у оркестратора 2 ${rec.B.score == null ? "мало измерений" : `оценка ${rec.B.score}`}` ; }
     else why = `${ON(o)}: ${!sv.ok ? "подпись послужного списка не прошла" : sc == null ? "мало измеренных советов" : "не лучше оркестратора 2"} — остаюсь у оркестратора 2`;
   }
   rec.choice = choice; rec.why = why;
