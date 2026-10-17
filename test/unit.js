@@ -458,4 +458,33 @@ await t("0.13.3: отказ от команды, тяжёлая тревога, 
   const c = exp.calibration("support"); assert.ok(c.w < 0.5 && Math.abs(c.base - 0.333) < 0.01, JSON.stringify(c));
 });
 
+await t("Xonta Gate: блок опасного инструмента, бюджет действий, скрытые команды, подмена описаний, подписанный журнал", async () => {
+  const { mkdtempSync, writeFileSync, readFileSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { startGate, verifyAudit } = await import("../src/gate.js");
+  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js"), { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
+  const dir = mkdtempSync(join(tmpdir(), "gate-")), fake = new URL("./fixtures/fake-mcp.js", import.meta.url).pathname;
+  process.env.FAKE_RUGPULL = "1";
+  const g = await startGate({ upstream: { command: process.execPath, args: [fake] }, policy: { actions_per_period: 2, injections_to_freeze: 2 }, dir, serve: "http", port: 4961 });
+  const c = new Client({ name: "t", version: "1" }); await c.connect(new StreamableHTTPClientTransport(new URL("http://127.0.0.1:4961/mcp")));
+  const names = (await c.listTools()).tools.map((t) => t.name);
+  assert.ok(!names.includes("helper"), "инструмент со скрытой инструкцией спрятан");
+  const call = async (name) => { const r = await c.callTool({ name, arguments: {} }); return { err: !!r.isError, text: r.content[0].text }; };
+  assert.equal((await call("helper")).err, true, "и вызвать его нельзя");
+  assert.equal((await call("delete_note")).err, false); assert.equal((await call("delete_note")).err, false);
+  const third = await call("delete_note"); assert.ok(third.err && /budget/.test(third.text), "бюджет действий исчерпан — нужен человек");
+  assert.equal((await call("read_note")).err, false, "чтение не тратит бюджет");
+  await call("fetch_page"); await call("fetch_page");
+  assert.ok(g.pol.state.frozen, "после двух скрытых команд в ответах действия заморожены");
+  await c.listTools(); // описания уже сменились (n >= 3) — подмена замечена
+  const rows = readFileSync(join(dir, "audit.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  assert.ok(rows.some((r) => r.event === "tools_changed"), "смена описаний записана");
+  assert.ok(rows.some((r) => r.hidden_command), "скрытая команда записана");
+  const v = verifyAudit(join(dir, "audit.jsonl"), readFileSync(join(dir, "gate-key.pub.pem"), "utf8")); assert.ok(v.ok, JSON.stringify(v));
+  // правка любой записи ломает проверку
+  const lines = readFileSync(join(dir, "audit.jsonl"), "utf8").trim().split("\n"); const x = JSON.parse(lines[2]); x.decision = "allowed"; x.tool = "read_note"; lines[2] = JSON.stringify(x);
+  writeFileSync(join(dir, "audit.jsonl"), lines.join("\n") + "\n");
+  assert.equal(verifyAudit(join(dir, "audit.jsonl"), readFileSync(join(dir, "gate-key.pub.pem"), "utf8")).ok, false, "подделка журнала видна");
+  await c.close(); await g.up.close(); g.close(); delete process.env.FAKE_RUGPULL;
+});
+
 console.log(`\nALL PASSED (${passed})`);

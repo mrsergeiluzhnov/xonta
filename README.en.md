@@ -2,7 +2,15 @@
 
 **Open trust infrastructure for AI agents.** Your agent passed the tests. Can you let it touch money and customer data, and how much? Xonta answers that with evidence anyone can check, not with a score out of 100 you have to take on faith. The agent passport (a set of signed credentials) is one part of it.
 
-> Status: **0.13.3, experimental.** Everything below works and is covered by tests and sandbox runs (`stand/`, `lab/`). Some parts of the spec are only written down so far, see "Not there yet". The main README is in Russian, this file covers the same ground in English.
+> Status: **0.14.0, experimental.** Everything below works and is covered by tests and sandbox runs (`stand/`, `lab/`). Some parts of the spec are only written down so far, see "Not there yet". The main README is in Russian, this file covers the same ground in English.
+
+## New. Xonta Gate, a seatbelt for any MCP server
+
+```bash
+npx -y github:mrsergeiluzhnov/xonta check -- npx -y @modelcontextprotocol/server-filesystem ~/Documents
+```
+
+One command in front of any MCP server (Claude Desktop, Cursor, your own agent). It hides tools with hidden instructions, freezes actions if tool descriptions change mid-session, counts actions like delete, send or pay against a budget and asks for a human over it, flags hidden commands in tool outputs, and keeps a signed audit log you can verify. Details in [GATE.md](GATE.md). Want to test it, bring it into your field or just use it, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## How it works: VERIFY, GOVERN, LEARN
 

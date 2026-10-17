@@ -1,7 +1,7 @@
 {
   "name": "xonta",
-  "version": "0.13.3",
-  "description": "Agent passport and A2O2A orchestrator: verifiable attestations, MCP server checks, tester agent, signals for AI agents",
+  "version": "0.14.0",
+  "description": "Xonta: open trust infrastructure for AI agents. Xonta Gate puts limits, checks and a signed audit log in front of any MCP server.",
   "type": "module",
   "license": "Apache-2.0",
   "scripts": {
@@ -12,19 +12,25 @@
     "trust-report": "node stand/trust-report.js",
     "mcp-survey": "node stand/mcp-survey.js",
     "stand:check": "STAND_MODE=fixture LLM_PROVIDER=mock STAND_DIR=/tmp/xonta-stand-check PHASE1_ROUNDS=4 TOTAL_ROUNDS=8 SIGNAL_C_GAP=10 SIGNAL_C_MIN_SHARE=0.1 node stand/run.js",
-    "stand:network": "STAND_MODE=fixture LLM_PROVIDER=mock STAND_DIR=/tmp/xonta-net/run-8 ORCH_ROOT=/tmp/xonta-net/orchestrators TOTAL_ROUNDS=4 EXAM_SIZE=60 SUP_VALIDATION_SIZE=60 NET_CORRUPT_ROUND=2 NET_SWEEP_A=4 SUP_SWEEP_N=24 node stand/network-run.js"
+    "stand:network": "STAND_MODE=fixture LLM_PROVIDER=mock STAND_DIR=/tmp/xonta-net/run-8 ORCH_ROOT=/tmp/xonta-net/orchestrators TOTAL_ROUNDS=4 EXAM_SIZE=60 SUP_VALIDATION_SIZE=60 NET_CORRUPT_ROUND=2 NET_SWEEP_A=4 SUP_SWEEP_N=24 node stand/network-run.js",
+    "gate": "node bin/xonta-gate.js"
   },
   "engines": {
     "node": ">=20"
   },
   "keywords": [
-    "ai-agents",
-    "agent-identity",
-    "verifiable-credentials",
-    "mcp",
     "a2a",
+    "agent-identity",
+    "agent-security",
+    "ai-agents",
+    "audit-log",
+    "guardrails",
     "know-your-agent",
+    "mcp",
+    "model-context-protocol",
     "orchestrator",
+    "tool-poisoning",
+    "verifiable-credentials",
     "паспорт агента"
   ],
   "dependencies": {
@@ -38,5 +44,8 @@
     "type": "git",
     "url": "https://github.com/mrsergeiluzhnov/xonta"
   },
-  "homepage": "https://passport.xonta.ru"
+  "homepage": "https://passport.xonta.ru",
+  "bin": {
+    "xonta-gate": "bin/xonta-gate.js"
+  }
 }
