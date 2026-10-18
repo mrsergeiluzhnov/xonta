@@ -72,6 +72,10 @@ The third run of the series, on 0.14.3 ([results/run-series1-c](results/run-seri
 
 The repeat of the second run on 0.14.4, with the same tickets ([results/run-series1-b2](results/run-series1-b2/README.en.md)), followed the design. The agents picked orchestrator 1 on their own, the swapped agent was spotted there mid-round after 5 tickets, and from then on it took no actions on its own. The bad descendant was revoked before it did any harm, and none of its 15 300 calls got through. The new bug is a false alarm on an honest agent with no team at the loner orchestrator: an agent like that makes large mistakes on its exam too, and the harm test doesn't account for it. Not fixed yet.
 
+The repeat of the third run on 0.14.4 ([results/run-series1-c2](results/run-series1-c2/README.en.md)) followed the design too, with no false alarms. The swapped agent was caught after 5 tickets, but in those 5 it did 13 320 ₽ of harm, more than in earlier runs. The bad descendant was revoked and none of its 27 300 calls got through, but before the quarantine its agent acted on one of its hidden commands, a 16 870 ₽ mistake.
+
+**Where the three-run series landed** ([results/series-1](results/series-1/README.en.md)): in all three runs the swap was caught after 5 tickets and the bad copy took no actions after that; in all three the bad descendant was revoked in round 7 and none of its 69 350 calls got through. Over 12 rounds the average agent under an orchestrator made 38 900 test rubles and the average agent without one lost 480 300; the gap is 519 000 ₽, 95% interval 454 000–585 000 ₽. Agents with another orchestrator's experience reach full autonomy by round 5, those learning from scratch by rounds 7–9. What three runs don't prove is that experience earns more money: +11 000 ₽ per agent, with an interval from −21 000 to +44 000.
+
 ## Check it yourself
 
 ```bash
