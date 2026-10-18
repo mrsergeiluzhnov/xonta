@@ -7,7 +7,7 @@ services:
     build:
       context: ..
       dockerfile: stand/Dockerfile.stand
-    image: xonta-stand:0.14.4
+    image: xonta-stand:0.14.6
     container_name: xonta-stand-network
     user: "${STAND_UID:-1000}:${STAND_GID:-1000}"
     restart: on-failure:3
@@ -56,7 +56,7 @@ services:
       AGENT_LLM_BUDGET_TOKENS: "30000000"
       SENIOR_LLM_BUDGET_TOKENS: "10000000"
       STAND_LLM_BUDGET_TOKENS: "${NET_STAND_BUDGET:-90000000}"
-    command: ["node", "stand/network-run.js"]
+    command: ["node", "stand/stand-entry.js"]
     volumes:
       - ../stand-data:/stand-data
     cpus: "1.0"

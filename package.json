@@ -1,6 +1,6 @@
 {
   "name": "xonta",
-  "version": "0.14.5",
+  "version": "0.14.6",
   "description": "Xonta: open trust infrastructure for AI agents. Xonta Gate puts limits, checks and a signed audit log in front of any MCP server.",
   "type": "module",
   "license": "Apache-2.0",
@@ -16,7 +16,8 @@
     "gate": "node bin/xonta-gate.js",
     "gate:bench": "node stand/gate-bench.js",
     "gate:survey": "node stand/gate-survey.js",
-    "reproduce": "node stand/reproduce.js"
+    "reproduce": "node stand/reproduce.js",
+    "stand:tokens": "STAND_DIR=/tmp/xonta-tokens LLM_PROVIDER=mock node stand/token-run.js"
   },
   "engines": {
     "node": ">=20"

@@ -627,4 +627,27 @@ await t("0.14.5 Gate: пропуски действий и ложное пред
   assert.ok(analyzeTools(bad).findings.some((f) => f.rule === "shadowing"), "с always — по-прежнему подмена");
 });
 
+await t("0.14.6 прогон токенов: одинаковый запрос оплачивает каждая группа, кэш после смены правил отдаёт старую статью, выжимка для старшего", async () => {
+  const T = await import("../stand/token-run.js"), S2 = await import("../skills/xonta-support.js");
+  let calls = 0; const fake = { usage: { input: 0, output: 0 }, async json() { calls++; this.usage.input += 100; this.usage.output += 10; return { action: "reply" }; } };
+  const m = T.makeMeter({ lite: fake });
+  await m.client("lite", "a").json("s", "u"); await m.client("lite", "b").json("s", "u");
+  assert.equal(calls, 1, "одинаковый запрос к модели выполняется один раз");
+  assert.equal(m.bill.a.lite.in, 100); assert.equal(m.bill.b.lite.in, 100, "а оплачивает его каждая группа");
+  S2.setEra(0);
+  let t0 = null; for (let i = 0; i < 200 && !t0; i++) { const t = S2.makeTicket(`cache-${i}`); if (S2.kbFeed(t).some((a) => S2.topicOf(a.id) === "returns")) t0 = t; }
+  const feed = S2.kbFeed(t0), cache = new Map();
+  const v1 = T.verify(t0, feed, { cache, round: 1, ttl: 3 });
+  assert.equal(v1.hits, 0); assert.ok(v1.cost > S2.COST.precise, "первая проверка статей платная");
+  S2.setEra(2);
+  const v2 = T.verify(t0, feed, { cache, round: 2, ttl: 3 });
+  assert.equal(v2.cost, S2.COST.precise, "статьи из кэша бесплатно"); assert.ok(v2.cachedStale > 0, "но после смены срока возврата кэш отдал старый текст");
+  const v3 = T.verify(t0, feed, { cache, round: 5, ttl: 3 });
+  assert.equal(v3.cachedStale, 0, "срок кэша вышел — статья проверена заново");
+  S2.setEra(0);
+  const ctx = { card: v1.verified.card, flags: ["x"], feed: v1.verified.feed };
+  assert.ok(T.digest(ctx, { action: "refund" }).feed.every((a) => S2.topicOf(a.id) === "returns"), "денежное решение — в выжимке только правила возврата");
+  assert.equal(T.digest(ctx, { action: "escalate" }).feed.length, 0); assert.deepEqual(T.digest(ctx, { action: "escalate" }).flags, ["x"]);
+});
+
 console.log(`\nALL PASSED (${passed})`);
