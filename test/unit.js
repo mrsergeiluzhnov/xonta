@@ -594,4 +594,26 @@ await t("0.14.3: направление сравнивает только при
   assert.ok(controlledBest(peer) > controlledBest(own) + 0.1, "у оркестратора 1 опыт сильнее — направление есть");
 });
 
+await t("0.14.4: агент выбирает оркестратора только по советам, измеренным против контроля (run-series1-c)", async () => {
+  const { trackScore, createExperience } = await import("../src/experience.js");
+  // послужные списки, которые видели агенты 7–9 в начале run-series1-c (агентов у обоих было больше нуля)
+  const o2 = { agents_served: { support: 19 }, advice: { measured: 22, treated_success: 0.95, control_success: 0, control_n: 1 } };
+  const o1 = { agents_served: { support: 18, shop: 7 }, advice: { measured: 62, treated_success: 0.76, control_success: 0.08, control_n: 24 } };
+  assert.equal(trackScore({ ...o2, advice: { ...o2.advice, control_n: undefined } }), 0.95, "старое правило: 0.95 у оркестратора 2");
+  assert.equal(trackScore(o1), 0.68);
+  assert.equal(trackScore(o2), null, "1 контрольный случай — оценки нет");
+  assert.ok(trackScore(o1) > (trackScore(o2) ?? -1), "агент идёт к оркестратору 1");
+  // рецепты помечаются и не идут в сравнение с контролем
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createIssuer } = await import("../src/issuer.js");
+  const dir = mkdtempSync(join(tmpdir(), "rcp-")), store = openStore(dir), issuer = createIssuer({ store, publicUrl: "http://localhost:4993", dataDir: dir });
+  const exp = createExperience({ store, issuer, resolver: { keyFor: async () => { throw new Error("нет сети"); } }, publicUrl: "http://localhost:4993", name: "T" });
+  for (let i = 0; i < 6; i++) exp.track("advice", { pred: 0.94, success: true, arm: "treated", domain: "support", recipe: true });
+  for (let i = 0; i < 4; i++) exp.track("advice", { pred: 0.6, success: i < 2, arm: "treated", domain: "support" });
+  for (let i = 0; i < 3; i++) exp.track("advice", { pred: 0.6, success: false, arm: "control", domain: "support" });
+  const a = exp.trackSummary().advice;
+  assert.equal(a.treated_success, 0.5); assert.equal(a.treated_n, 4); assert.equal(a.control_n, 3); assert.equal(a.recipes, 6);
+  assert.equal(a.brier_n, 10, "Брайер — как раньше, по всем выполненным"); assert.equal(a.measured, 13);
+});
+
 console.log(`\nALL PASSED (${passed})`);

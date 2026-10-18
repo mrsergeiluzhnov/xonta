@@ -445,7 +445,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
       store.update("sup_advice", {}, (all) => { all[a.id].outcome = o; });
       if (!confounded) store.update("sup_advice_stats", {}, (all) => { const s = (all[a.type] ||= blank()); const g = a.status === "accepted" ? "accepted" : "control"; s[g].n++; if (success) s[g].success++; s[g].gain += before - after; });
       if (exp) {
-        exp.track("advice", { pred: a.predicted, raw: a.predicted_raw ?? a.predicted, success, arm: a.status === "accepted" ? "treated" : "control", confounded, domain: "support" });
+        exp.track("advice", { pred: a.predicted, raw: a.predicted_raw ?? a.predicted, success, arm: a.status === "accepted" ? "treated" : "control", confounded, domain: "support", recipe: a.arm_reason === "recipe" });
         // в книгу — только чистые исходы: по всем обращениям и по каждой категории (типу обращения) отдельно
         if (!confounded) {
           const tech = a.technique || techniqueOf(a.type, a.action), arm = a.status === "accepted" ? "treated" : "control", payload = payloadOf(a.type, a.action), H = heldout();

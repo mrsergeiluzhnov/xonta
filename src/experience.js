@@ -30,6 +30,17 @@ const REFERRAL_MIN_CONTROL = num("EXP_REFERRAL_MIN_CONTROL", 1);
 export function measuredVsControl(e) { return (e.treated?.success || 0) > 0 && (e.control?.n || 0) >= REFERRAL_MIN_CONTROL; }
 export function controlledBest(entries) { return Math.max(0, ...entries.filter(measuredVsControl).map((e) => e.prob_better ?? 0)); }
 
+// выбор оркестратора по подписанному послужному списку: разница «выполненные против контроля» с поправкой на число измерений.
+// 0.14.4: оценка есть, только если контрольных случаев не меньше EXP_TRACK_MIN_CONTROL. В run-series1-c у оркестратора 2 было
+// 21 выполненный совет (почти все — рецепты новичкам, они выдаются без контроля) и 1 контрольный: 0.95 − 0 = 0.95 против 0.68 у оркестратора 1
+const TRACK_MIN_CONTROL = num("EXP_TRACK_MIN_CONTROL", 3);
+export function trackScore(t, minControl = TRACK_MIN_CONTROL) {
+  const a = t?.advice || {}, served = Object.values(t?.agents_served || {}).reduce((x, y) => x + y, 0);
+  if (!served || (a.measured || 0) < 3 || a.treated_success == null) return null;
+  if (a.control_n != null && a.control_n < minControl) return null;
+  return Math.round(100 * (a.treated_success - (a.control_success ?? 0)) * Math.min(1, (a.measured || 0) / 20)) / 100;
+}
+
 export function createExperience({ store, issuer, resolver, publicUrl, name = process.env.ORCH_NAME || "orchestrator" }) {
   const W = { decay: num("EXP_DECAY", 0.6), cross_domain: num("EXP_CROSS_DOMAIN_W", 0.3), foreign: num("EXP_FOREIGN_W", 0.5), recipe_prob: num("EXP_RECIPE_PROB", 0.8) };
   const book = () => store.get("experience", { entries: {}, foreign: {}, evidence: {}, track: {}, runs: [] });
@@ -76,7 +87,7 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
     upd((b) => {
       const t = b.track;
       if (kind === "agent") { (t.agents ||= {})[data.domain] = ((t.agents || {})[data.domain] || 0) + 1; }
-      if (kind === "advice") { (t.advice ||= []).push({ pred: data.pred, raw: data.raw ?? data.pred, success: !!data.success, arm: data.arm, confounded: !!data.confounded, domain: data.domain }); if (t.advice.length > 3000) t.advice.splice(0, t.advice.length - 3000); }
+      if (kind === "advice") { (t.advice ||= []).push({ pred: data.pred, raw: data.raw ?? data.pred, success: !!data.success, arm: data.arm, confounded: !!data.confounded, domain: data.domain, ...(data.recipe ? { recipe: true } : {}) }); if (t.advice.length > 3000) t.advice.splice(0, t.advice.length - 3000); }
       if (kind === "budget") { const x = ((t.budget ||= {})[data.domain] ||= { periods: 0, within: 0 }); x.periods++; if (data.within) x.within++; }
       if (kind === "drift_flag") (t.drift ||= { flags: [], verdicts: [] }).flags.push({ agent: data.agent, round: data.round, at: new Date().toISOString() });
       if (kind === "drift_verdict") (t.drift ||= { flags: [], verdicts: [] }).verdicts.push({ agent: data.agent, flagged_round: data.flagged_round, corrupted_round: data.corrupted_round ?? null, verdict: data.verdict });
@@ -131,6 +142,9 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
   function trackSummary() {
     const t = book().track, adv = (t.advice || []).filter((a) => !a.confounded), y = (a) => (a.success ? 1 : 0);
     const treated = adv.filter((a) => a.arm !== "control"), control = adv.filter((a) => a.arm === "control");
+    // 0.14.4: рецепт выдаётся без контроля, поэтому в сравнение «выполненные против контроля» не идёт (Брайер — как раньше, по всем выполненным).
+    // Исходы до 0.14.4 рецептами не помечены — для них защита в trackScore: без контрольных случаев оценки нет
+    const vsControl = treated.filter((a) => !a.recipe), recipes = treated.filter((a) => a.recipe);
     const rate = (l) => (l.length ? Math.round(100 * l.filter((a) => a.success).length / l.length) / 100 : null);
     const baseT = treated.length ? treated.reduce((s, a) => s + y(a), 0) / treated.length : 0;
     const drift = t.drift || { flags: [], verdicts: [] };
@@ -141,7 +155,7 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
       agents_served: t.agents || {}, runs: book().runs.length,
       // 0.14.1: прогноз — это вероятность успеха выполненного совета, поэтому Брайер и база считаются только по выполненным.
       // В контроле совет не выполнялся, его «успех» почти всегда 0, и прогноз 0.6–0.7 там не про то (run-10r)
-      advice: { measured: adv.length, treated_success: rate(treated), control_success: rate(control), brier: treated.length ? Math.round(10000 * treated.reduce((s, a) => s + (a.pred - y(a)) ** 2, 0) / treated.length) / 10000 : null, baseline_brier: treated.length ? Math.round(10000 * treated.reduce((s, a) => s + (baseT - y(a)) ** 2, 0) / treated.length) / 10000 : null, brier_n: treated.length },
+      advice: { measured: adv.length, treated_success: rate(vsControl), control_success: rate(control), treated_n: vsControl.length, control_n: control.length, recipes: recipes.length, brier: treated.length ? Math.round(10000 * treated.reduce((s, a) => s + (a.pred - y(a)) ** 2, 0) / treated.length) / 10000 : null, baseline_brier: treated.length ? Math.round(10000 * treated.reduce((s, a) => s + (baseT - y(a)) ** 2, 0) / treated.length) / 10000 : null, brier_n: treated.length },
       budget_adherence: budget,
       stale_experience: (t.stale || []).length,
       descendants: (() => { const d = t.descendants || { incidents: [], verdicts: [] }; return { incidents: d.incidents.length, caught: d.verdicts.filter((v) => v.verdict === "caught").length, false_alarms: d.verdicts.filter((v) => v.verdict === "false_alarm").length, missed: d.verdicts.filter((v) => v.verdict === "missed").length }; })(),
