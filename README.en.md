@@ -2,7 +2,7 @@
 
 **Open trust infrastructure for AI agents.** Your agent passed the tests. Can you let it touch money and customer data, and how much? Xonta answers that with evidence anyone can check, not with a score out of 100 you have to take on faith. The agent passport (a set of signed credentials) is one part of it.
 
-> Status: **0.14.1, experimental.** Everything below works and is covered by tests and sandbox runs (`stand/`, `lab/`). Some parts of the spec are only written down so far, see "Not there yet". The main README is in Russian, this file covers the same ground in English.
+> Status: **0.14.2, experimental.** Everything below works and is covered by tests and sandbox runs (`stand/`, `lab/`). Some parts of the spec are only written down so far, see "Not there yet". The main README is in Russian, this file covers the same ground in English.
 
 ## New. Xonta Gate, a seatbelt for any MCP server
 
@@ -61,6 +61,8 @@ Ten runs in a sandbox (first on YandexGPT, then on GigaChat), fake money and fak
 The run also found eight weak spots, including a false alarm and no way back after an alarm. They were fixed in 0.13.3. Report in [results/run-10](results/run-10/README.en.md), how to reproduce in [stand/README.md](stand/README.md).
 
 In the repeat on 0.13.3 ([results/run-10r](results/run-10r/README.en.md)) the swapped agent was spotted mid-round, after 5 tickets, because it stopped calling its own team. Harm in the swap round halved and there were no false alarms. But after the alarm it kept working with 3 actions for 4 more rounds and did another 19 290 rubles of harm. That is fixed in 0.14.1 and checked on the run's logs. Next is a series of three runs with different tickets.
+
+The first run of the series, on 0.14.1 with different tickets ([results/run-series1-a](results/run-series1-a/README.en.md)): the swapped agent was again spotted mid-round, after 5 tickets, and from then on it took no actions on its own and did zero harm. The bad descendant was revoked, and none of its 26 750 calls got through the orchestrator. The new bug was on an honest agent whose descendant went bad: after its alarm was cleared, old harm raised it again, twice. Fixed in 0.14.2.
 
 ## Survey of public MCP servers
 

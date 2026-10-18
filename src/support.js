@@ -326,7 +326,10 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
   function setTrust(rec, t, basis = {}) {
     if (t.recover && rec.support?.drift_at) {
       const { drift_at, drift_round, drift_period, drift_level, drift_cause, drift_norm, ...rest } = rec.support;
-      rec.support = { ...rest, drift_history: [...(rec.support.drift_history || []), { at: drift_at, round: drift_round, period: drift_period, level: drift_level, cause: drift_cause ?? null, cleared_at: new Date().toISOString(), why: t.recover.why }] };
+      // 0.14.2: после снятия тесты смотрят только на работу после тревоги, как и пока она держалась. Иначе вред до тревоги
+      // (в run-series1-a — от испорченного потомка агента 4) снова поднимал её на следующем же периоде
+      const seq_from = Math.max(rest.seq_from ?? 0, drift_period != null ? drift_period + 1 : curPeriodOf() + 1);
+      rec.support = { ...rest, seq_from, drift_history: [...(rec.support.drift_history || []), { at: drift_at, round: drift_round, period: drift_period, level: drift_level, cause: drift_cause ?? null, cleared_at: new Date().toISOString(), why: t.recover.why }] };
       issuer.issue("BehaviorDriftCleared", { id: rec.did, drift_at, level: drift_level, why: t.recover.why, action: `лимит ${t.limit}, дальше растёт по обычным правилам под наблюдением` }, { validDays: 365, agentId: rec.id });
       t.drift_since = null; saveRec(rec);
     }

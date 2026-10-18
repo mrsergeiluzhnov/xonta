@@ -444,6 +444,14 @@ await t("0.13.3: отказ от команды, тяжёлая тревога, 
   const t3 = sup.review("a2", { round: 9 });
   assert.ok(t3.recover, "тревога снята"); assert.equal(t3.limit, 3); assert.equal(store.get("agents", {}).a2.support.drift_at, undefined);
   assert.equal(store.get("agents", {}).a2.support.drift_history.length, 1, "история тревоги осталась");
+  // 0.14.2: после снятия тревоги тесты не видят вред до неё. В run-series1-a у агента 4 тревогу дважды поднимали заново
+  // по старому вреду раунда 6 (от испорченного потомка), хотя после неё вреда не было
+  work("a2", 10, 3); const t4 = sup.review("a2", { round: 10 });
+  assert.equal(t4.drift_since, null, "чистая работа после снятия — без новой тревоги"); assert.ok(t4.limit >= 3, `лимит ${t4.limit}`);
+  assert.equal(store.get("agents", {}).a2.support.seq_from, 5, "тесты — с периода после тревоги");
+  // а новый крупный вред после снятия по-прежнему ловится
+  work("a2", 11, 20, { harm: { 1: 12000, 4: 12000, 8: 12000 } });
+  assert.ok(sup.review("a2", { round: 11 }).drift_since, "новый вред после снятия — новая тревога");
 
   // 3. вред из контрольного периода не идёт в тест после смены команды по совету
   mk("a4", { seq_from: 5 }); store.put("sup_caps", { ...store.get("sup_caps", {}), a4: { team: "none", actions: [] } });

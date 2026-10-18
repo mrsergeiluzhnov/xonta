@@ -26,6 +26,9 @@ const issuer = createIssuer({ store, publicUrl: "http://localhost:4990", dataDir
 const orch = { get: (id) => { const r = store.get("agents", {})[id]; if (!r) throw new Error(`нет агента ${id}`); return structuredClone(r); }, tester: {} };
 const sup = createSupport({ store, issuer, orch, resolver: null, publicUrl: "http://localhost:4990", exp: null });
 store.put("agents", Object.fromEntries(roots.map((a) => [a.id, { id: a.id, did: a.did, name: a.name, status: "active", created: a.created, support: {} }])));
+// испорченные потомки из child_incident — с их итоговым статусом (карантин или отзыв), чтобы проигрывать и снятие
+// тревоги по причине «потомок выведен»
+for (const a of roots) { const c = agentsAll[a.id]?.child_incident?.child; if (c && agentsAll[c]) store.update("agents", {}, (all) => { all[c] = { id: c, did: agentsAll[c].did, name: agentsAll[c].name, status: agentsAll[c].status, parent: a.id, support: {} }; }); }
 store.put("sup_ledger", { tx: [], losses: [] }); store.put("sup_changes", []); store.put("sup_caps", {});
 
 const periods = [...new Set(ledgerAll.tx.map((x) => Number(x.period) || 0))].filter((p) => p > 0).sort((a, b) => a - b);
