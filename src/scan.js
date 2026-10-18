@@ -49,7 +49,9 @@ export function analyzeTools(tools) {
         if (m) findings.push({ tool: tool.name, where, rule: r.id, severity: r.severity, what: r.what, excerpt: m[0].slice(0, 80) });
       }
       // упоминание чужого инструмента в описании — возможная «подмена поведения» другого инструмента
-      for (const other of names) if (other !== tool.name && other.length > 3 && new RegExp(`\\b${escapeRe(other)}\\b`).test(text) && /(instead|вместо|always|всегда|never|никогда)/i.test(text))
+      // «DEPRECATED: Use read_text_file instead» — обычная отсылка к соседнему инструменту, не подмена (server-filesystem)
+      for (const other of names) if (other !== tool.name && other.length > 3 && new RegExp(`\\b${escapeRe(other)}\\b`).test(text) && /(instead|вместо|always|всегда|never|никогда)/i.test(text)
+        && !(/deprecated|устарел/i.test(text) && !/(always|всегда|never|никогда)/i.test(text) && new RegExp(`use\\s+[\`'"]?${escapeRe(other)}[\`'"]?\\s+instead|используйте\\s+[\`'"]?${escapeRe(other)}`, "i").test(text)))
         findings.push({ tool: tool.name, where, rule: "shadowing", severity: "medium", what: `влияет на поведение другого инструмента: ${other}` });
     }
     if ((tool.description || "").length > 3000) findings.push({ tool: tool.name, where: "description", rule: "long", severity: "low", what: "очень длинное описание — удобно прятать инструкции" });

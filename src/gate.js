@@ -1,4 +1,4 @@
-// Xonta Gate - a seatbelt for any MCP server.
+// Xonta Gate - a trust layer in front of any MCP server.
 // Sits between an MCP client (Claude Desktop, Cursor, your own agent) and an upstream MCP server and:
 //  - scans tool descriptions for hidden instructions and blocks high-risk tools;
 //  - notices when tool descriptions change mid-session (rug pull) and freezes actions;
@@ -23,7 +23,10 @@ import { analyzeTools, toolsFingerprint } from "./scan.js";
 import { hasInjection } from "./guardian.js";
 import { jcs, sha256hex } from "./crypto.js";
 
-export const ACTION_WORDS = /(^|[_\-.\s])(create|delete|remove|update|write|send|post|pay|payment|refund|transfer|execute|exec|run|deploy|merge|push|drop|insert|modify|edit|move|rename|commit|publish|charge|cancel|approve|purchase|buy|order|invite|share|upload|kill|terminate|destroy|reset|set)([_\-.\s]|$)/i;
+// Слова в имени инструмента, по которым вызов считается действием. Список проверен на официальных MCP-серверах
+// (stand/gate-survey.js): add, fork, reply, comment, react, toggle добавлены после пропусков add_observations,
+// fork_repository, add_issue_comment, slack_reply_to_thread, slack_add_reaction.
+export const ACTION_WORDS = /(^|[_\-.\s])(create|delete|remove|update|write|send|post|pay|payment|refund|transfer|execute|exec|run|deploy|merge|push|drop|insert|modify|edit|move|rename|commit|publish|charge|cancel|approve|purchase|buy|order|invite|share|upload|kill|terminate|destroy|reset|set|add|fork|reply|comment|react|toggle|submit|close|archive|assign|grant|revoke|enable|disable|install|uninstall|restart|stop|schedule|book|transact)([_\-.\s]|$)/i;
 export const DEFAULT_POLICY = {
   period_seconds: 3600,        // budget period
   actions_per_period: 20,      // how many "action" calls are allowed per period without a human

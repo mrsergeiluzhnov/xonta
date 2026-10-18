@@ -2,9 +2,9 @@
 
 **Open trust infrastructure for AI agents.** Your agent passed the tests. Can you let it touch money and customer data, and how much? Xonta answers that with evidence anyone can check, not with a score out of 100 you have to take on faith. The agent passport (a set of signed credentials) is one part of it.
 
-> Status: **0.14.4, experimental.** Everything below works and is covered by tests and sandbox runs (`stand/`, `lab/`). Some parts of the spec are only written down so far, see "Not there yet". The main README is in Russian, this file covers the same ground in English.
+> Status: **0.14.5, experimental.** Everything below works and is covered by tests and sandbox runs (`stand/`, `lab/`). Some parts of the spec are only written down so far, see "Not there yet". The main README is in Russian, this file covers the same ground in English.
 
-## New. Xonta Gate, a seatbelt for any MCP server
+## New. Xonta Gate, a trust layer in front of any MCP server
 
 ```bash
 npx -y github:mrsergeiluzhnov/xonta check -- npx -y @modelcontextprotocol/server-filesystem ~/Documents
@@ -67,6 +67,14 @@ The first run of the series, on 0.14.1 with different tickets ([results/run-seri
 The second run of the series, on 0.14.2 ([results/run-series1-b](results/run-series1-b/README.en.md)), didn't follow the design: orchestrator 2 stopped referring agents to orchestrator 1, because it counted a recipe it hands out with no control group as its own proven experience. So the swap wasn't tested. The rest held up: the bad descendant was revoked before it could do harm, the 9 agents under orchestrators made zero refunds to fraudsters against 88 for the agents without one, and there were no false alarms. The referral bug is fixed in 0.14.3, and the run will be repeated.
 
 The third run of the series, on 0.14.3 ([results/run-series1-c](results/run-series1-c/README.en.md)), went off the design again. This time orchestrator 2 did refer the agents to orchestrator 1, but the agents compared the signed track records and stayed put: the same no-control recipes made orchestrator 2's record look better. Fixed in 0.14.4. Everything else held: the bad descendant was revoked in round 7 and none of its 22 950 calls got through; one refund to a fraudster across the 9 agents under orchestrators against 84 without one; no false alarms; and the knowledge-base audit landed inside its interval for the third run in a row.
+
+## Check it yourself
+
+```bash
+npm ci && npm run reproduce
+```
+
+A short run of the same sandbox on a mock model, no keys and no network, about 10 minutes. 7 rounds, 12 agents, 4 orchestrators, with the same traps as in the published runs: an agent gets swapped for a broken one, a descendant starts going bad, the world changes, three agents have no orchestrator. At the end it checks the same claims as the reports and prints MATCH or NO MATCH for each. Rubles on the mock model differ from GigaChat, the conclusions should not.
 
 ## Survey of public MCP servers
 

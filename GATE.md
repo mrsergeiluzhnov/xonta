@@ -1,6 +1,6 @@
 # Xonta Gate
 
-**A seatbelt for any MCP server.** One command puts Xonta Gate between your AI client (Claude Desktop, Cursor, your own agent) and an MCP server. The agent keeps working as before, but now:
+**A trust layer in front of any MCP server.** One command puts Xonta Gate between your AI client (Claude Desktop, Cursor, your own agent) and an MCP server. The agent keeps working as before, but now:
 
 - tools with hidden instructions in their descriptions (tool poisoning) are hidden and refused;
 - if the server quietly changes tool descriptions in the middle of a session, actions get frozen;
@@ -75,6 +75,45 @@ Defaults work without any config. To tune, pass `--policy policy.json`:
 
 Which tools count as actions is decided by the tool name (create, delete, write, send, pay, refund, push, merge...). Override any tool with `"action": true` or `false`.
 
+## Tested on the official MCP servers
+
+We ran `check` on 14 official servers from the `@modelcontextprotocol` npm scope. Each one was started locally and only asked for its tool list. No tool was called, nothing went to outside services, tokens were dummies just so the servers would start. 11 servers started, 3 didn't (puppeteer needs a browser, redis needs a database, gitlab sends a tool schema the MCP SDK rejects). Script: `npm run gate:survey`.
+
+| Server | Tools | Counted as actions | Blocked |
+|---|---|---|---|
+| filesystem | 14 | 4 (write, edit, create dir, move) | 0 |
+| memory | 9 | 6 | 0 |
+| everything | 13 | 2 (two toggles) | 0 |
+| sequential-thinking | 1 | 0 | 0 |
+| github | 26 | 12 | 0 |
+| slack | 8 | 3 | 0 |
+| brave-search | 2 | 0 | 0 |
+| google-maps | 7 | 0 | 0 |
+| postgres | 1 | 0 (the server is read only) | 0 |
+| everart | 1 | 0 | 0 |
+| aws-kb-retrieval | 1 | 0 | 0 |
+| **total** | **83** | **27** | **0** |
+
+What we found and fixed in 0.14.5:
+
+- no harmless tool was blocked, 0 of 83;
+- 5 tools that change things were counted as reads: `add_observations` (memory), `fork_repository` and `add_issue_comment` (github), `slack_reply_to_thread` and `slack_add_reaction`. The action words now include add, fork, reply, comment, react, toggle and a few more (submit, close, archive, assign, grant, revoke, enable, disable, install, restart, stop, schedule, book). Words inside other words don't count, so `get_address` and `get_pull_request_comments` stay reads;
+- one false warning: `read_file` in filesystem says "DEPRECATED: Use read_text_file instead" and was flagged as shadowing another tool. A deprecation note pointing to a sibling tool is no longer flagged, unless it also says always or never.
+
+Still a judgement call: `generate_image` (everart) spends credits but isn't counted. If that matters to you, set `"generate_image": { "action": true }` in the policy.
+
+## What it costs
+
+Measured on the test server from `test/fixtures`, 1000 calls after 50 warm-up, 3 runs, Node 22, 2 CPUs. Script: `npm run gate:bench`.
+
+| | median | p95 |
+|---|---|---|
+| direct call | 0.23-0.34 ms | 0.5-0.7 ms |
+| through the gate | 1.1-1.3 ms | 2.8-2.9 ms |
+| **added by the gate** | **0.9-1.0 ms** | **2.1-2.3 ms** |
+
+About one millisecond per call, most of it the second process hop and the signed log write. A model answer takes seconds, so you won't notice it. The audit log takes about 540 KB per 1000 calls (around 550 bytes per entry, hashes only, no content).
+
 ## Audit log
 
 Everything is in `~/.xonta-gate` (or `--dir`): `audit.jsonl`, the signing key and its public part.
@@ -96,7 +135,7 @@ Gate is the simple part of Xonta. The full orchestrator learns how much an agent
 
 # Xonta Gate по-русски
 
-**Ремень безопасности для любого MCP-сервера.** Одна команда ставит Xonta Gate между вашим ИИ-клиентом (Claude Desktop, Cursor, свой агент) и MCP-сервером. Агент работает как раньше, но теперь:
+**Слой доверия перед любым MCP-сервером.** Одна команда ставит Xonta Gate между вашим ИИ-клиентом (Claude Desktop, Cursor, свой агент) и MCP-сервером. Агент работает как раньше, но теперь:
 
 - инструменты со скрытыми инструкциями в описаниях (tool poisoning) спрятаны и не вызываются;
 - если сервер посреди работы тихо меняет описания инструментов, действия замораживаются;
@@ -114,5 +153,9 @@ npx -y github:mrsergeiluzhnov/xonta check -- npx -y @modelcontextprotocol/server
 ```
 
 Подключить к Claude Desktop или Cursor — в настройках MCP-сервера добавить перед его командой `npx -y github:mrsergeiluzhnov/xonta --budget 10 --`, примеры выше. Удалённый сервер — `--url https://…/mcp --http 4950`. Настройки — файл `--policy`, журнал и ключ — в `~/.xonta-gate`, проверка журнала — `verify`, сводка — `report`.
+
+**Проверено на официальных MCP-серверах.** `check` на 14 серверах из `@modelcontextprotocol` в npm: каждый запускался локально, у него спрашивался только список инструментов, ничего не вызывалось, токены — заглушки. Запустились 11, всего 83 инструмента: 27 посчитаны действиями, заблокировано 0. Нашли и исправили в 0.14.5 пять пропусков (`add_observations`, `fork_repository`, `add_issue_comment`, `slack_reply_to_thread`, `slack_add_reaction` считались чтением) и одно ложное предупреждение у `read_file` (отсылка «DEPRECATED: Use read_text_file instead» принималась за подмену). Таблица выше, скрипт `npm run gate:survey`.
+
+**Сколько стоит.** Шлюз добавляет к вызову около 1 мс по медиане и 2,1–2,3 мс по 95-му процентилю (1000 вызовов, 3 замера, `npm run gate:bench`). Журнал — около 540 КБ на 1000 вызовов, только хэши, без содержимого.
 
 Чего шлюз не делает: не превращает опасный сервер в безопасный, проверки эвристические. Ключи в публичном репозитории он не спасёт. Это простая часть Xonta, а полный оркестратор определяет, сколько агенту можно доверять, по экзаменам и работе, и ловит тех, кто испортился (см. [README.md](README.md)).
