@@ -582,4 +582,16 @@ await t("0.14.1: калибровка и Брайер — только по вы
   const tr = exp.trackSummary().advice; assert.equal(tr.brier_n, 12); assert.equal(tr.measured, 24);
 });
 
+await t("0.14.3: направление сравнивает только приёмы, измеренные против контроля (run-series1-b)", async () => {
+  const { probBetter, controlledBest } = await import("../src/experience.js");
+  const pb = (e) => ({ ...e, prob_better: probBetter(e.treated, e.control, e.technique) });
+  // книга оркестратора 2 после run-series1-a: рецепт «проверяющие» 18 из 18 без контроля, откат 0 из 3
+  const own = [{ technique: "team:check", treated: { n: 18, success: 18 }, control: { n: 0, success: 0 } }, { technique: "rollback", treated: { n: 3, success: 0 }, control: { n: 1, success: 0 } }].map(pb);
+  // книга оркестратора 1: те же приёмы, измеренные против 13 контрольных случаев
+  const peer = [{ technique: "sweep:team:check", treated: { n: 13, success: 13 }, control: { n: 13, success: 0 } }, { technique: "team:check", treated: { n: 10, success: 10 }, control: { n: 0, success: 0 } }].map(pb);
+  assert.ok(Math.max(...own.map((e) => e.prob_better)) > 0.9, "без поправки рецепт без контроля выглядел почти как проверенный приём");
+  assert.equal(controlledBest(own), 0, "рецепты без контроля — не свой проверенный опыт");
+  assert.ok(controlledBest(peer) > controlledBest(own) + 0.1, "у оркестратора 1 опыт сильнее — направление есть");
+});
+
 console.log(`\nALL PASSED (${passed})`);

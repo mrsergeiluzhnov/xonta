@@ -25,6 +25,11 @@ function rngOf(seed) { let s = parseInt(sha256hex(String(seed)).slice(0, 8), 16)
 // P(выполнившие успешнее контроля) по бета-апостериорным
 export function probBetter(t, c, seed = "pb") { const r = rngOf(`${seed}-${t.n}-${t.success}-${c.n}-${c.success}`); let k = 0; for (let i = 0; i < 400; i++) if (betaSample(1 + t.success, 1 + t.n - t.success, r) > betaSample(1 + c.success, 1 + c.n - c.success, r)) k++; return Math.round(k / 4) / 100; }
 
+// направление: приём считается, только если у него есть успехи и хотя бы один контрольный случай (EXP_REFERRAL_MIN_CONTROL)
+const REFERRAL_MIN_CONTROL = num("EXP_REFERRAL_MIN_CONTROL", 1);
+export function measuredVsControl(e) { return (e.treated?.success || 0) > 0 && (e.control?.n || 0) >= REFERRAL_MIN_CONTROL; }
+export function controlledBest(entries) { return Math.max(0, ...entries.filter(measuredVsControl).map((e) => e.prob_better ?? 0)); }
+
 export function createExperience({ store, issuer, resolver, publicUrl, name = process.env.ORCH_NAME || "orchestrator" }) {
   const W = { decay: num("EXP_DECAY", 0.6), cross_domain: num("EXP_CROSS_DOMAIN_W", 0.3), foreign: num("EXP_FOREIGN_W", 0.5), recipe_prob: num("EXP_RECIPE_PROB", 0.8) };
   const book = () => store.get("experience", { entries: {}, foreign: {}, evidence: {}, track: {}, runs: [] });
@@ -230,8 +235,9 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
 
   // направление: в категории у себя опыта мало, а у известного оркестратора он сильный и проверенный — честно сказать агенту
   async function referral({ domain, category, peer_urls = [] }) {
-    const own = Object.values(book().entries).filter((e) => e.domain === domain && e.category === category && e.treated.success > 0);
-    const ownBest = Math.max(0, ...own.map((e) => probBetter(e.treated, e.control, e.technique)));
+    // 0.14.3: свой опыт и чужой сравниваются только по приёмам, измеренным против контроля; рецепт без контроля — не доказательство
+    const own = Object.values(book().entries).filter((e) => e.domain === domain && e.category === category);
+    const ownBest = controlledBest(own.map((e) => ({ ...e, prob_better: probBetter(e.treated, e.control, e.technique) })));
     let best = null; const skipped = [];
     for (const url of peer_urls) {
       try {
@@ -242,8 +248,8 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
         const tr = await fetchJson(`${url}/v1/experience/track-record`); const sig = await verifyVc(tr);
         const served = Object.values(tr.credentialSubject?.agents_served || {}).reduce((a, b) => a + b, 0);
         if (!sig.ok || !served) { skipped.push({ url, reason: !sig.ok ? `подпись послужного списка: ${sig.reason}` : "не вёл ни одного агента" }); continue; }
-        const es = (cat.domains?.[domain]?.[category] || []).filter((e) => e.treated.success > 0 && e.evidence > 0);
-        const top = Math.max(0, ...es.map((e) => e.prob_better));
+        const es = (cat.domains?.[domain]?.[category] || []).filter((e) => e.evidence > 0 && measuredVsControl(e));
+        const top = controlledBest(es);
         if (sig.ok && top > ownBest + 0.1 && (!best || top > best.prob_better)) best = { url, did: cat.orchestrator, name: cat.name, prob_better: top, techniques: es.map((e) => e.technique), track: tr.credentialSubject };
       } catch { /* недоступный оркестратор просто не рассматривается */ }
     }
