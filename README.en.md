@@ -70,6 +70,8 @@ The second run of the series, on 0.14.2 ([results/run-series1-b](results/run-ser
 
 The third run of the series, on 0.14.3 ([results/run-series1-c](results/run-series1-c/README.en.md)), went off the design again. This time orchestrator 2 did refer the agents to orchestrator 1, but the agents compared the signed track records and stayed put: the same no-control recipes made orchestrator 2's record look better. Fixed in 0.14.4. Everything else held: the bad descendant was revoked in round 7 and none of its 22 950 calls got through; one refund to a fraudster across the 9 agents under orchestrators against 84 without one; no false alarms; and the knowledge-base audit landed inside its interval for the third run in a row.
 
+The repeat of the second run on 0.14.4, with the same tickets ([results/run-series1-b2](results/run-series1-b2/README.en.md)), followed the design. The agents picked orchestrator 1 on their own, the swapped agent was spotted there mid-round after 5 tickets, and from then on it took no actions on its own. The bad descendant was revoked before it did any harm, and none of its 15 300 calls got through. The new bug is a false alarm on an honest agent with no team at the loner orchestrator: an agent like that makes large mistakes on its exam too, and the harm test doesn't account for it. Not fixed yet.
+
 ## Check it yourself
 
 ```bash
