@@ -395,3 +395,9 @@ Fixes after series-1 (EN). A sequential harm test no longer raises an alarm when
 2. **Кэш проверок с версией правил.** В run-11b кэш по времени после смены срока возврата 59 раз отдал старую статью: номер версии в идентификаторе статьи не менялся, менялся только текст. Теперь в способе «кэш» ключ содержит версию набора правил, и смена правил сама сбрасывает кэш. Прежний кэш по времени остался способом `cache_ttl` для сравнения. На тестовой модели: кэш с версией правил — 0 устаревших ответов и та же экономия на проверках, кэш по времени — 99 устаревших и дороже всех с учётом вреда.
 
 Fixes after the dev.to discussion (EN). The stand report now has paid checks per ticket per round, the early signal that caught the swapped agent, and the site chart shows it. The check cache in the token run is keyed by the rule set version, so a policy change invalidates it, the old time-based cache stays as `cache_ttl` for comparison.
+
+## Платный поиск по неподходящему списку (0.16.2) · A metered lookup on a list that doesn't fit
+
+`npm run lookup-scenario` — расчёт по открытому разбору одного утра на платном поиске телефонов (103 000 строк, найдено 1,28% при 14–26% у подходящих списков). Сравниваются лимит бюджета, проба 100 строк и подход Xonta: партии с проверкой на ходу. Итоги в [results/lookup-scenario](../results/lookup-scenario/README.md).
+
+A calculation on a public trace of one morning on a metered phone lookup (103,000 rows, 1.28% found against 14–26% on fitting lists). It compares a budget cap, a 100-row probe and the Xonta way, batches checked as they run. Results in [results/lookup-scenario](../results/lookup-scenario/README.en.md).

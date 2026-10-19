@@ -1,0 +1,122 @@
+{
+ "params": {
+  "LIST": 103000,
+  "FLOOR": 0.05,
+  "PROBE": 100,
+  "CAP_FOUND": 5000,
+  "CHECK_EVERY": 100,
+  "WINDOW": 300,
+  "ALPHA": 0.01,
+  "MORNING": 0.012822605965463108
+ },
+ "results": {
+  "morning|cap": {
+   "rows": 103000,
+   "found": 1319,
+   "bad_rows": 103000,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0
+  },
+  "morning|probe": {
+   "rows": 1336,
+   "found": 17,
+   "bad_rows": 1335,
+   "stopped": 98.8,
+   "latency_median": 100,
+   "latency_p95": 100,
+   "stopped_early": 0
+  },
+  "morning|xonta": {
+   "rows": 286,
+   "found": 4,
+   "bad_rows": 286,
+   "stopped": 100,
+   "latency_median": 200,
+   "latency_p95": 400,
+   "stopped_early": 0
+  },
+  "good20|cap": {
+   "rows": 24987,
+   "found": 5000,
+   "bad_rows": 0,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0
+  },
+  "good20|probe": {
+   "rows": 103100,
+   "found": 20596,
+   "bad_rows": 0,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0
+  },
+  "good20|xonta": {
+   "rows": 103000,
+   "found": 20596,
+   "bad_rows": 0,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0
+  },
+  "good14|cap": {
+   "rows": 35736,
+   "found": 5000,
+   "bad_rows": 0,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0
+  },
+  "good14|probe": {
+   "rows": 103100,
+   "found": 14420,
+   "bad_rows": 0,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0
+  },
+  "good14|xonta": {
+   "rows": 103000,
+   "found": 14420,
+   "bad_rows": 0,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0
+  },
+  "spliced|cap": {
+   "rows": 24997,
+   "found": 5000,
+   "bad_rows": 0,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0
+  },
+  "spliced|probe": {
+   "rows": 84766,
+   "found": 5702,
+   "bad_rows": 60006,
+   "stopped": 17.8,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 17.8
+  },
+  "spliced|xonta": {
+   "rows": 31300,
+   "found": 6017,
+   "bad_rows": 1300,
+   "stopped": 100,
+   "latency_median": 300,
+   "latency_p95": 500,
+   "stopped_early": 0
+  }
+ }
+}

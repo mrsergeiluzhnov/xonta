@@ -17,6 +17,7 @@
     "gate:bench": "node stand/gate-bench.js",
     "gate:survey": "node stand/gate-survey.js",
     "reproduce": "node stand/reproduce.js",
+    "lookup-scenario": "node stand/lookup-scenario.js",
     "stand:tokens": "STAND_DIR=/tmp/xonta-tokens LLM_PROVIDER=mock node stand/token-run.js"
   },
   "engines": {

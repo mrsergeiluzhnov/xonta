@@ -819,5 +819,15 @@ await t("0.16: направление к оркестратору, у котор
   const h = adv.descendants("a"); assert.equal(h.route_to_human.length, 1, "никто не решает лучше, вред 40 на задание дороже человека (3)"); assert.equal(h.spawn.length, 0);
 });
 
+await t("0.16.2: платный поиск по неподходящему списку — проба один раз в начале не видит склейку, проверка на ходу видит", async () => {
+  const L = await import("../stand/lookup-scenario.js");
+  const m = L.runPolicy("xonta", "morning", 1); assert.ok(m.stopped && m.rows <= 1000, JSON.stringify(m));
+  assert.equal(L.runPolicy("cap", "morning", 1).rows, L.LIST, "лимит бюджета прогоняет весь список");
+  for (const s of [1, 2, 3]) { const x = L.runPolicy("xonta", "spliced", s); assert.ok(x.stopped && x.stopAt >= 30000 && x.stopAt < 31000, JSON.stringify(x)); }
+  let passed = 0; for (let s = 0; s < 20; s++) if (!L.runPolicy("probe", "spliced", s).stopped) passed++;
+  assert.ok(passed >= 10, `проба пропускает склеенный список чаще, чем останавливает (${passed} из 20)`);
+  assert.equal(L.runPolicy("xonta", "good14", 1).stopped, false, "на подходящем списке не останавливает");
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно
