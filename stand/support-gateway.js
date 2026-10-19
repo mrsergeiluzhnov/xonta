@@ -3,6 +3,8 @@
 //    отказать, уточнить); сверх лимита действие не проходит — обращение уходит человеку. Передача человеку лимит не тратит.
 //  • Токен бюджета инструментов: рубли на платные службы (CRM точная 5 ₽ / дешёвая 1 ₽, реестр статей 2 ₽).
 // Каждое действие шлюз подписывает и отправляет оркестратору — из этого складывается живая история агента.
+// 0.17.2: на каждый одобренный возврат шлюз выдаёт подписанную квитанцию (SpendReceipt): номер списания в периоде, сумма, остаток
+// предела возвратов до и после, отпечаток предыдущей. Квитанции уходят оркестратору, и он сверяет их с тем, что агент заявляет сам.
 import { z } from "zod";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -10,6 +12,7 @@ import { mkdirSync, writeFileSync, renameSync, readFileSync, existsSync } from "
 import { startAgent } from "../lab/agentkit.js";
 import { signRequest } from "../src/callerauth.js";
 import * as S from "../skills/xonta-support.js";
+import { createReceiptWriter } from "../src/receipts.js";
 
 export async function startSupportGateway({ port, ownerDid, dataDir, orchUrl }) {
   mkdirSync(dataDir, { recursive: true });
@@ -17,6 +20,10 @@ export async function startSupportGateway({ port, ownerDid, dataDir, orchUrl }) 
   const state = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, "utf8")) : { tokens: {}, tx: [], period: 0, truth: {}, lookups: 0 };
   const save = () => { writeFileSync(stateFile + ".tmp", JSON.stringify(state)); renameSync(stateFile + ".tmp", stateFile); };
   let agent = null;
+  async function sendReceipt(vc, agentDid) {
+    const url = `${state.routes?.[agentDid] || orchUrl}/v1/receipts`;
+    try { await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ receipts: [vc] }) }); } catch (e) { (state.receipt_errors ||= []).push(e.message); }
+  }
   async function report(tx) {
     // агенты разных оркестраторов: действие уходит тому оркестратору, к которому подключён агент
     const url = `${state.routes?.[tx.agent_did] || orchUrl}/v1/support/actions`, raw = JSON.stringify({ tx });
@@ -56,6 +63,17 @@ export async function startSupportGateway({ port, ownerDid, dataDir, orchUrl }) 
         if (u.ok && action === "refund" && u.t?.refund_limit != null) { const spent = state.tx.filter((x) => x.token === token && x.period === state.period && x.status === "approved" && x.action === "refund").reduce((s, x) => s + (x.refund || 0), 0); if (spent + (amount || 0) > u.t.refund_limit) u = { ok: false, t: u.t, reason: `предел возвратов за период ${u.t.refund_limit} ₽: уже ${spent} ₽` }; }
         const tx = { id: `tx_${randomUUID().slice(0, 8)}`, at: new Date().toISOString(), period: state.period, token, agent_did: u.t?.agent_did || null, kind: "action", action, amount: free ? 0 : 1, refund: action === "refund" ? amount || 0 : 0, ticket_id, status: u.ok ? "approved" : "declined", reason: u.ok ? null : u.reason, per_action: u.per_action || undefined, cap: action === "refund" ? u.t?.refund_max ?? null : undefined };
         state.tx.push(tx); if (state.tx.length > 60000) state.tx = state.tx.slice(-60000);
+        // квитанции: на каждое самостоятельное действие — остаток действий за период (валюта ACTIONS), на одобренный возврат — ещё и
+        // остаток предела возвратов в рублях. Только там, где у токена есть предел (иначе нет остатка, который считать)
+        const writer = createReceiptWriter({ did: agent.did, vm: agent.vm, privateKey: agent.privateKey }, (state.chains ||= {}));
+        if (tx.status === "approved" && !free && u.t?.limit != null) {
+          const vc = writer({ payer: u.t.agent_did, allowance: { ref: `${token}:actions`, per_period: u.t.limit }, period: state.period, amount: 1, currency: "ACTIONS", action, ref: ticket_id });
+          tx.action_receipt = vc.id; await sendReceipt(vc, u.t.agent_did);
+        }
+        if (tx.status === "approved" && action === "refund" && (amount || 0) > 0 && u.t?.refund_limit != null) {
+          const vc = writer({ payer: u.t.agent_did, allowance: { ref: token, per_period: u.t.refund_limit }, period: state.period, amount, currency: "RUB", action: "refund", ref: ticket_id });
+          tx.receipt = vc.id; await sendReceipt(vc, u.t.agent_did);
+        }
         save(); await report(tx);
         return { status: tx.status, tx: tx.id, reason: tx.reason, per_action: tx.per_action || undefined };
       } },

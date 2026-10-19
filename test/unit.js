@@ -903,5 +903,74 @@ await t("0.17.1: лимит по верхней границе среднего 
   assert.equal(tail.worst_single_harm, 40); assert.equal(tail.trust.max_harm_per_action, 25, "одно действие не дороже бюджета периода");
 });
 
+await t("0.17.2: Gate — не больше N одновременных вызовов одного инструмента", async () => {
+  const { createPolicy } = await import("../src/gate.js");
+  const pol = createPolicy({ max_concurrent: 2 }); pol.setTools([{ name: "lookup", description: "find a phone", inputSchema: { type: "object" } }]);
+  for (let i = 0; i < 2; i++) { const d = pol.decide("lookup"); assert.ok(d.allow); pol.record("lookup", d); pol.begin("lookup"); }
+  const d3 = pol.decide("lookup"); assert.equal(d3.allow, false); assert.equal(d3.kind, "concurrency");
+  pol.end("lookup"); assert.ok(pol.decide("lookup").allow, "один закончился — следующий можно");
+});
+
+await t("0.17.2: квитанции о тратах — живой остаток, разрыв цепочки, сверка с заявленным, лимит семьи", async () => {
+  const { spawn } = await import("node:child_process"), { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { z } = await import("zod"), { startAgent, startOwner } = await import("../lab/agentkit.js"), { createReceiptWriter } = await import("../src/receipts.js");
+  const B = "http://localhost:4966", srv = spawn(process.execPath, ["src/server.js"], { env: { ...process.env, PORT: "4966", PUBLIC_URL: B, DATA_DIR: mkdtempSync(join(tmpdir(), "rcpt-")), ALLOW_PRIVATE_TARGETS: "1", OPEN_REGISTRATION: "1", OPEN_REG_PER_IP: "50", ADMIN_TOKEN: "adm", TRUST_PROXY: "0", LLM_PROVIDER: "", DIRECTORY_SCAN_HOURS: "0" }, stdio: "ignore" });
+  const call = async (m, path, body, token) => { const r = await fetch(B + path, { method: m, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json() }; };
+  const closers = [];
+  try {
+    for (let i = 0; i < 100; i++) { try { if ((await fetch(`${B}/health`)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 100)); }
+    const owner = await startOwner({ port: 4967 }); closers.push(owner);
+    const noop = [{ name: "noop", description: "noop", input: {}, run: async () => ({}) }];
+    const shop = await startAgent({ port: 4968, name: "shop", ownerDid: owner.did, tools: noop }); closers.push(shop);
+    const buyer = await startAgent({ port: 4969, name: "buyer", ownerDid: owner.did, tools: noop }); closers.push(buyer);
+    const kid = await startAgent({ port: 4965, name: "kid", ownerDid: owner.did, tools: noop }); closers.push(kid);
+    const rb = (await call("POST", "/v1/agents", { name: "buyer", mcp_url: buyer.mcp, did: buyer.did })).body;
+    const w = createReceiptWriter({ did: shop.did, vm: shop.vm, privateKey: shop.privateKey }), al = { ref: "card-1", per_period: 1000 };
+    const r1 = [100, 200, 50].map((a) => w({ payer: buyer.did, allowance: al, period: 1, amount: a }));
+    const sub = await call("POST", "/v1/receipts", { receipts: r1 }); assert.equal(sub.body.accepted, 3, JSON.stringify(sub.body)); assert.equal(sub.body.with_problems, 0);
+    const acc = (await call("GET", `/v1/agents/${rb.id}/receipt-accounts`, null, rb.owner_token)).body[0];
+    assert.equal(acc.liveness.ok, true); assert.equal(acc.liveness.distinct_balances, 3); assert.equal(acc.balance, 650, "1000 - 350");
+    assert.equal(acc.liveness.expected_last, 650);
+    // агент заявляет меньше, чем по квитанциям, — скрытые траты; столько же — совпало; больше — часть со слов агента
+    assert.equal((await call("POST", `/v1/agents/${rb.id}/spend-claims`, { period: 1, total: 300 }, rb.owner_token)).body.verdict, "hidden_spending");
+    assert.equal((await call("POST", `/v1/agents/${rb.id}/spend-claims`, { period: 1, total: 350 }, rb.owner_token)).body.verdict, "matches");
+    assert.equal((await call("POST", `/v1/agents/${rb.id}/spend-claims`, { period: 1, total: 500 }, rb.owner_token)).body.verdict, "partly_unconfirmed");
+    // выкинутая квитанция: 4-я не прислана, 5-я — разрыв цепочки виден
+    w({ payer: buyer.did, allowance: al, period: 1, amount: 10 }); const r5 = w({ payer: buyer.did, allowance: al, period: 1, amount: 20 });
+    const gap = await call("POST", "/v1/receipts", { receipts: [r5] }); assert.ok(gap.body.results[0].problems.some((p) => /sequence|previous/.test(p)), JSON.stringify(gap.body));
+    // «остаток», который не уменьшается, — подпись верна, но арифметика нет
+    const fake = createReceiptWriter({ did: shop.did, vm: shop.vm, privateKey: shop.privateKey })({ payer: buyer.did, allowance: { ref: "card-2", per_period: 10 }, period: 1, amount: 0.05 });
+    const { signReceipt } = await import("../src/receipts.js");
+    const stuck = signReceipt({ did: shop.did, vm: shop.vm, privateKey: shop.privateKey }, { ...fake.credentialSubject, seq: 2, prev: null, balance_before: 9.95, balance_after: 9.95 });
+    await call("POST", "/v1/receipts", { receipts: [fake] }); const st = await call("POST", "/v1/receipts", { receipts: [stuck] }); assert.ok(st.body.results[0].problems.some((p) => /minus/.test(p)), "остаток 9.95 → 9.95 при списании 0.05");
+    // чужой подписи нет: квитанция «от магазина», подписанная покупателем
+    const forged = signReceipt({ did: shop.did, vm: shop.vm, privateKey: buyer.privateKey }, fake.credentialSubject); assert.equal((await call("POST", "/v1/receipts", { receipts: [forged] })).body.accepted, 0);
+    // лимит семьи: потомок получает часть лимита родителя, вместе не больше
+    assert.equal((await call("POST", `/v1/agents/${rb.id}/allowance`, { per_period: 1000 }, rb.owner_token)).status, 200);
+    const k1 = (await call("POST", `/v1/agents/${rb.id}/children`, { name: "kid", mcp_url: kid.mcp, specialization: "late", allowance: { per_period: 400 } }, rb.owner_token)).body;
+    assert.equal(k1.allowance.per_period, 400, JSON.stringify(k1));
+    const k2 = (await call("POST", `/v1/agents/${rb.id}/children`, { name: "kid2", mcp_url: "http://localhost:4964/mcp", specialization: "x", allowance: { per_period: 700 } }, rb.owner_token)).body;
+    assert.match(k2.allowance_error, /не может быть больше лимита родителя/);
+    // траты потомка входят в траты семьи и в сверку родителя
+    const kw = createReceiptWriter({ did: shop.did, vm: shop.vm, privateKey: shop.privateKey });
+    await call("POST", "/v1/receipts", { receipts: [kw({ payer: k1.did, allowance: { ref: "kid-card", per_period: 400 }, period: 2, amount: 120 })] });
+    const fam = (await call("POST", `/v1/agents/${rb.id}/spend-claims`, { period: 2, total: 0 }, rb.owner_token)).body;
+    assert.equal(fam.verdict, "hidden_spending", "родитель заявил 0, а потомок потратил 120"); assert.ok(fam.family.some((x) => x.child && x.confirmed === 120));
+    const sum = (await call("GET", `/v1/agents/${rb.id}/spend`)).body; assert.ok(sum.receipt_anomalies >= 2); assert.ok(sum.hidden_spending_periods >= 1);
+  } finally { for (const c of closers) c.close?.(); srv.kill(); }
+});
+
+await t("0.17.2: старые неразмеченные исходы не идут против контроля (run-series1-a2)", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createIssuer } = await import("../src/issuer.js"), { createExperience, trackScore } = await import("../src/experience.js");
+  const dir = mkdtempSync(join(tmpdir(), "tag-")), store = openStore(dir), issuer = createIssuer({ store, publicUrl: "http://localhost:4963", dataDir: dir });
+  // книга, как у оркестратора 2 после c2: 20 старых «успешных» исходов без пометки (на деле рецепты) и 3 контрольных
+  store.put("experience", { entries: {}, foreign: {}, evidence: {}, runs: [], track: { agents: { support: 19 }, advice: [...Array(20).fill({ pred: 0.9, success: true, arm: "treated" }), ...Array(3).fill({ pred: 0.5, success: false, arm: "control" })] } });
+  const exp = createExperience({ store, issuer, resolver: { keyFor: async () => { throw new Error("нет сети"); } }, publicUrl: "http://localhost:4963", name: "o2" });
+  const t1 = exp.trackSummary(); assert.equal(t1.advice.treated_n, 0, "старые неразмеченные не в счёт"); assert.equal(t1.advice.untagged_before_0_17_2, 20); assert.equal(trackScore(t1), null);
+  for (let i = 0; i < 6; i++) exp.track("advice", { pred: 0.7, success: i % 2 === 0, arm: "treated", domain: "support" });
+  const t2 = exp.trackSummary(); assert.equal(t2.advice.treated_n, 6, "новые размечены и считаются"); assert.equal(t2.advice.treated_success, 0.5);
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно

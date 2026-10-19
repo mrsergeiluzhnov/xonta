@@ -74,6 +74,12 @@ const T = [
   [/^min_rate: доля от 0 до 1$/, () => "min_rate: a share between 0 and 1"],
   [/^проверяющий должен быть зарегистрированным агентом$/, () => "the checker must be a registered agent"],
   [/^агент не может проверять сам себя$/, () => "an agent can't check itself"],
+  [/^receipts: от 1 до 1000 квитанций$/, () => "receipts: 1 to 1000 receipts"],
+  [/^period и total:/, () => "period and total: which period and how much the agent says it spent"],
+  [/^per_period: сколько агенту можно тратить за период$/, () => "per_period: how much the agent may spend per period"],
+  [/^сначала задайте лимит родителю/, () => "set the parent's allowance first, a child's allowance is carved out of it"],
+  [/^лимит потомков не может быть больше лимита родителя: родителю (\S+), другим потомкам уже (\S+)$/, (m) => `children's allowances can't exceed the parent's: the parent has ${m[1]}, other children already ${m[2]}`],
+  [/^budget: сколько всего можно потратить на задачу$/, () => "budget: how much the job may spend in total"],
   [/^Некорректный JSON$/, () => "invalid JSON"],
 ];
 

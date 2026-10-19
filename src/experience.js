@@ -88,7 +88,7 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
     upd((b) => {
       const t = b.track;
       if (kind === "agent") { (t.agents ||= {})[data.domain] = ((t.agents || {})[data.domain] || 0) + 1; }
-      if (kind === "advice") { (t.advice ||= []).push({ pred: data.pred, raw: data.raw ?? data.pred, success: !!data.success, arm: data.arm, confounded: !!data.confounded, domain: data.domain, ...(data.recipe ? { recipe: true } : {}) }); if (t.advice.length > 3000) t.advice.splice(0, t.advice.length - 3000); }
+      if (kind === "advice") { (t.advice ||= []).push({ pred: data.pred, raw: data.raw ?? data.pred, success: !!data.success, arm: data.arm, confounded: !!data.confounded, domain: data.domain, tagged: true, ...(data.recipe ? { recipe: true } : {}) }); if (t.advice.length > 3000) t.advice.splice(0, t.advice.length - 3000); }
       if (kind === "budget") { const x = ((t.budget ||= {})[data.domain] ||= { periods: 0, within: 0 }); x.periods++; if (data.within) x.within++; }
       if (kind === "drift_flag") (t.drift ||= { flags: [], verdicts: [] }).flags.push({ agent: data.agent, round: data.round, at: new Date().toISOString() });
       if (kind === "drift_verdict") (t.drift ||= { flags: [], verdicts: [] }).verdicts.push({ agent: data.agent, flagged_round: data.flagged_round, corrupted_round: data.corrupted_round ?? null, verdict: data.verdict });
@@ -145,7 +145,10 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
     const treated = adv.filter((a) => a.arm !== "control"), control = adv.filter((a) => a.arm === "control");
     // 0.14.4: рецепт выдаётся без контроля, поэтому в сравнение «выполненные против контроля» не идёт (Брайер — как раньше, по всем выполненным).
     // Исходы до 0.14.4 рецептами не помечены — для них защита в trackScore: без контрольных случаев оценки нет
-    const vsControl = treated.filter((a) => !a.recipe), recipes = treated.filter((a) => a.recipe);
+    // 0.17.2: исходы до 0.14.4 рецептами не помечались, и рецепт без контроля выглядел как совет против контроля. В run-series1-a2
+    // это подняло оценку оркестратора 2 до 0.97 против 0.66, и агенты 7–9 остались у него. Теперь против контроля идут только
+    // исходы с пометкой (tagged — с 0.17.2 у всех новых); старые неразмеченные видны отдельно и в сравнение не идут
+    const vsControl = treated.filter((a) => a.tagged && !a.recipe), recipes = treated.filter((a) => a.recipe), untagged = treated.filter((a) => !a.tagged && !a.recipe);
     const rate = (l) => (l.length ? Math.round(100 * l.filter((a) => a.success).length / l.length) / 100 : null);
     const baseT = treated.length ? treated.reduce((s, a) => s + y(a), 0) / treated.length : 0;
     const drift = t.drift || { flags: [], verdicts: [] };
@@ -156,7 +159,7 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
       agents_served: t.agents || {}, runs: book().runs.length,
       // 0.14.1: прогноз — это вероятность успеха выполненного совета, поэтому Брайер и база считаются только по выполненным.
       // В контроле совет не выполнялся, его «успех» почти всегда 0, и прогноз 0.6–0.7 там не про то (run-10r)
-      advice: { measured: adv.length, treated_success: rate(vsControl), control_success: rate(control), treated_n: vsControl.length, control_n: control.length, recipes: recipes.length, brier: treated.length ? Math.round(10000 * treated.reduce((s, a) => s + (a.pred - y(a)) ** 2, 0) / treated.length) / 10000 : null, baseline_brier: treated.length ? Math.round(10000 * treated.reduce((s, a) => s + (baseT - y(a)) ** 2, 0) / treated.length) / 10000 : null, brier_n: treated.length },
+      advice: { measured: adv.length, treated_success: rate(vsControl), control_success: rate(control), treated_n: vsControl.length, control_n: control.length, recipes: recipes.length, untagged_before_0_17_2: untagged.length, brier: treated.length ? Math.round(10000 * treated.reduce((s, a) => s + (a.pred - y(a)) ** 2, 0) / treated.length) / 10000 : null, baseline_brier: treated.length ? Math.round(10000 * treated.reduce((s, a) => s + (baseT - y(a)) ** 2, 0) / treated.length) / 10000 : null, brier_n: treated.length },
       budget_adherence: budget,
       stale_experience: (t.stale || []).length,
       descendants: (() => { const d = t.descendants || { incidents: [], verdicts: [] }; return { incidents: d.incidents.length, caught: d.verdicts.filter((v) => v.verdict === "caught").length, false_alarms: d.verdicts.filter((v) => v.verdict === "false_alarm").length, missed: d.verdicts.filter((v) => v.verdict === "missed").length }; })(),

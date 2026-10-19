@@ -43,6 +43,7 @@ const P = {
   fixed_actions: Number(E.SUP_FIXED_ACTIONS || 20), tools_budget: Number(E.SUP_TOOLS_BUDGET || 400), seed: E.SUP_SEED || `net-${E.NET_RUN_ID || "run-10"}`,
   checkpoint_every: Number(E.NET_CHECKPOINT_EVERY || 5),
   era1: Number(E.NET_ERA1_ROUND || 5), era2: Number(E.NET_ERA2_ROUND || 7), refresh: Number(E.NET_POOL_REFRESH || 40),
+  underreport_agent: Number(E.NET_UNDERREPORT_AGENT || 0) || null, // 0.17.2: агент, который в своём отчёте о тратах умалчивает о самом крупном возврате
   bad_agent: Number(E.NET_BAD_AGENT || 0) || null, bad_from: Number(E.NET_BAD_FROM || 4), flood_from: Number(E.NET_FLOOD_FROM || 6), flood_n: Number(E.NET_FLOOD_N || 50),
   corrupt_round: Number(E.NET_CORRUPT_ROUND || 8), sweep_z: (E.NET_SWEEP_Z || "2").split(",").map(Number).filter(Boolean), sweep_a: (E.NET_SWEEP_A || "6").split(",").map(Number).filter(Boolean), sweep_n: Number(E.SUP_SWEEP_N || 50),
   teams: (E.SUP_TEAMS || "none,check,check+senior,senior").split(","), audit_tasks: Number(E.SUP_AUDIT_TASKS || 15), audit_services: Number(E.SUP_AUDIT_SERVICES || 30),
@@ -208,7 +209,10 @@ async function chooseOrchestrator(i) {
     const tr = await (await fetch(`${ref.to.url}/v1/experience/track-record`)).json(), sv = await verify(tr), cat = await (await fetch(`${ref.to.url}/v1/experience/catalog?domain=support`)).json();
     const sc = scoreOf(tr.credentialSubject), t = tr.credentialSubject;
     rec.to = { orch: o, signature: sv.ok, score: sc, track: t, fraud_entries: (cat.domains?.support?.fraud || []).map((e) => ({ technique: e.technique, prob_better: e.prob_better, evidence: e.evidence })) };
-    if (sv.ok && sc != null && sc > (rec.B.score ?? -1) && o !== "C") { choice = o; why = `подпись ✓; оценка ${ON(o)} ${sc} (успех советов ${t.advice.treated_success} против ${t.advice.control_success} у контроля, измерено ${t.advice.measured}; разница с поправкой на число измерений); ложных тревог ${t.drift_alarms.false_alarms}, аудит: истина в интервале в ${t.audit_accuracy ? Math.round(100 * t.audit_accuracy.truth_inside_ci) : "—"}% проверок — честный список с ошибками; у оркестратора 2 ${rec.B.score == null ? `мало измерений против контроля (контрольных ${rec.B.track?.advice?.control_n ?? "—"})` : `оценка ${rec.B.score}`}` ; }
+    // 0.17.2: старые неразмеченные исходы больше не идут против контроля, и после обновления у обоих оркестраторов оценки может
+    // не быть. Тогда агент идёт по направлению: оно само основано на приёмах, измеренных против контроля
+    const bothEmpty = sc == null && rec.B.score == null;
+    if (sv.ok && o !== "C" && ((sc != null && sc > (rec.B.score ?? -1)) || bothEmpty)) { choice = o; why = bothEmpty ? `подпись ✓; ни у ${ON(o)}, ни у оркестратора 2 пока нет советов, размеченных и измеренных против контроля (старые исходы не в счёт с 0.17.2) — иду по направлению, оно основано на приёмах, измеренных против контроля` : `подпись ✓; оценка ${ON(o)} ${sc} (успех советов ${t.advice.treated_success} против ${t.advice.control_success} у контроля, измерено ${t.advice.measured}; разница с поправкой на число измерений); ложных тревог ${t.drift_alarms.false_alarms}, аудит: истина в интервале в ${t.audit_accuracy ? Math.round(100 * t.audit_accuracy.truth_inside_ci) : "—"}% проверок — честный список с ошибками; у оркестратора 2 ${rec.B.score == null ? `мало измерений против контроля (контрольных ${rec.B.track?.advice?.control_n ?? "—"})` : `оценка ${rec.B.score}`}` ; }
     else why = `${ON(o)}: ${!sv.ok ? "подпись послужного списка не прошла" : sc == null ? "мало советов, измеренных против контроля" : "не лучше оркестратора 2"} — остаюсь у оркестратора 2`;
   }
   rec.choice = choice; rec.why = why;
@@ -551,6 +555,14 @@ async function round(r) {
   delete run.partial; run.rounds.push(row); run.round = r; saveRun();
   const f = (x) => `${x.rate}% (95%: ${x.ci95?.join("–")}, n=${x.checked})`;
   log(`аудит источников (${ON("A")}): база знаний — устарело ${f(row.audit.A.kb)}, на самом деле ${kbTruth}%; CRM дешёвая — ошибок ${f(row.audit.A.cheap)}, на самом деле ${row.audit.crm_truth.A.cheap}%; точная — ${f(row.audit.A.precise)}, на самом деле ${row.audit.crm_truth.A.precise}% (за последние ${W} раундов, каждое обращение один раз)`);
+  // 0.17.2: агенты под оркестраторами отчитываются о своих тратах за период; оркестратор сверяет с квитанциями шлюза
+  for (const A of agents.filter((x) => x && x.st.policy === "orch")) {
+    const refunds = gwy.state.tx.filter((x) => x.agent_did === A.agent.did && x.period === r && x.kind === "action" && x.action === "refund" && x.status === "approved").map((x) => x.refund || 0);
+    if (!refunds.length) continue;
+    const hide = P.underreport_agent === A.i + 1 ? Math.max(...refunds) : 0, total = refunds.reduce((a, b) => a + b, 0) - hide;
+    const c = await api(A.o, "POST", `/v1/agents/${A.id}/spend-claims`, { period: r, total, count: refunds.length - (hide ? 1 : 0), currency: "RUB" }, { signer: A.owner });
+    if (c.ok) { (run.spend_claims ||= []).push({ round: r, agent: A.i + 1, orch: A.o, claimed: total, hidden: hide, confirmed: c.body.confirmed_by_receipts, verdict: c.body.verdict }); if (c.body.verdict === "hidden_spending") log(`${AG(A.i, A.o)}  🧾 ${ON(A.o)}: по квитанциям шлюза потрачено ${c.body.confirmed_by_receipts} ₽, агент заявил ${total} ₽ — траты больше заявленных`); }
+  }
   for (const x of row.agents) log(`${AG(x.agent - 1, x.orch)} раунд ${r} (лимит ${x.limit ?? "—"}${x.team !== "none" ? `, ${TEAM_NAME[x.team]}` : ""}): выгода ${x.utility} ₽, вред ${x.harm} ₽, утечек ${x.leaks}, возвратов мошенникам ${x.fraud_refunds}, верно ${x.correct}/${x.tasks}, упущено ${x.regret}%, сам ${x.autonomous}, человеку ${x.escalated} (по лимиту ${x.forced}${x.per_action ? `, из них дороже предела на одно действие ${x.per_action}` : ""})${x.checks ? ` | проверки ${x.checks} ₽` : ""}${x.cost ? ` | цена ответа ${x.cost.per_ticket} ₽ (модель ${x.cost.llm_rub} ₽, ${x.cost.tokens.agent + x.cost.tokens.senior} ток.)` : ""}`);
 }
 

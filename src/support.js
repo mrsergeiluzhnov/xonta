@@ -270,16 +270,32 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
   // и тревога выходит мягкой, с 3 действиями вместо 0 (npm run reproduce). Тяжесть по-прежнему только вместе с отказом от команды
   const critLosses = (rec, from, to, critical) => (ledger().losses || []).filter((x) => x.agent_did === rec.did && (Number(x.period) || 0) >= from && (Number(x.period) || 0) <= to && (x.harm || 0) >= critical).length
     + (ledger().tx || []).filter((x) => x.agent_did === rec.did && x.per_action && x.status === "declined" && (Number(x.period) || 0) >= from && (Number(x.period) || 0) <= to && (x.refund || 0) >= critical).length;
+  // 0.17.2: норма той же команды у других агентов — последний полный период каждого, медиана, нужно не меньше двух
+  function peerNorm(rec, team, cur) {
+    const ag = store.get("agents", {}), vals = [];
+    for (const [id, c] of Object.entries(caps())) {
+      if (id === rec.id || c.team !== team || !ag[id]) continue;
+      if (changes().some((x) => x.agent === id && x.round >= cur - 1)) continue; // у соседа команда тоже только что сменилась
+      const ps = Object.entries(spendPer(ag[id], Math.max(1, cur - 2))).filter(([p, s]) => Number(p) < cur && s.tickets.size >= CFG.bypass_min_tickets).sort((a, b) => Number(b[0]) - Number(a[0]));
+      if (ps.length) vals.push(ps[0][1].spend / ps[0][1].tickets.size);
+    }
+    if (vals.length < 2) return null; vals.sort((a, b) => a - b); return vals[Math.floor(vals.length / 2)];
+  }
   function bypassOf(rec) {
     const team = caps()[rec.id]?.team || "none"; if (team === "none") return null;
     const cur = curPeriodOf(), from = Math.max(1, rec.support?.cfg_from ?? 0);
-    if (changes().some((x) => x.agent === rec.id && x.round >= cur - 1)) return null; // конфигурация как раз меняется по совету
+    // 0.17.2: сразу после смены команды своей нормы для новой команды ещё нет. Раньше проверка в этом окне молчала совсем, и подмена
+    // в первом периоде после смены ловилась только по итогу следующего периода (reproduce с подменой в раунде 3: через 40 обращений
+    // вместо 5). Теперь в этом окне агент сравнивается с нормой той же команды у других агентов
+    const fresh = changes().some((x) => x.agent === rec.id && x.round >= cur - 1);
     const per = spendPer(rec, from);
     const now = per[cur]; if (!now || now.tickets.size < CFG.bypass_min_tickets) return null;
-    const norms = Object.entries(per).filter(([p, s]) => Number(p) < cur && s.tickets.size >= CFG.bypass_min_tickets).sort((a, b) => Number(a[0]) - Number(b[0])).slice(-3).map(([, s]) => s.spend / s.tickets.size).sort((a, b) => a - b);
-    if (!norms.length) return null; const norm = norms[Math.floor(norms.length / 2)]; if (norm < CFG.bypass_min_norm) return null;
+    const norms = fresh ? [] : Object.entries(per).filter(([p, s]) => Number(p) < cur && s.tickets.size >= CFG.bypass_min_tickets).sort((a, b) => Number(a[0]) - Number(b[0])).slice(-3).map(([, s]) => s.spend / s.tickets.size).sort((a, b) => a - b);
+    let norm = norms.length ? norms[Math.floor(norms.length / 2)] : null, normFrom = "own";
+    if (norm == null) { norm = peerNorm(rec, team, cur); normFrom = "peers"; }
+    if (norm == null || norm < CFG.bypass_min_norm) return null;
     const rate = now.spend / now.tickets.size;
-    return rate < CFG.bypass_share * norm ? { period: cur, tickets: now.tickets.size, spend: Math.round(now.spend), per_ticket: Math.round(10 * rate) / 10, norm: Math.round(10 * norm) / 10, team } : null;
+    return rate < CFG.bypass_share * norm ? { period: cur, tickets: now.tickets.size, spend: Math.round(now.spend), per_ticket: Math.round(10 * rate) / 10, norm: Math.round(10 * norm) / 10, norm_from: normFrom, team } : null;
   }
   function trustOf(rec) {
     const he = rec.support?.exam_harm ?? 300, live = liveOf(rec);

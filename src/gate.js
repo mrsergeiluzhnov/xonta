@@ -31,10 +31,11 @@ export const DEFAULT_POLICY = {
   period_seconds: 3600,        // budget period
   actions_per_period: 20,      // how many "action" calls are allowed per period without a human
   rate_per_minute: 60,         // any tool
+  max_concurrent: 4,           // calls of one tool running at the same time (10-11 parallel copies on one metered key ended in 35,342 rate-limit refusals)
   block_high_risk: true,       // tools whose descriptions show high-risk hidden-instruction signs are hidden and refused
   freeze_on_change: true,      // tool descriptions changed mid-session -> actions are refused until restart / review
   injections_to_freeze: 3,     // hidden commands seen in outputs before actions are refused
-  tools: {},                   // per tool: { allow: false } | { action: true|false, max_per_period: n, rate_per_minute: n }
+  tools: {},                   // per tool: { allow: false } | { action: true|false, max_per_period: n, rate_per_minute: n, max_concurrent: n }
 };
 const log = (...a) => process.stderr.write(`[xonta-gate] ${a.join(" ")}\n`);
 
@@ -75,7 +76,7 @@ export function verifyAudit(file, pubPem) {
 // ---------- policy decisions (pure, testable) ----------
 export function createPolicy(policy = {}) {
   const P = { ...DEFAULT_POLICY, ...policy, tools: { ...(policy.tools || {}) } };
-  const calls = new Map(), actions = [], perTool = new Map();
+  const calls = new Map(), actions = [], perTool = new Map(), inflight = new Map();
   const state = { frozen: null, injections: 0, fingerprint: null, hidden: new Map(), tools: [] };
   const isAction = (name) => (P.tools[name]?.action ?? ACTION_WORDS.test(name));
   function setTools(tools, now = Date.now()) {
@@ -96,6 +97,8 @@ export function createPolicy(policy = {}) {
     const cfg = P.tools[name] || {}, rate = cfg.rate_per_minute ?? P.rate_per_minute;
     const w = (calls.get(name) || []).filter((t) => now - t < 60_000);
     if (w.length >= rate) return { allow: false, reason: `rate limit ${rate}/min`, kind: "rate" };
+    const conc = cfg.max_concurrent ?? P.max_concurrent;
+    if (conc && (inflight.get(name) || 0) >= conc) return { allow: false, reason: `${conc} calls of this tool are already running, wait for them to finish (parallel copies on one metered key don't finish faster)`, kind: "concurrency" };
     const action = isAction(name);
     if (action) {
       if (state.frozen) return { allow: false, reason: `actions frozen: ${state.frozen.why}. A human has to review and restart the gate`, kind: "frozen", action };
@@ -111,14 +114,16 @@ export function createPolicy(policy = {}) {
     if (d.action) actions.push({ name, t: now });
     perTool.set(name, (perTool.get(name) || 0) + 1);
   }
+  const begin = (name) => inflight.set(name, (inflight.get(name) || 0) + 1);
+  const end = (name) => inflight.set(name, Math.max(0, (inflight.get(name) || 0) - 1));
   function sawOutput(text) {
     if (!hasInjection(text)) return false;
     state.injections++;
     if (state.injections >= P.injections_to_freeze && !state.frozen) state.frozen = { why: `${state.injections} hidden commands seen in tool outputs`, at: Date.now() };
     return true;
   }
-  const summary = () => ({ frozen: state.frozen, injections: state.injections, fingerprint: state.fingerprint, hidden: [...state.hidden.entries()], actions_in_period: actions.filter((x) => x.t > Date.now() - P.period_seconds * 1000).length, budget: P.actions_per_period, calls: Object.fromEntries(perTool) });
-  return { P, isAction, setTools, decide, record, sawOutput, summary, state };
+  const summary = () => ({ frozen: state.frozen, injections: state.injections, fingerprint: state.fingerprint, hidden: [...state.hidden.entries()], actions_in_period: actions.filter((x) => x.t > Date.now() - P.period_seconds * 1000).length, budget: P.actions_per_period, calls: Object.fromEntries(perTool), running: Object.fromEntries([...inflight].filter(([, n]) => n > 0)) });
+  return { P, isAction, setTools, decide, record, begin, end, sawOutput, summary, state };
 }
 
 // ---------- upstream ----------
@@ -153,7 +158,7 @@ export async function startGate({ upstream, policy = {}, dir = join(homedir(), "
         audit.write({ event: "call", tool, args_sha, decision: "refused", kind: d.kind, reason: d.reason, action: !!d.action });
         return { content: [{ type: "text", text: `Xonta Gate refused this call: ${d.reason}.` }], isError: true };
       }
-      pol.record(tool, d);
+      pol.record(tool, d); pol.begin(tool);
       try {
         const out = await up.callTool({ name: tool, arguments: params.arguments || {} }, undefined, { timeout: Number(process.env.MCP_TOOL_TIMEOUT_MS || 600000) });
         const text = (out.content || []).map((c) => c.text || "").join("");
@@ -164,7 +169,7 @@ export async function startGate({ upstream, policy = {}, dir = join(homedir(), "
       } catch (e) {
         audit.write({ event: "call", tool, args_sha, decision: "allowed", action: !!d.action, error: String(e?.message || e).slice(0, 200) });
         return { content: [{ type: "text", text: `Upstream error: ${String(e?.message || e).slice(0, 200)}` }], isError: true };
-      }
+      } finally { pol.end(tool); }
     });
     return server;
   };

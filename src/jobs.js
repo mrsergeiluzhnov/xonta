@@ -76,7 +76,7 @@ export function divergence({ claimed_ok, unconfirmed }, { stale_allow = JOB_DEFA
   return { diverged: unconfirmed > 0 && p < alpha, p };
 }
 
-export function createJobs({ store, issuer, orch, notify = async () => {}, publicUrl, cfg = {} }) {
+export function createJobs({ store, issuer, orch, notify = async () => {}, publicUrl, cfg = {}, receipts = null }) {
   const C = { ...JOB_DEFAULTS, ...cfg };
   const all = () => store.get("jobs", {});
   const save = (j) => store.update("jobs", {}, (x) => { x[j.id] = j; });
@@ -98,13 +98,15 @@ export function createJobs({ store, issuer, orch, notify = async () => {}, publi
     if (!(floor > 0 && floor < 1)) throw err(400, "floor: доля от 0 до 1, например 0.05");
     const price = body.price ? { per: body.price.per === "row" ? "row" : "found", amount: Number(body.price.amount) || 0, currency: String(body.price.currency || "USD").toUpperCase().slice(0, 3) } : null;
     const verification = body.verification === "gateway" ? "gateway" : "agent";
+    const budget = body.budget == null ? null : Number(body.budget);
+    if (budget != null && !(budget > 0)) throw err(400, "budget: сколько всего можно потратить на задачу");
     if (verification === "gateway") {
       if (!body.target || !body.tool || !success.path) throw err(400, "для подсчёта шлюзом нужны target (агент-источник у оркестратора), tool и success.path");
       orch.get(body.target);
     }
     const j = {
       id: `job_${rid()}`, agent: rec.id, name: String(body.name || "job").slice(0, 100), total_rows: total, success: { description: success.description ? String(success.description).slice(0, 200) : null, path: success.path ? String(success.path).slice(0, 100) : null, equals: success.equals ?? null },
-      floor, window: Math.max(20, Math.min(1000, Number(body.window) || C.window)), max_batch: Math.max(1, Math.min(100_000, Number(body.max_batch) || C.max_batch)), price, verification, target: body.target || null, tool: body.tool || null,
+      floor, window: Math.max(20, Math.min(1000, Number(body.window) || C.window)), max_batch: Math.max(1, Math.min(100_000, Number(body.max_batch) || C.max_batch)), price, budget, verification, target: body.target || null, tool: body.tool || null,
       status: "running", paused: null, approval: null, created: new Date().toISOString(),
       totals: { rows: 0, successes: 0, errors: 0, stale: 0, elapsed_sec: 0 }, spent: 0, buffer: { n: 0, k: 0 }, last_window: null, windows: [], asks: [], batches: 0, verified_rows: 0, pending_checks: {}, checks: [], flags: [],
     };
@@ -118,6 +120,7 @@ export function createJobs({ store, issuer, orch, notify = async () => {}, publi
 
   // общий путь для отчёта агента и подсчёта шлюзом: добавить строки, закрыть окна, решить, спрашивать ли
   function ingest(j, { rows, successes, errors = 0, stale = 0, elapsed_sec = 0 }) {
+    const spentBefore = j.spent;
     j.totals.rows += rows; j.totals.successes += successes; j.totals.errors += errors; j.totals.stale += stale; j.totals.elapsed_sec += elapsed_sec;
     if (j.price) j.spent += j.price.per === "row" ? rows * j.price.amount : successes * j.price.amount;
     j.buffer.n += rows; j.buffer.k += successes;
@@ -130,6 +133,10 @@ export function createJobs({ store, issuer, orch, notify = async () => {}, publi
       if (!j.paused) { const d = shouldAsk(j, win); if (d.ask) decision = pause(j, d); }
     }
     if (j.totals.rows >= j.total_rows && j.status === "running") j.status = "done";
+    // своя квитанция за траты задачи (0.17.2): оркестратор подписывает только то, что посчитал сам или что ему заявили по задаче,
+    // с остатком бюджета задачи до и после
+    const delta = Math.round(100 * (j.spent - spentBefore)) / 100;
+    if (receipts && j.budget && delta > 0) receipts.issueOwn({ payer: agentOf(j).did, allowance: { ref: j.id, per_period: j.budget }, period: "job", amount: delta, currency: j.price?.currency || "USD", action: j.verification === "gateway" ? "counted_by_gateway" : "reported_by_agent", ref: j.id }).catch(() => {});
     return decision;
   }
 

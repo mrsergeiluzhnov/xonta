@@ -4,7 +4,7 @@ Site: [mrsergeiluzhnov.github.io/xonta](https://mrsergeiluzhnov.github.io/xonta/
 
 **Open trust infrastructure for AI agents.** Your agent passed the tests. Can you let it touch money and customer data, and how much? Xonta answers that with evidence anyone can check, not with a score out of 100 you have to take on faith. The agent passport (a set of signed credentials) is one part of it.
 
-> Status: **0.17.1, experimental.** Everything below works and is covered by tests and sandbox runs (`stand/`, `lab/`). Some parts of the spec are only written down so far, see "Not there yet". The main README is in Russian, this file covers the same ground in English.
+> Status: **0.17.2, experimental.** Everything below works and is covered by tests and sandbox runs (`stand/`, `lab/`). Some parts of the spec are only written down so far, see "Not there yet". The main README is in Russian, this file covers the same ground in English.
 
 ## New. Xonta Gate, a trust layer in front of any MCP server
 
@@ -137,6 +137,7 @@ Every orchestrator exposes endpoints so you can look at it before trusting it:
 | `GET /v1/guardian` | state of descendant supervision |
 | `GET /.well-known/xonta-orchestrator.json` | signed card: DID, endpoints, fields and experience by category |
 | `GET /v1/orchestrators` | the directory of verified orchestrators, `?category=` shows who has experience in it |
+| `POST /v1/receipts`, `GET /v1/agents/:id/spend` | spending receipts signed by whoever moved the money, checked for a live balance and gaps, and compared with what the agent says it spent, family included ([results](results/v0.17.2/README.en.md)) |
 | mandate limits | two limits like a session key, per period and per single action; a larger refund always goes to a human ([results](results/per-action-cap/README.en.md)) |
 | `POST /v1/agents/:id/jobs` | a long job (lookups, enrichment): success rate as it runs, a forecast, the owner decides with bounds, independent spot checks ([results](results/lookup-scenario/README.en.md)) |
 

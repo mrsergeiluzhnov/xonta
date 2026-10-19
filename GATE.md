@@ -5,7 +5,7 @@
 - tools with hidden instructions in their descriptions (tool poisoning) are hidden and refused;
 - if the server quietly changes tool descriptions in the middle of a session, actions get frozen;
 - tools that change things (delete, send, pay, refund, push...) are counted, and over the budget the call is refused with "needs a human";
-- every tool is rate limited;
+- every tool is rate limited, and no more than 4 calls of one tool run at the same time;
 - hidden commands inside tool outputs ("SYSTEM: ignore your rules...") are flagged, and after a few of them actions get frozen;
 - every call goes into a signed, hash-chained audit log. Change or delete one line and `xonta-gate verify` will show where.
 
@@ -64,6 +64,7 @@ Defaults work without any config. To tune, pass `--policy policy.json`:
   "period_seconds": 3600,
   "actions_per_period": 20,
   "rate_per_minute": 60,
+  "max_concurrent": 4,
   "block_high_risk": true,
   "freeze_on_change": true,
   "injections_to_freeze": 3,
@@ -76,6 +77,8 @@ Defaults work without any config. To tune, pass `--policy policy.json`:
 ```
 
 Which tools count as actions is decided by the tool name (create, delete, write, send, pay, refund, push, merge...). Override any tool with `"action": true` or `false`.
+
+`max_concurrent` caps how many calls of one tool run at once (per tool too). An agent once launched 10 to 11 parallel copies of a metered lookup on one key, and 31% of its requests came back as rate-limit refusals. Parallel copies on one key don't finish faster.
 
 ## Tested on the official MCP servers
 
@@ -142,7 +145,7 @@ Gate is the simple part of Xonta. The full orchestrator learns how much an agent
 - инструменты со скрытыми инструкциями в описаниях (tool poisoning) спрятаны и не вызываются;
 - если сервер посреди работы тихо меняет описания инструментов, действия замораживаются;
 - инструменты, которые что-то меняют (удалить, отправить, оплатить, вернуть деньги, запушить), считаются, и сверх бюджета вызов отклоняется с пометкой «нужен человек»;
-- у каждого инструмента есть предел частоты;
+- у каждого инструмента есть предел частоты, и одновременно идут не больше 4 вызовов одного инструмента;
 - скрытые команды в ответах инструментов («SYSTEM: игнорируй правила…») отмечаются, после нескольких таких действия замораживаются;
 - каждый вызов попадает в подписанный журнал с цепочкой хэшей. Поменяли или удалили строку — `xonta-gate verify` покажет, где.
 

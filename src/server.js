@@ -18,6 +18,7 @@ import { createFields, mountFields } from "./fields.js";
 import { createDirectory, mountDirectory } from "./directory.js";
 import { createLineageAdvice, mountLineageAdvice } from "./lineage-advice.js";
 import { createJobs, mountJobs } from "./jobs.js";
+import { createReceipts, mountReceipts } from "./receipts.js";
 import { errorBody } from "./i18n.js";
 import { verifyCaller } from "./callerauth.js";
 import { createLLM } from "../stand/llm.js";
@@ -28,7 +29,7 @@ import { scanMcpServer } from "./scan.js";
 import { publicKeyFromMultibase } from "./crypto.js";
 import * as xontaDocsSuite from "../suites/xonta-docs.js";
 
-export const VERSION = "0.17.1";
+export const VERSION = "0.17.2";
 const env = process.env;
 const PORT = Number(env.PORT || 4040);
 const PUBLIC_URL = (env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
@@ -92,7 +93,9 @@ const dir = createDirectory({ store, issuer, resolver, exp, fields, publicUrl: P
     scan_hours: Number(env.DIRECTORY_SCAN_HOURS || 6), ...(env.DIRECTORY_ACCEPT != null ? { accept: env.DIRECTORY_ACCEPT === "1" } : {}) } });
 const adv = createLineageAdvice({ store, orch, fields, dir, exp, publicUrl: PUBLIC_URL });
 // 0.17: массовые задачи — доля успехов на ходу, прогноз, вопрос владельцу, мандат с границами, выборочная проверка
-const jobs = createJobs({ store, issuer, orch, notify, publicUrl: PUBLIC_URL });
+// 0.17.2: квитанции о тратах от исполнителей, сверка с тем, что заявляет агент, лимит семьи
+const receipts = createReceipts({ store, issuer, orch, resolver, notify, publicUrl: PUBLIC_URL });
+const jobs = createJobs({ store, issuer, orch, notify, publicUrl: PUBLIC_URL, receipts });
 const app = express();
 app.set("trust proxy", Number(env.TRUST_PROXY ?? 1)); // за одним обратным прокси (nginx); без прокси задайте TRUST_PROXY=0
 app.use(express.json({ limit: "8mb", verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } })); // тело нужно для проверки подписи запроса
@@ -157,7 +160,13 @@ app.post("/v1/agents/:id/status", wrap(async (req) => {
 // --- потомки, предложения, слияние (уровень 2: оркестратор оценивает и рекомендует, применяет владелец) ---
 // с ключом владельца — простой путь (0.16), с подписанным мандатом owner_did — прежний
 app.post("/v1/agents/:id/children", wrap(async (req) => {
-  if (bearer(req)) { await ownerAuth(req, req.params.id); limit(req, 10, 86400_000, "children"); return adv.registerByOwner(req.params.id, req.body || {}); }
+  if (bearer(req)) {
+    await ownerAuth(req, req.params.id); limit(req, 10, 86400_000, "children");
+    const r = await adv.registerByOwner(req.params.id, req.body || {});
+    // лимит потомка выделяется из лимита родителя (0.17.2)
+    if (req.body?.allowance) { try { r.allowance = receipts.setAllowance(r.id, req.body.allowance).allowance; } catch (e) { r.allowance_error = e.message; } }
+    return r;
+  }
   return evo.registerChild(req.params.id, req.body || {}, await verifyCaller(req, resolver));
 }));
 app.post("/v1/proposals", wrap((req) => { limit(req, 300); return evo.submitProposal(req.body || {}); }));
@@ -183,6 +192,7 @@ mountFields(app, { fields, wrap, limit, ownerAuth, bearer, isAdmin });
 mountDirectory(app, { dir, wrap, admin, limit });
 mountLineageAdvice(app, { adv, wrap, ownerAuth, limit, bearer });
 mountJobs(app, { jobs, wrap, ownerAuth, store, resolver, verifyCaller });
+mountReceipts(app, { receipts, wrap, ownerAuth, limit });
 app.get("/v1/agents/:id/proposals", wrap((req) => evo.listProposals(orch.get(req.params.id).id)));
 app.get("/v1/agents/:id/merges", wrap((req) => evo.listMerges(orch.get(req.params.id).id)));
 app.get("/v1/agents/:id/signals", wrap((req) => { ownerOrAdmin(req, req.params.id); return orch.listSignals(req.params.id); }));
