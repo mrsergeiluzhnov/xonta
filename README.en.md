@@ -76,6 +76,8 @@ The repeat of the third run on 0.14.4 ([results/run-series1-c2](results/run-seri
 
 **Where the three-run series landed** ([results/series-1](results/series-1/README.en.md)): in all three runs the swap was caught after 5 tickets and the bad copy took no actions after that; in all three the bad descendant was revoked in round 7 and none of its 69 350 calls got through. Over 12 rounds the average agent under an orchestrator made 38 900 test rubles and the average agent without one lost 480 300; the gap is 519 000 ₽, 95% interval 454 000–585 000 ₽. Agents with another orchestrator's experience reach full autonomy by round 5, those learning from scratch by rounds 7–9. What three runs don't prove is that experience earns more money: +11 000 ₽ per agent, with an interval from −21 000 to +44 000.
 
+Run 11, "Saving tokens" ([results/run-11](results/run-11/README.en.md)): the same 320 tickets went through six ways of using the model. Counting harm, the cheapest was to let the large model, GigaChat-2-Max, decide everything: 41 ₽ per ticket against 78 ₽ for the small one, 5 000 ₽ of harm against 13 400. Tokens cost 0.2 ₽ per ticket, while harm and human time cost about a hundred times more, so that's what is worth saving. Calling the large model "only on risk" didn't cut harm: the costliest harm comes from a plain reply to a complaint, and a plain reply never triggers it. The orchestrator found that spot on its own exam, but ran out of large-model budget during the run. That, and the risk of a cache after a rule change, is what the repeat will check.
+
 ## Check it yourself
 
 ```bash
