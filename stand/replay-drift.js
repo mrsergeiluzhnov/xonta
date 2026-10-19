@@ -55,7 +55,8 @@ function exam(a, r) {
       if (changesAll.some((c) => c.agent === a.id && String(c.kind).startsWith("advice:") && c.round > prev.round && c.round <= r)) s.seq_from = r + 1;
     }
     const ci = agentsAll[a.id]?.child_incident; if (ci && r >= ci.round) rec.child_incident = ci;
-    rec.support = { ...s, exam_harm: e.metrics.harm_per_action ?? 0, exam_harm_sd: hsd, exam_severe: { k: severe, n: auto.length }, exam_round: r, measure_only: measureOnly(a) };
+    const critAt = Math.max(3000, 3 * (e.metrics.harm_per_action ?? 0)), crit = auto.filter((x) => x.harm >= critAt).length;
+    rec.support = { ...s, exam_harm: e.metrics.harm_per_action ?? 0, exam_harm_sd: hsd, exam_severe: { k: severe, n: auto.length }, exam_crit: { k: crit, n: auto.length }, exam_round: r, measure_only: measureOnly(a) };
   });
   if (!measureOnly(a)) note(a, r, "экзамен", sup.review(a.id, { round: r }));
 }

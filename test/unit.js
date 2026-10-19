@@ -438,7 +438,8 @@ await t("0.13.3: отказ от команды, тяжёлая тревога, 
   // чистая работа сама по себе тяжёлую тревогу не снимает
   for (const p of [5, 6, 7, 8, 9]) work("a2", p, 20, { auto: false });
   store.update("agents", {}, (a) => { a.a2.support.exam_round = 8; });
-  assert.equal(sup.review("a2", { round: 9 }).limit, 0, "без устранённой причины — только советует");
+  // 0.14.7: но после нового экзамена тяжёлая тревога только по вреду (команду не обходил) — испытательный срок, 3 действия
+  const tp = sup.review("a2", { round: 9 }); assert.equal(tp.limit, 3, "испытательный срок"); assert.ok(tp.probation);
   // причина устранена (испорченный потомок отозван) и сдан новый экзамен — тревога снята, лимит растёт с 3
   store.update("agents", {}, (a) => { a.kid = { id: "kid", did: "did:example:kid", status: "revoked", parent: "a2" }; a.a2.child_incident = { child: "kid", round: 4, until_round: 6 }; });
   const t3 = sup.review("a2", { round: 9 });
@@ -452,6 +453,34 @@ await t("0.13.3: отказ от команды, тяжёлая тревога, 
   // а новый крупный вред после снятия по-прежнему ловится
   work("a2", 11, 20, { harm: { 1: 12000, 4: 12000, 8: 12000 } });
   assert.ok(sup.review("a2", { round: 11 }).drift_since, "новый вред после снятия — новая тревога");
+
+  // 0.14.7: испытательный срок. Чисто отработал — тревога снята; снова вред — тяжёлая без второго шанса
+  // (общий журнал: периоды здесь от 21, чтобы не смешаться с работой агента a2 выше)
+  mk("a5"); store.put("sup_caps", { ...store.get("sup_caps", {}), a5: { team: "check", actions: [] } });
+  for (const p of [21, 22, 23]) work("a5", p, 20); work("a5", 24, 20, { harm: { 2: 12000, 5: 12000, 9: 12000 } });
+  store.update("agents", {}, (a) => { a.a5.support.exam_round = 22; });
+  assert.equal(sup.review("a5", { round: 24 }).limit, 0);
+  work("a5", 25, 20, { auto: false });
+  assert.equal(sup.review("a5", { round: 25 }).limit, 0, "без нового экзамена — по-прежнему 0");
+  store.update("agents", {}, (a) => { a.a5.support.exam_round = 26; }); work("a5", 26, 20, { auto: false });
+  assert.equal(sup.review("a5", { round: 26 }).limit, 3, "новый экзамен — испытательный срок");
+  work("a5", 27, 20, { harm: { 1: 12000, 3: 12000, 6: 12000 } });
+  assert.equal(sup.review("a5", { round: 27 }).limit, 0, "вред на испытательном сроке — снова 0");
+  store.update("agents", {}, (a) => { a.a5.support.exam_round = 28; }); work("a5", 28, 20, { auto: false });
+  assert.equal(sup.review("a5", { round: 28 }).limit, 0, "второго испытательного срока нет");
+  mk("a6"); store.put("sup_caps", { ...store.get("sup_caps", {}), a6: { team: "check", actions: [] } });
+  for (const p of [31, 32, 33]) work("a6", p, 20); work("a6", 34, 20, { harm: { 2: 12000, 5: 12000, 9: 12000 } });
+  store.update("agents", {}, (a) => { a.a6.support.exam_round = 32; });
+  sup.review("a6", { round: 34 }); store.update("agents", {}, (a) => { a.a6.support.exam_round = 35; }); work("a6", 35, 20, { auto: false });
+  assert.equal(sup.review("a6", { round: 35 }).limit, 3);
+  work("a6", 36, 14);
+  const tr6 = sup.review("a6", { round: 36 }); assert.ok(tr6.recover, "12 чистых действий на испытательном сроке — тревога снята"); assert.equal(tr6.limit, 3);
+  // пойман по вреду, но команду после тревоги не зовёт (как подменённый агент на тестовой модели) — испытательного срока нет
+  mk("a7"); store.put("sup_caps", { ...store.get("sup_caps", {}), a7: { team: "check", actions: [] } });
+  for (const p of [41, 42, 43]) work("a7", p, 20); work("a7", 44, 20, { spend: 1, harm: { 2: 12000, 5: 12000, 9: 12000 } });
+  store.update("agents", {}, (a) => { a.a7.support.exam_round = 42; });
+  sup.review("a7", { round: 44 }); store.update("agents", {}, (a) => { a.a7.support.exam_round = 45; }); work("a7", 45, 20, { spend: 1, auto: false });
+  const t7 = sup.review("a7", { round: 45 }); assert.equal(t7.limit, 0, "команду не зовёт — второго шанса нет"); assert.ok(!t7.probation);
 
   // 3. вред из контрольного периода не идёт в тест после смены команды по совету
   mk("a4", { seq_from: 5 }); store.put("sup_caps", { ...store.get("sup_caps", {}), a4: { team: "none", actions: [] } });
@@ -648,6 +677,21 @@ await t("0.14.6 прогон токенов: одинаковый запрос �
   const ctx = { card: v1.verified.card, flags: ["x"], feed: v1.verified.feed };
   assert.ok(T.digest(ctx, { action: "refund" }).feed.every((a) => S2.topicOf(a.id) === "returns"), "денежное решение — в выжимке только правила возврата");
   assert.equal(T.digest(ctx, { action: "escalate" }).feed.length, 0); assert.deepEqual(T.digest(ctx, { action: "escalate" }).flags, ["x"]);
+});
+
+await t("0.14.7: пока потомок под наблюдением надзора, возвраты у родителя — только через человека (ошибка 24)", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createIssuer } = await import("../src/issuer.js"), { createSupport } = await import("../src/support.js");
+  const dir = mkdtempSync(join(tmpdir(), "sup24-")), store = openStore(dir), issuer = createIssuer({ store, publicUrl: "http://localhost:4996", dataDir: dir });
+  const orch = { get: (id) => structuredClone(store.get("agents", {})[id]), tester: {} };
+  const sup = createSupport({ store, issuer, orch, resolver: null, publicUrl: "http://localhost:4996", exp: null });
+  store.put("agents", { p: { id: "p", did: "did:example:p", status: "active", support: { exam_harm: 40, exam_round: 2, limit: 20 } }, lead: { id: "lead", did: "did:example:lead", status: "active", parent: "p" }, ch: { id: "ch", did: "did:example:ch", status: "active", parent: "lead" } });
+  assert.ok(sup.trust("p").refund_limit > 0, "потомки в норме — возвраты как обычно");
+  store.put("guardian", { agents: { ch: { level: 1 } }, round: 5 });
+  const t1 = sup.trust("p"); assert.equal(t1.refund_limit, 0, "внук под наблюдением — возвраты через человека"); assert.equal(t1.watched_descendants[0].id, "ch");
+  assert.equal(t1.limit, 20, "остальные действия не трогаем");
+  store.put("guardian", { agents: { ch: { level: 3 } }, round: 6 }); store.update("agents", {}, (a) => { a.ch.status = "suspended"; });
+  assert.ok(sup.trust("p").refund_limit > 0, "потомок на карантине и отрезан — возвраты снова сами");
 });
 
 console.log(`\nALL PASSED (${passed})`);
