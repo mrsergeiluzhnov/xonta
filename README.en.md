@@ -78,6 +78,8 @@ The repeat of the third run on 0.14.4 ([results/run-series1-c2](results/run-seri
 
 Run 11, "Saving tokens" ([results/run-11](results/run-11/README.en.md)): the same 320 tickets went through six ways of using the model. Counting harm, the cheapest was to let the large model, GigaChat-2-Max, decide everything: 41 ₽ per ticket against 78 ₽ for the small one, 5 000 ₽ of harm against 13 400. Tokens cost 0.2 ₽ per ticket, while harm and human time cost about a hundred times more, so that's what is worth saving. Calling the large model "only on risk" didn't cut harm: the costliest harm comes from a plain reply to a complaint, and a plain reply never triggers it. The orchestrator found that spot on its own exam, but ran out of large-model budget during the run. That, and the risk of a cache after a rule change, is what the repeat will check.
 
+The repeat on different tickets ([results/run-11b](results/run-11b/README.en.md)): the large model is again about 36 ₽ per ticket cheaper than the small one, and calling it "on risk" again barely reduced harm. Without a tight budget the orchestrator caught up with the large model and edged past it, 68.51 ₽ against 73.39, but the gap rests on four tickets, so there will be a third run. After the rule change the check cache served the old refund article 59 times, and the large model used it to overrule two correct refunds. A cache that expires on a timer rather than when the article changes does harm once the rules change.
+
 ## Check it yourself
 
 ```bash
