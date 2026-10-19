@@ -684,6 +684,20 @@ function report() {
   // проверяющих раньше, чем видно вред (совет из обсуждения статьи на dev.to). Тревога — на падение против собственной нормы
   L.push(`\n## Платные проверки на обращение по раундам, ₽\n`, `Падение против собственной нормы агента — первый признак, что он перестал звать своих проверяющих (на этом поймана подмена). ⚠ — агент подменён.\n`, `| Раунд | ${ag.map((a, i) => `агент ${i + 1}`).join(" | ")} |`, `|---|${ag.map(() => "---|").join("")}`);
   for (const x of run.rounds) L.push(`| ${x.round} | ${ag.map((_, i) => { const y = x.agents.find((z) => z.agent === i + 1); return y ? `${y.tasks ? Math.round(10 * (y.checks || 0) / y.tasks) / 10 : "—"}${y.corrupt ? " ⚠" : ""}` : "—"; }).join(" | ")} |`);
+  // 0.17.2: предел на одно действие и квитанции — чтобы в отчёте было видно, что они работают и сколько стоят
+  {
+    const pa = run.rounds.flatMap((x) => x.agents).reduce((s, y) => s + (y.per_action || 0), 0);
+    const recs = gwy.state.tx.filter((x) => x.kind === "action" && (x.receipt || x.action_receipt));
+    let accounts = 0, debits = 0, dead = 0, anomalies = 0;
+    for (const o of HOSTING) { let rc = null; try { rc = JSON.parse(readFileSync(join(ORCH_ROOT, o, "receipts.json"), "utf8")); } catch { continue; }
+      anomalies += (rc.anomalies || []).length;
+      for (const a of Object.values(rc.accounts || {})) { if (a.n < 2) continue; accounts++; debits += a.n; const b = a.balances || [], last = a.per_period != null ? Math.round(100 * (a.per_period - a.total)) / 100 : a.balance; if (new Set(b).size !== a.n || !b.every((x, i) => i === 0 || x < b[i - 1]) || a.balance !== last) dead++; } }
+    const sc = run.spend_claims || [], v = (k) => sc.filter((x) => x.verdict === k).length;
+    L.push(`\n## Предел на одно действие и квитанции о тратах (0.17.2)\n`,
+      `- Возвратов дороже предела на одно действие, ушедших человеку: ${pa}.`,
+      `- Квитанций шлюза: ${recs.length}. Счетов с несколькими списаниями: ${accounts}, списаний в них ${debits}; счетов, где остаток не живой (N списаний — не N разных убывающих остатков или последний ≠ предел − сумма): ${dead}; замечаний к квитанциям у оркестраторов: ${anomalies}.`,
+      `- Сверка заявленного агентами с квитанциями: совпало ${v("matches")}, скрытые траты ${v("hidden_spending")}${sc.some((x) => x.hidden) ? ` (умалчивал агент ${[...new Set(sc.filter((x) => x.hidden).map((x) => x.agent))].join(", ")}: в ${sc.filter((x) => x.hidden).length} периодах, поймано ${sc.filter((x) => x.hidden && x.verdict === "hidden_spending").length})` : ""}, часть со слов агента ${v("partly_unconfirmed")}; ложных обвинений честных: ${sc.filter((x) => !x.hidden && x.verdict === "hidden_spending").length}.`);
+  }
   L.push(`\n## Выбор оркестратора и направления\n`);
   const urlName = (u) => { const k = Object.keys(ORCH).find((x) => `http://localhost:${ORCH[x].port}` === u); return k ? ON(k) : u; };
   for (const r of run.referrals || []) L.push(`- агент ${r.agent}: ${r.offered ? `предложено: ${urlName(r.offered)}` : "без направления"} → выбран ${ON(r.choice)}. ${r.why}${r.skipped?.length ? ` Не направлен к: ${r.skipped.map((x) => `${urlName(x.url)} — ${x.reason}`).join("; ")}.` : ""}`);
