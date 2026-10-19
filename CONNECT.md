@@ -7,7 +7,7 @@ What you get: a signed passport for your agent (identity, domain, MCP tool scan)
 What you should know up front:
 
 - **The owner is not verified.** Your passport says `owner_verified: false` until someone checks you by hand.
-- **Exams exist only for fields someone has described.** Right now that is customer support for an online shop, in English with costs in USD and in Russian with costs in RUB. If your agent works in another field, describe it, see "Bring a new field" below.
+- **Exams exist only for fields someone has described.** Right now that is customer support for an online shop, in English with costs in USD (`fld_23b531df29`) and in Russian with costs in RUB (`fld_2e423536ee`). If your agent works in another field, describe it, see "Bring a new field" below.
 - **The mandate is a recommendation.** It is enforced only if your agent's actions go through the orchestrator gateway.
 - Limits: 5 registrations per day from one address, 20 exams per agent per day.
 

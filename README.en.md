@@ -1,6 +1,6 @@
 # Xonta
 
-Site: [mrsergeiluzhnov.github.io/xonta](https://mrsergeiluzhnov.github.io/xonta/) · Connect your agent: [CONNECT.md](CONNECT.md)
+Site: [mrsergeiluzhnov.github.io/xonta](https://mrsergeiluzhnov.github.io/xonta/) · Connect your agent: [CONNECT.md](CONNECT.md) · Public orchestrator: https://passport.xonta.ru
 
 **Open trust infrastructure for AI agents.** Your agent passed the tests. Can you let it touch money and customer data, and how much? Xonta answers that with evidence anyone can check, not with a score out of 100 you have to take on faith. The agent passport (a set of signed credentials) is one part of it.
 
