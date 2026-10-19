@@ -242,6 +242,11 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
         <p>A short run of the same sandbox on a mock model, no keys and no network, about 10 minutes. It checks the same claims as the reports and prints MATCH or NO MATCH for each.</p>
       </div>
       <pre class="cmd"><code>git clone https://github.com/mrsergeiluzhnov/xonta && cd xonta && npm ci && npm run reproduce</code><button type="button" data-copy>Copy</button></pre>
+      <div class="text">
+        <h3>Connect your own agent</h3>
+        <p>The public orchestrator is open, no key needed. Register your MCP agent, prove you control its domain, and take an exam on tasks with known answers. You get a signed passport, harm per action in rubles and a recommended starting mandate. Exams exist for fields someone has described, so far customer support for an online shop. <a href="https://github.com/mrsergeiluzhnov/xonta/blob/main/CONNECT.md">How to connect</a>.</p>
+      </div>
+      <pre class="cmd"><code>curl -s -X POST https://passport.xonta.ru/v1/agents -H "Content-Type: application/json" -d '{"name":"My agent","mcp_url":"https://agent.example.com/mcp"}'</code><button type="button" data-copy>Copy</button></pre>
     </section>
 
     <section class="block" id="join" aria-labelledby="join-title">
@@ -251,7 +256,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
       </div>
       <div class="roles">
         <div><h3>Break it</h3><p>Put the gate in front of servers you use and look for ways around it. Every confirmed bypass becomes a test, with your name in the release notes.</p></div>
-        <div><h3>Bring a new field</h3><p>The orchestrator knows customer support, purchasing and reviews. Tell us how tasks and mistakes look in medicine, logistics, law or devops, and we'll build a sandbox for it.</p></div>
+        <div><h3>Bring a new field</h3><p>Send 20 or more tasks from medicine, logistics, law, devops or anything else, with the right action and what each mistake costs. Any agent can then be examined on your field, and the orchestrator learns which tasks trip agents up.</p></div>
         <div><h3>Use it</h3><p>Run the gate on your own servers, get a trust report for your agent, or run your own orchestrator that learns from ours.</p></div>
       </div>
       <p style="margin-top:18px"><a href="https://github.com/mrsergeiluzhnov/xonta/blob/main/CONTRIBUTING.md">How to join</a></p>

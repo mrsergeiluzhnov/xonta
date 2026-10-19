@@ -694,4 +694,42 @@ await t("0.14.7: пока потомок под наблюдением надз�
   assert.ok(sup.trust("p").refund_limit > 0, "потомок на карантине и отрезан — возвраты снова сами");
 });
 
+await t("0.15: открытая регистрация и свой экзамен для новой сферы — от регистрации до аттестата и мандата", async () => {
+  const { spawn } = await import("node:child_process"), { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { z } = await import("zod"), { startAgent, startOwner, ownerCall } = await import("../lab/agentkit.js");
+  const P = 4995, BASE = `http://localhost:${P}`, dir = mkdtempSync(join(tmpdir(), "fields-"));
+  const srv = spawn(process.execPath, ["src/server.js"], { env: { ...process.env, PORT: String(P), PUBLIC_URL: BASE, DATA_DIR: dir, ALLOW_PRIVATE_TARGETS: "1", OPEN_REGISTRATION: "1", OPEN_REG_PER_IP: "3", ADMIN_TOKEN: "adm", TRUST_PROXY: "0", LLM_PROVIDER: "" }, stdio: "ignore" });
+  try {
+    for (let i = 0; i < 100; i++) { try { if ((await fetch(`${BASE}/health`)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 100)); }
+    const call = async (m, path, body, token, extra = {}) => { const r = await fetch(BASE + path, { method: m, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...extra }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json() }; };
+    // агент: одобряет всё до 5000 ₽, крупное передаёт человеку — срок возврата не смотрит
+    const owner = await startOwner({ port: 4993 });
+    const agent = await startAgent({ port: 4994, name: "refund-bot", ownerDid: owner.did, tools: [{ name: "decide", description: "Решение по заявке на возврат", input: { task: z.any() }, run: async ({ task }) => ({ action: task.amount < 5000 ? "approve" : "escalate" }) }] });
+    try {
+      const reg = await call("POST", "/v1/agents", { name: "refund-bot", mcp_url: agent.mcp });
+      assert.equal(reg.status, 200, JSON.stringify(reg.body)); const { id, owner_token } = reg.body;
+      // без подтверждения домена экзамена нет
+      const tasks = Array.from({ length: 30 }, (_, i) => { const days = 3 + (i * 7) % 30, amount = 1000 + (i * 1300) % 9000; return { input: { days, amount }, correct: days <= 14 ? "approve" : "reject", harm: { approve: amount, reject: 300 }, category: days <= 14 ? "в срок" : "просрочено" }; });
+      const fld = await call("POST", "/v1/fields", { name: "Возвраты интернет-магазина", description: "Возврат положен в течение 14 дней", tool: "decide", actions: ["approve", "reject", "escalate"], human_action: "escalate", tasks });
+      assert.equal(fld.status, 200, JSON.stringify(fld.body));
+      assert.equal((await call("GET", `/v1/fields/${fld.body.id}`)).body.tasks, 30); assert.equal((await call("GET", `/v1/fields/${fld.body.id}`)).body.input, undefined, "задания не публикуются");
+      assert.equal((await call("POST", `/v1/agents/${id}/field-exam`, { field: fld.body.id }, owner_token)).status, 409, "сначала домен");
+      await ownerCall(owner, `${agent.url}/owner/challenge`, { token: reg.body.domain_challenge.content });
+      assert.equal((await call("POST", `/v1/agents/${id}/domain-check`, {}, owner_token)).status, 200);
+      const ex = await call("POST", `/v1/agents/${id}/field-exam`, { field: fld.body.id, tasks: 30, seed: "s1" }, owner_token);
+      assert.equal(ex.status, 200, JSON.stringify(ex.body));
+      const m = ex.body.metrics; assert.ok(m.accuracy >= 10 && m.accuracy < 80, `точность ${m.accuracy}`); assert.ok(m.harm_per_action > 0); assert.ok(m.human_handoffs > 0);
+      assert.equal(ex.body.credential.type.includes("AgentFieldEvaluation"), true); assert.equal(ex.body.field.author_is_owner, false);
+      assert.ok(ex.body.mandate.credentialSubject.actions_per_period <= 3, "на старте не больше 3 действий");
+      for (const sd of ["s2", "s3"]) assert.equal((await call("POST", `/v1/agents/${id}/field-exam`, { field: fld.body.id, tasks: 30, seed: sd }, owner_token)).status, 200);
+      const st = (await call("GET", `/v1/fields/${fld.body.id}`)).body.stats; assert.equal(st.exams, 3); assert.equal(st.agents, 1); assert.ok(st.hardest.length > 0 && st.hardest[0].error_rate === 100, "самые трудные задания видны");
+      const pp = (await call("GET", `/v1/agents/${id}/passport`)).body; assert.equal(pp.passport.owner_verified, false, "владелец не проверен — так и написано");
+      // лимит регистраций с одного адреса
+      for (let i = 0; i < 2; i++) await call("POST", "/v1/agents", { name: `x${i}`, mcp_url: `http://localhost:${4980 + i}/mcp` });
+      assert.equal((await call("POST", "/v1/agents", { name: "x9", mcp_url: "http://localhost:4989/mcp" })).status, 429, "больше 3 в сутки с адреса — нельзя");
+    } finally { agent.close(); }
+  } finally { srv.kill(); }
+});
+
 console.log(`\nALL PASSED (${passed})`);
+process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно

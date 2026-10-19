@@ -31,12 +31,19 @@ export function mountGateway(app, { store, resolver, testerDid, guardian = null 
     }
   }
 
+  const gwHits = new Map(), GW_RATE = Number(process.env.GW_RATE_PER_MIN || 0); // 0 — без предела (стенд: все агенты с одного адреса)
   app.post("/gw/:id/mcp", async (req, res) => {
     const agents = store.get("agents", {});
     const rec = Object.hasOwn(agents, req.params.id) ? agents[req.params.id] : null;
     if (!rec) return res.status(404).json({ jsonrpc: "2.0", error: { code: -32001, message: "агент не зарегистрирован" }, id: null });
     if (["suspended", "revoked"].includes(rec.status))
       return res.status(403).json({ jsonrpc: "2.0", error: { code: -32002, message: `агент ${rec.status === "revoked" ? "отозван" : "приостановлен"}` }, id: null });
+    // 0.15: шлюз ведёт только к агенту с подтверждённым доменом — иначе при открытой регистрации его можно было бы направить
+    // на чужой сервер. И предел частоты с одного адреса на одного агента
+    if (!rec.domain_verified_at && !rec.parent) return res.status(403).json({ jsonrpc: "2.0", error: { code: -32004, message: "домен агента не подтверждён: шлюз к нему не ведёт" }, id: null });
+    if (GW_RATE) { const k = `${rec.id}|${req.ip}`, now = Date.now(), w = (gwHits.get(k) || []).filter((t) => now - t < 60_000);
+      if (w.length >= GW_RATE) return res.status(429).json({ jsonrpc: "2.0", error: { code: -32005, message: `не больше ${GW_RATE} вызовов в минуту` }, id: null });
+      w.push(now); gwHits.set(k, w); if (gwHits.size > 20000) gwHits.clear(); }
     if (rec.status === "deprecated" && rec.sunset) res.set("Sunset", new Date(rec.sunset).toUTCString());
     if (rec.status === "deprecated" && rec.successor) res.set("Link", `<${rec.successor}>; rel="successor-version"`);
 

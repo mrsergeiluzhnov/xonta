@@ -14,6 +14,7 @@ import { createShop, mountShop } from "./shop.js";
 import { createSupport, mountSupport } from "./support.js";
 import { createExperience, mountExperience } from "./experience.js";
 import { createGuardian, mountGuardian } from "./guardian.js";
+import { createFields, mountFields } from "./fields.js";
 import { verifyCaller } from "./callerauth.js";
 import { createLLM } from "../stand/llm.js";
 import { createOrchestrator } from "./orchestrator.js";
@@ -23,7 +24,7 @@ import { scanMcpServer } from "./scan.js";
 import { publicKeyFromMultibase } from "./crypto.js";
 import * as xontaDocsSuite from "../suites/xonta-docs.js";
 
-export const VERSION = "0.14.7";
+export const VERSION = "0.15.0";
 const env = process.env;
 const PORT = Number(env.PORT || 4040);
 const PUBLIC_URL = (env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
@@ -31,6 +32,8 @@ const DATA_DIR = env.DATA_DIR || join(process.cwd(), "data");
 const ALLOW_PRIVATE = env.ALLOW_PRIVATE_TARGETS === "1"; // только для разработки: разрешает http и локальные адреса
 const ADMIN_TOKEN = env.ADMIN_TOKEN || "";
 const REG_TOKEN = env.REGISTRATION_TOKEN || "";
+// 0.15: открытая регистрация — без ключа, с лимитами: не больше OPEN_REG_PER_IP агентов в сутки с одного адреса и MAX_AGENTS всего
+const OPEN_REG = env.OPEN_REGISTRATION === "1", OPEN_REG_PER_IP = Number(env.OPEN_REG_PER_IP || 5), MAX_AGENTS = Number(env.MAX_AGENTS || 1000);
 
 const store = openStore(DATA_DIR);
 const issuer = createIssuer({ store, publicUrl: PUBLIC_URL, dataDir: DATA_DIR });
@@ -77,6 +80,8 @@ const exp = createExperience({ store, issuer, resolver, publicUrl: PUBLIC_URL, n
 const support = createSupport({ store, issuer, orch, resolver, publicUrl: PUBLIC_URL, exp });
 // надзор за потомками: мандат на шлюзе, контрольные обращения, скрытые команды, лестница карантина
 const guardian = createGuardian({ store, issuer, orch, publicUrl: PUBLIC_URL, exp });
+// свой экзамен для новых сфер: наборы заданий от проводников, экзамен агента по набору, опыт по сферам
+const fields = createFields({ store, issuer, orch, publicUrl: PUBLIC_URL, exp });
 const app = express();
 app.set("trust proxy", Number(env.TRUST_PROXY ?? 1)); // за одним обратным прокси (nginx); без прокси задайте TRUST_PROXY=0
 app.use(express.json({ limit: "8mb", verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } })); // тело нужно для проверки подписи запроса
@@ -102,8 +107,8 @@ async function ownerAuth(req, id) {
 
 // простой лимит для открытой проверки чужих MCP-серверов
 const hits = new Map();
-function limit(req, max = 20, windowMs = 3600_000) {
-  const k = req.ip, now = Date.now();
+function limit(req, max = 20, windowMs = 3600_000, bucket = "scan") {
+  const k = `${bucket}|${req.ip}`, now = Date.now();
   if (hits.size > 10000) for (const [key, arr] of hits) if (!arr.some((t) => now - t < windowMs)) hits.delete(key);
   const arr = (hits.get(k) || []).filter((t) => now - t < windowMs);
   if (arr.length >= max) throw Object.assign(new Error("слишком много проверок, попробуйте позже"), { status: 429 });
@@ -119,7 +124,11 @@ app.get("/status/:purpose", (req, res) => { const vc = issuer.statusListCredenti
 // --- агенты ---
 // регистрация: по ключу регистрации; без него в рабочем режиме — только администратор
 app.post("/v1/agents", wrap(async (req) => {
-  const open = ALLOW_PRIVATE && !REG_TOKEN;
+  const open = (ALLOW_PRIVATE && !REG_TOKEN) || OPEN_REG;
+  if (OPEN_REG && !isAdmin(req)) {
+    limit(req, OPEN_REG_PER_IP, 86400_000, "register");
+    if (Object.values(store.get("agents", {})).filter((a) => !a.parent).length >= MAX_AGENTS) throw Object.assign(new Error("регистрация временно закрыта: достигнут предел агентов"), { status: 503 });
+  }
   if (!open && !isAdmin(req) && !(REG_TOKEN && bearer(req) && timingSafeEqual(h(bearer(req)), h(REG_TOKEN)))) throw Object.assign(new Error("регистрация по приглашению: нужен ключ регистрации"), { status: 403 });
   return orch.register(req.body, { caller: await verifyCaller(req, resolver) });
 }));
@@ -154,6 +163,7 @@ mountSupport(app, { support, wrap, admin, ownerAuth, orch });
 // опыт оркестратора: каталог по областям и категориям, подписанный пакет опыта, послужной список, доказательства, обмен
 mountExperience(app, { exp, wrap, admin });
 mountGuardian(app, { guardian, wrap, admin });
+mountFields(app, { fields, wrap, limit, ownerAuth, bearer, isAdmin });
 app.get("/v1/agents/:id/proposals", wrap((req) => evo.listProposals(orch.get(req.params.id).id)));
 app.get("/v1/agents/:id/merges", wrap((req) => evo.listMerges(orch.get(req.params.id).id)));
 app.get("/v1/agents/:id/signals", wrap((req) => { ownerOrAdmin(req, req.params.id); return orch.listSignals(req.params.id); }));
@@ -172,7 +182,7 @@ app.get("/v1/anchors", wrap(() => store.get("anchors", []).map(({ file, ...a }) 
 app.get("/ns/v0", (_req, res) => res.type("application/ld+json").set("Cache-Control", "public, max-age=86400").json({
   "@context": { "@version": 1.1, "@vocab": `${PUBLIC_URL}/ns/v0#` },
 }));
-app.get("/health", (_req, res) => res.json({ ok: true, version: VERSION, issuer: issuer.did, name: env.ORCH_NAME || "xonta" }));
+app.get("/health", (_req, res) => res.json({ ok: true, version: VERSION, issuer: issuer.did, name: env.ORCH_NAME || "xonta", open_registration: OPEN_REG }));
 app.get("/", (_req, res) => res.type("html").send(`<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Паспорт ИИ-агента — Xonta</title>
 <body style="font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:40px auto;padding:0 16px">
 <h1>Паспорт ИИ-агента</h1><p>Оркестратор A2O2A от <a href="https://xonta.ru">Xonta</a>: проверяемые аттестаты для ИИ-агентов (W3C VC), проверка MCP-серверов на скрытые инструкции, агент-тестер и сигналы владельцу. Оркестратор рекомендует, но ничего не меняет в агентах сам.</p>

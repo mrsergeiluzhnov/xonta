@@ -216,6 +216,8 @@ export function createOrchestrator({ store, issuer, notify, signals, publicUrl, 
         level_of_access: rec.level,
         gateway: `${publicUrl}/gw/${rec.id}/mcp`,
         issuer: issuer.did,
+        // 0.15: при открытой регистрации владельца никто не проверял — так и пишем, а не молчим
+        owner_verified: credsOf(rec, "AgentOwnerVerified").some((c) => !issuer.statusOf(c).revocation),
       },
       profile: rec.last_evaluation ? {
         expert: rec.last_evaluation.categories.filter((c) => c.score >= 80).map((c) => c.category),
