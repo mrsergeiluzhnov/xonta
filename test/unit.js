@@ -893,5 +893,15 @@ await t("0.17: массовая задача от начала до конца �
   } finally { for (const c of closers) c.close?.(); srv.kill(); }
 });
 
+await t("0.17.1: лимит по верхней границе среднего вреда и предел на одно действие", async () => {
+  const { summarize } = await import("../src/fields.js");
+  const f = { currency: "USD" }, mk = (harms) => harms.map((h) => ({ autonomous: true, correct: h === 0, harm: h, human: 0 }));
+  // одинаковый средний вред 1 $ на действие: ровный и с одной огромной ошибкой
+  const even = summarize(f, mk(Array(40).fill(1)), { budget: 25 }), tail = summarize(f, mk([...Array(39).fill(0), 40]), { budget: 25 });
+  assert.equal(even.harm_per_action, 1); assert.equal(tail.harm_per_action, 1);
+  assert.ok(tail.trust.target_actions < even.trust.target_actions, `с тяжёлым хвостом лимит меньше (${tail.trust.target_actions} против ${even.trust.target_actions})`);
+  assert.equal(tail.worst_single_harm, 40); assert.equal(tail.trust.max_harm_per_action, 25, "одно действие не дороже бюджета периода");
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно

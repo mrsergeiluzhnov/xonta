@@ -51,16 +51,18 @@ export async function startSupportGateway({ port, ownerDid, dataDir, orchUrl }) 
       run: async ({ token, ticket_id, action, amount }) => {
         const free = action === "escalate"; let u = free ? { ok: true, t: state.tokens[token] } : use(token, 1, "actions");
         // второй предел токена: сумма возвратов за период (деньги, а не только число действий)
+        // 0.17.1: предел на одно действие — возврат дороже уходит человеку, сколько бы ни оставалось в пределе периода
+        if (u.ok && action === "refund" && u.t?.refund_max != null && (amount || 0) > u.t.refund_max) u = { ok: false, t: u.t, reason: `возврат ${amount} ₽ больше предела на одно действие ${u.t.refund_max} ₽ — только через человека`, per_action: true };
         if (u.ok && action === "refund" && u.t?.refund_limit != null) { const spent = state.tx.filter((x) => x.token === token && x.period === state.period && x.status === "approved" && x.action === "refund").reduce((s, x) => s + (x.refund || 0), 0); if (spent + (amount || 0) > u.t.refund_limit) u = { ok: false, t: u.t, reason: `предел возвратов за период ${u.t.refund_limit} ₽: уже ${spent} ₽` }; }
-        const tx = { id: `tx_${randomUUID().slice(0, 8)}`, at: new Date().toISOString(), period: state.period, token, agent_did: u.t?.agent_did || null, kind: "action", action, amount: free ? 0 : 1, refund: action === "refund" ? amount || 0 : 0, ticket_id, status: u.ok ? "approved" : "declined", reason: u.ok ? null : u.reason };
+        const tx = { id: `tx_${randomUUID().slice(0, 8)}`, at: new Date().toISOString(), period: state.period, token, agent_did: u.t?.agent_did || null, kind: "action", action, amount: free ? 0 : 1, refund: action === "refund" ? amount || 0 : 0, ticket_id, status: u.ok ? "approved" : "declined", reason: u.ok ? null : u.reason, per_action: u.per_action || undefined, cap: action === "refund" ? u.t?.refund_max ?? null : undefined };
         state.tx.push(tx); if (state.tx.length > 60000) state.tx = state.tx.slice(-60000);
         save(); await report(tx);
-        return { status: tx.status, tx: tx.id, reason: tx.reason };
+        return { status: tx.status, tx: tx.id, reason: tx.reason, per_action: tx.per_action || undefined };
       } },
   ];
   agent = await startAgent({ port, name: "xonta-support-gateway", tools, ownerDid, keyFile: join(dataDir, "agent.jwk"), instructions: "Шлюз действий поддержки и службы проверки (песочница).",
     ownerRoutes: {
-      issue: async ({ agent_did, limit, kind = "actions", refund_limit = null }) => { const key = `${agent_did}#${kind}`; for (const [k, v] of Object.entries(state.tokens)) if (v.key === key) delete state.tokens[k]; const token = `tok_${randomUUID().replace(/-/g, "").slice(0, 20)}`; state.tokens[token] = { key, agent_did, kind, limit, refund_limit, issued: new Date().toISOString() }; save(); return { token, limit, refund_limit }; },
+      issue: async ({ agent_did, limit, kind = "actions", refund_limit = null, refund_max = null }) => { const key = `${agent_did}#${kind}`; for (const [k, v] of Object.entries(state.tokens)) if (v.key === key) delete state.tokens[k]; const token = `tok_${randomUUID().replace(/-/g, "").slice(0, 20)}`; state.tokens[token] = { key, agent_did, kind, limit, refund_limit, refund_max, issued: new Date().toISOString() }; save(); return { token, limit, refund_limit, refund_max }; },
       route: async ({ agent_did, orch_url }) => { (state.routes ||= {})[agent_did] = orch_url; save(); return { ok: true }; },
       period: async ({ period }) => { state.period = period; save(); return { period }; },
       truth: async ({ items = [] }) => { for (const t of items) state.truth[t.id] = t; const ks = Object.keys(state.truth); if (ks.length > 8000) for (const k of ks.slice(0, ks.length - 8000)) delete state.truth[k]; save(); return { stocked: items.length }; },

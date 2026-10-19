@@ -239,8 +239,9 @@ async function startAgentSlot(i) {
   await ownerCall(owner, `${agent.url}/owner/set-tokens`, { tools: token, ...(st.actions_token ? { actions: st.actions_token } : {}) });
   agents[i] = A; saveRun(); return A;
 }
-async function setActions(A, limit, refund_limit, why) {
-  const { token } = await ownerCall(ownerGw, `${gwy.url}/owner/issue`, { agent_did: A.agent.did, limit, kind: "actions", refund_limit });
+async function setActions(A, limit, refund_limit, why, refund_max = A.st.refund_max ?? null) {
+  const { token } = await ownerCall(ownerGw, `${gwy.url}/owner/issue`, { agent_did: A.agent.did, limit, kind: "actions", refund_limit, refund_max });
+  A.st.refund_max = refund_max;
   await ownerCall(A.owner, `${A.agent.url}/owner/set-tokens`, { actions: token });
   if (A.st.limit !== limit) log(`${A.tag}  самостоятельных действий за период ${A.st.limit ?? "—"} → ${limit}${refund_limit != null ? `, возвратов не больше ${refund_limit} ₽` : ""} (${why})`);
   A.st.limit = limit; A.st.refund_limit = refund_limit; A.st.actions_token = token;
@@ -314,7 +315,7 @@ async function exam(A, r, { measureOnly = A.st.policy === "fixed" } = {}) {
   const ev = res.body, m = ev.metrics;
   run.exams.push({ agent: A.i + 1, orch: A.o, group: A.st.group, round: r, metrics: m, types: ev.types, trust: { level: ev.trust.level, limit: ev.trust.limit, refund_limit: ev.trust.refund_limit }, credential: ev.credential.id });
   log(`${A.tag}  экзамен у ${ON(A.o)} (${m.cases}): верно ${m.accuracy}%, упущено ${m.regret_pct}%, выгода ${m.utility_per_ticket} ₽/обращение, вред ${m.harm_per_action ?? "—"} ₽/действие, утечек ${m.leaks}${m.team !== "none" ? `, ${TEAM_NAME[m.team]}` : ""} → ${ev.trust.level}, ${ev.trust.limit} действий${A.st.policy === "orch" ? "" : " (замер, не применяется)"}`);
-  if (A.st.policy === "orch") await setActions(A, ev.trust.limit, ev.trust.refund_limit, `${ON(A.o)}: ${ev.trust.level}`);
+  if (A.st.policy === "orch") await setActions(A, ev.trust.limit, ev.trust.refund_limit, `${ON(A.o)}: ${ev.trust.level}`, ev.trust.refund_max ?? null);
   // 0.14.2: тревогу снимают и на экзамене — раньше это не попадало ни в журнал, ни в отчёт
   if (A.st.policy === "orch" && ev.trust.recover) driftCleared(A, r, ev.trust.recover.why, ev.trust.limit);
   await handleAdvice(A, r, ev);
@@ -383,7 +384,7 @@ async function agentRound(A, r, tickets) {
     const d = res.decision, forced = d.action !== "escalate" && res.act?.status !== "approved";
     const g = S.grade(t, d, { forcedEscalation: forced, checks: (d.checks || 0) + (res.crm_cost || 0) });
     row.outcomes[g.outcome] = (row.outcomes[g.outcome] || 0) + 1; row.utility += g.utility; row.harm += g.harm; row.regret += g.regret_pct; row.lost += g.lost; if (g.correct) row.correct++;
-    if (g.leak) row.leaks++; if (g.outcome === "fraud_refund") row.fraud_refunds++; if (g.autonomous) row.autonomous++; if (forced) row.forced++; if (!g.autonomous) row.escalated++;
+    if (res.act?.per_action) row.per_action = (row.per_action || 0) + 1; if (g.leak) row.leaks++; if (g.outcome === "fraud_refund") row.fraud_refunds++; if (g.autonomous) row.autonomous++; if (forced) row.forced++; if (!g.autonomous) row.escalated++;
     row.checks += (d.checks || 0) + (res.crm_cost || 0); row.rejected += d.rejected || 0; if (d.senior_used) row.senior++;
     if (g.harm > 0) await api(A.o, "POST", "/v1/support/outcome", { agent_did: A.agent.did, ticket: t.id, kind: g.outcome, harm: g.harm, period: r }, { token: ADMIN });
     feedback.push({ full: t, ctx: res.ctx, regret_pct: g.regret_pct, explain: S.explain(t, g, d) });
@@ -402,7 +403,7 @@ async function agentRound(A, r, tickets) {
   if (A.st.policy === "orch" && A.st.actions_token) {
     const tr = await api(A.o, "POST", `/v1/agents/${A.id}/support-review`, { round: r }, { signer: A.owner });
     if (tr.ok) {
-      if (tr.body.limit !== A.st.limit || (tr.body.refund_limit ?? null) !== (A.st.refund_limit ?? null)) await setActions(A, tr.body.limit, tr.body.refund_limit, `${ON(A.o)}, итог периода: вред ${tr.body.harm_rate} ₽/действие${tr.body.drift_since ? `, РАСХОЖДЕНИЕ ЭКЗАМЕНА И РАБОТЫ${tr.body.drift_level === "severe" ? " (тяжёлое: только советует)" : ""}` : ""}${tr.body.recover ? ", тревога снята" : ""}`);
+      if (tr.body.limit !== A.st.limit || (tr.body.refund_limit ?? null) !== (A.st.refund_limit ?? null) || (tr.body.refund_max ?? null) !== (A.st.refund_max ?? null)) await setActions(A, tr.body.limit, tr.body.refund_limit, `${ON(A.o)}, итог периода: вред ${tr.body.harm_rate} ₽/действие${tr.body.drift_since ? `, РАСХОЖДЕНИЕ ЭКЗАМЕНА И РАБОТЫ${tr.body.drift_level === "severe" ? " (тяжёлое: только советует)" : ""}` : ""}${tr.body.recover ? ", тревога снята" : ""}`);
       if (tr.body.recover) driftCleared(A, r, tr.body.recover.why, tr.body.limit);
       // 0.14.2: тревога после снятия — отдельное событие (в run-series1-a такие повторы шли молча)
       if (tr.body.drift_since && A.st.drift_detected && A.st.drift_cleared != null) { (A.st.drift_again ||= []).push(r); A.st.drift_cleared = null; run.events.push({ round: r, agent: A.i + 1, orch: A.o, event: "drift_again", detail: tr.body.reason }); log(`${A.tag}  🚨 ${ON(A.o)}: тревога поднята снова после снятия — ${tr.body.reason}`); }
@@ -550,7 +551,7 @@ async function round(r) {
   delete run.partial; run.rounds.push(row); run.round = r; saveRun();
   const f = (x) => `${x.rate}% (95%: ${x.ci95?.join("–")}, n=${x.checked})`;
   log(`аудит источников (${ON("A")}): база знаний — устарело ${f(row.audit.A.kb)}, на самом деле ${kbTruth}%; CRM дешёвая — ошибок ${f(row.audit.A.cheap)}, на самом деле ${row.audit.crm_truth.A.cheap}%; точная — ${f(row.audit.A.precise)}, на самом деле ${row.audit.crm_truth.A.precise}% (за последние ${W} раундов, каждое обращение один раз)`);
-  for (const x of row.agents) log(`${AG(x.agent - 1, x.orch)} раунд ${r} (лимит ${x.limit ?? "—"}${x.team !== "none" ? `, ${TEAM_NAME[x.team]}` : ""}): выгода ${x.utility} ₽, вред ${x.harm} ₽, утечек ${x.leaks}, возвратов мошенникам ${x.fraud_refunds}, верно ${x.correct}/${x.tasks}, упущено ${x.regret}%, сам ${x.autonomous}, человеку ${x.escalated} (по лимиту ${x.forced})${x.checks ? ` | проверки ${x.checks} ₽` : ""}${x.cost ? ` | цена ответа ${x.cost.per_ticket} ₽ (модель ${x.cost.llm_rub} ₽, ${x.cost.tokens.agent + x.cost.tokens.senior} ток.)` : ""}`);
+  for (const x of row.agents) log(`${AG(x.agent - 1, x.orch)} раунд ${r} (лимит ${x.limit ?? "—"}${x.team !== "none" ? `, ${TEAM_NAME[x.team]}` : ""}): выгода ${x.utility} ₽, вред ${x.harm} ₽, утечек ${x.leaks}, возвратов мошенникам ${x.fraud_refunds}, верно ${x.correct}/${x.tasks}, упущено ${x.regret}%, сам ${x.autonomous}, человеку ${x.escalated} (по лимиту ${x.forced}${x.per_action ? `, из них дороже предела на одно действие ${x.per_action}` : ""})${x.checks ? ` | проверки ${x.checks} ₽` : ""}${x.cost ? ` | цена ответа ${x.cost.per_ticket} ₽ (модель ${x.cost.llm_rub} ₽, ${x.cost.tokens.agent + x.cost.tokens.senior} ток.)` : ""}`);
 }
 
 try {

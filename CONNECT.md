@@ -47,7 +47,7 @@ curl -s -X POST $P/v1/agents/$ID/field-exam -H "Authorization: Bearer $OWNER_TOK
   -d '{"field":"FIELD_ID","tasks":40,"budget":2000}'
 ```
 
-`budget` is how much harm per period you accept, in the field's currency (default 25 for USD and EUR, 2000 for RUB). The answer has accuracy, harm per autonomous action, the mistakes, a signed `AgentFieldEvaluation` and a recommended `ActionMandate`. The passport is public: `GET $P/v1/agents/$ID/passport`.
+`budget` is how much harm per period you accept, in the field's currency (default 25 for USD and EUR, 2000 for RUB). The answer has accuracy, harm per autonomous action, the mistakes, a signed `AgentFieldEvaluation` and a recommended `ActionMandate`. The limit is computed from the upper bound of the average harm, so an agent that is rarely but badly wrong gets fewer actions, and the mandate has `max_harm_per_action`: any single action that can cost more than the period budget goes to a human. The passport is public: `GET $P/v1/agents/$ID/passport`.
 
 ## Bring a new field
 
