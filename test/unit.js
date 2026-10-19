@@ -761,7 +761,7 @@ await t("0.16: справочник оркестраторов — визитк�
     assert.equal((await call(A, "GET", "/v1/orchestrators")).body.length, 1);
     // развёрнутый у себя оркестратор сам предлагает записаться; без согласия никуда не пишет
     const hb = (await call(B, "GET", "/health")).body; assert.ok(hb.directory.offer, "предложение записаться есть"); assert.equal(hb.directory.listed, false);
-    assert.match(await (await fetch(B + "/")).text(), /Владельцу/);
+    assert.match(await (await fetch(B + "/")).text(), /For the owner of this orchestrator/);
     assert.equal((await call(A, "GET", "/v1/orchestrators")).body.length, 1, "до согласия B в справочнике нет");
     assert.equal((await call(B, "POST", "/v1/orchestrators", { url: A })).status, 403, "обычный оркестратор чужие записи не принимает");
     const j = await call(B, "POST", "/v1/admin/directory/join", {}, "adm"); assert.equal(j.body.listed, true, JSON.stringify(j.body));

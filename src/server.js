@@ -19,6 +19,7 @@ import { createDirectory, mountDirectory } from "./directory.js";
 import { createLineageAdvice, mountLineageAdvice } from "./lineage-advice.js";
 import { createJobs, mountJobs } from "./jobs.js";
 import { createReceipts, mountReceipts } from "./receipts.js";
+import { renderHome } from "./home.js";
 import { errorBody } from "./i18n.js";
 import { verifyCaller } from "./callerauth.js";
 import { createLLM } from "../stand/llm.js";
@@ -29,7 +30,7 @@ import { scanMcpServer } from "./scan.js";
 import { publicKeyFromMultibase } from "./crypto.js";
 import * as xontaDocsSuite from "../suites/xonta-docs.js";
 
-export const VERSION = "0.17.2";
+export const VERSION = "0.17.3";
 const env = process.env;
 const PORT = Number(env.PORT || 4040);
 const PUBLIC_URL = (env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
@@ -212,13 +213,8 @@ app.get("/ns/v0", (_req, res) => res.type("application/ld+json").set("Cache-Cont
   "@context": { "@version": 1.1, "@vocab": `${PUBLIC_URL}/ns/v0#` },
 }));
 app.get("/health", (_req, res) => res.json({ ok: true, version: VERSION, issuer: issuer.did, name: env.ORCH_NAME || "xonta", open_registration: OPEN_REG, directory: (() => { const o = dir.offer(); return { hub: dir.hub, is_hub: dir.isHub, listed: dir.isHub || !!dir.status().joined?.listed, offer: o ? { message: o.message, message_ru: o.message_ru, how: o.how } : null }; })() }));
-app.get("/", (_req, res) => res.type("html").send(`<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Паспорт ИИ-агента — Xonta</title>
-<body style="font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:40px auto;padding:0 16px">
-<h1>Паспорт ИИ-агента</h1><p>Оркестратор A2O2A от <a href="https://xonta.ru">Xonta</a>: проверяемые аттестаты для ИИ-агентов (W3C VC), проверка MCP-серверов на скрытые инструкции, агент-тестер и сигналы владельцу. Оркестратор рекомендует, но ничего не меняет в агентах сам.</p>
-<ul><li>Эмитент: <code>${issuer.did}</code> — <a href="/.well-known/did.json">DID-документ</a></li><li>MCP: <code>${PUBLIC_URL}/mcp</code> — verify_agent, get_passport, scan_mcp_server</li><li>Статусы: <a href="/status/revocation">отзыв</a>, <a href="/status/suspension">приостановка</a></li><li>Фиксации: <a href="/v1/anchors">/v1/anchors</a></li></ul>
-<p>Справочник оркестраторов: <a href="/v1/orchestrators">/v1/orchestrators</a>, визитка этого оркестратора: <a href="/.well-known/xonta-orchestrator.json">/.well-known/xonta-orchestrator.json</a></p>
-${(() => { const o = dir.offer(); return o ? `<p style="border:1px solid #c9a227;padding:10px 12px;border-radius:6px"><b>Владельцу.</b> ${o.message_ru}<br><code>${o.how[0].replace(/</g, "&lt;")}</code><br><small>${o.message}</small></p>` : ""; })()}
-<p>Версия ${VERSION}. Спецификация и код — Apache 2.0.</p></body></html>`));
+// 0.17.3: главная — английский основной, русский ниже; сферы экзаменов и справочник берутся с этого же сервера
+app.get("/", (_req, res) => res.type("html").send(renderHome({ version: VERSION, publicUrl: PUBLIC_URL, issuerDid: issuer.did, fields: fields.list(), orchestrators: dir.list(), offer: dir.offer(), openRegistration: OPEN_REG })));
 
 mountGateway(app, { store, resolver, testerDid: orch.tester.did, guardian, jobs });
 mountMcp(app, { version: VERSION, verifier, orch, scanPublic, limit });
