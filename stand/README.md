@@ -401,3 +401,13 @@ Fixes after the dev.to discussion (EN). The stand report now has paid checks per
 `npm run lookup-scenario` — расчёт по открытому разбору одного утра на платном поиске телефонов (103 000 строк, найдено 1,28% при 14–26% у подходящих списков). Сравниваются лимит бюджета, проба 100 строк и подход Xonta: партии с проверкой на ходу. Итоги в [results/lookup-scenario](../results/lookup-scenario/README.md).
 
 A calculation on a public trace of one morning on a metered phone lookup (103,000 rows, 1.28% found against 14–26% on fitting lists). It compares a budget cap, a 100-row probe and the Xonta way, batches checked as they run. Results in [results/lookup-scenario](../results/lookup-scenario/README.en.md).
+
+## Правка после run-series1-a2 (0.16.2)
+
+**Подмена больше не зависит от того, какого оркестратора выбрали агенты.** В run-series1-a2 агенты 7–9 сравнили послужные списки и остались у оркестратора 2 (0,97 против 0,66 у оркестратора 1). Стенд подменял агента только у оркестратора 1, поэтому подмены не было, и проверка ловли подмены выпала из прогона. Теперь, если у оркестратора 1 нет агентов, стенд подменяет первого направленного агента (агента 7) там, где он работает. Само правило выбора не менялось.
+
+Почему агенты остались у оркестратора 2 (ошибка 27): в c2 у него появился третий контрольный случай, и оценка стала считаться. В неё вошли больше двадцати старых исходов рецептов «проверяющие» из прогонов до 0.14.4 — они без пометки, а пометка появилась только в 0.14.4. Кроме того, у контроля («ничего не менять») успех почти всегда 0, так что оценка — почти просто доля удачных советов. Как это править, решает владелец.
+
+Проверка: короткий прогон на тестовой модели с копией книг после run-series1-a2 — агенты 7–9 у оркестратора 2, агент 7 подменён там.
+
+Fix after run-series1-a2 (EN). If no agent ended up at orchestrator 1, the stand now swaps the first referred agent wherever it works, so the swap check no longer depends on which orchestrator the agents picked. In a2 they stayed at orchestrator 2 because its track record started counting old untagged recipe outcomes once it had three control cases (bug 27); the choice rule itself is unchanged for now.

@@ -82,6 +82,8 @@ The repeat on different tickets ([results/run-11b](results/run-11b/README.en.md)
 
 The third run ([results/run-11c](results/run-11c/README.en.md)) and all three together: the large model is 37 ₽ per ticket cheaper than the small one (30–45), and "on risk" costs 27 ₽ more than the large model (20–35), three times out of three. Without a tight budget the orchestrator is 5.57 ₽ cheaper than the large model (1.51–10.57) across two runs: the "small answers, large checks" pair more often hands a person the complaints that the large model answers on its own. The gap is small and depends on what a complaint mistake costs. The cache did harm after the rule change both times it had the chance (+31 and +55 ₽ per ticket in rounds 7–8). The digest halves the large model's tokens with no loss in quality, but in money that's still pennies.
 
+A rerun of the first series run on 0.14.7 ([results/run-series1-a2](results/run-series1-a2/README.en.md)): an agent no longer follows hidden commands from a bad child while that child is under watch; its refunds go through a person for that time. On the same tickets round 6 cost 200 ₽ instead of 21,960 ₽, at the price of 9 extra handoffs. No false alarms. There was no swap this time: the agents stayed with orchestrator 2, because its track record picked up old recipe outcomes that were never tagged. The stand is fixed and the rerun is next.
+
 ## Check it yourself
 
 ```bash
