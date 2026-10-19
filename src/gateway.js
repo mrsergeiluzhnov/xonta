@@ -7,7 +7,7 @@ import { connectMcp } from "./scan.js";
 import { verifyCaller } from "./callerauth.js";
 import { jcs, sha256hex } from "./crypto.js";
 
-export function mountGateway(app, { store, resolver, testerDid, guardian = null }) {
+export function mountGateway(app, { store, resolver, testerDid, guardian = null, jobs = null }) {
   const clients = new Map(); // agentId → Promise<Client>
   const inflight = new Map();
 
@@ -65,6 +65,9 @@ export function mountGateway(app, { store, resolver, testerDid, guardian = null 
       // надзор: мандат потомка (разрешённые вызовы, частота) и карантин вызывающего
       const g = guardian ? guardian.gate(caller, rec, params.name) : { ok: true };
       if (!g.ok) { store.log("traces", { agent: rec.id, caller: caller.did, caller_verified: caller.verified, tool: params.name, args_hash: sha256hex(jcs(params.arguments || {})), ok: false, error: "guardian_blocked", reason: g.reason }); return { content: [{ type: "text", text: `Оркестратор не пропустил вызов: ${g.reason}` }], isError: true }; }
+      // 0.17: массовая задача, которую шлюз считает сам: пока задача ждёт решения владельца, её вызовы не пропускаются
+      const jg = jobs ? jobs.gatewayBefore(rec, caller, params.name) : { ok: true };
+      if (!jg.ok) { store.log("traces", { agent: rec.id, caller: caller.did, caller_verified: caller.verified, tool: params.name, args_hash: sha256hex(jcs(params.arguments || {})), ok: false, error: "job_paused", job: jg.job }); return { content: [{ type: "text", text: `Оркестратор не пропустил вызов: ${jg.reason}` }], isError: true }; }
       const t0 = Date.now();
       inflight.set(rec.id, (inflight.get(rec.id) || 0) + 1);
       const trace = { agent: rec.id, caller: caller.did, caller_verified: caller.verified, synthetic: caller.verified && caller.did === testerDid, tool: params.name, task, category, args_hash: sha256hex(jcs(params.arguments || {})), concurrent: inflight.get(rec.id) };
@@ -73,9 +76,11 @@ export function mountGateway(app, { store, resolver, testerDid, guardian = null 
         const text = (out.content || []).map((c) => c.text || "").join("");
         store.log("traces", { ...trace, ok: !out.isError, ms: Date.now() - t0, out_hash: sha256hex(text), out_bytes: text.length, error: out.isError ? "tool_error" : undefined });
         if (guardian) guardian.scan(rec, caller, text);
+        if (jobs && jg.job) jobs.gatewayAfter(jg.job, text, !!out.isError);
         return out;
       } catch (e) {
         store.log("traces", { ...trace, ok: false, ms: Date.now() - t0, error: e.connectFailed ? "unreachable" : "gateway_error" });
+        if (jobs && jg.job) jobs.gatewayAfter(jg.job, "", true);
         return { content: [{ type: "text", text: e.connectFailed ? "Целевой агент недоступен" : "Ошибка при вызове целевого агента" }], isError: true };
       } finally {
         inflight.set(rec.id, inflight.get(rec.id) - 1);

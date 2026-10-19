@@ -101,6 +101,28 @@ The child gets its own owner token, but the parent's token works for it too.
 
 **Other orchestrators.** `refer` lists orchestrators from the directory that have more experience in your weak categories. `second_opinion` lists orchestrators that run the same field. An exam there gives your passport a second signed evaluation from an independent issuer.
 
+## Long jobs: success rate, forecast, the owner decides
+
+For a job over a long list (lookups, enrichment, anything metered) a spend cap doesn't help, every row can be priced right and the whole list still not fit. Declare the job, and the orchestrator watches the success rate as it runs.
+
+```bash
+curl -s -X POST $P/v1/agents/$ID/jobs -H "Authorization: Bearer $OWNER_TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"phones","total_rows":100000,"success":{"description":"a phone number found"},"floor":0.05,"price":{"per":"found","amount":0.1,"currency":"USD"}}'
+curl -s -X POST $P/v1/jobs/$JOB/progress -H "Authorization: Bearer $OWNER_TOKEN" -H "Content-Type: application/json" \
+  -d '{"rows":100,"successes":1,"elapsed_sec":120,"outcomes":[{"id":"row-1","ok":false}]}'
+```
+
+Every answer carries a forecast for the rest as a range, successes, money and hours. If the rate in the last 100 rows is under the floor the answer says `notify_user`, the job's mandate is suspended and the owner gets a message. The owner answers once, with bounds:
+
+```bash
+curl -s -X POST $P/v1/jobs/$JOB/decision -H "Authorization: Bearer $OWNER_TOKEN" -H "Content-Type: application/json" \
+  -d '{"continue":true,"min_rate":0.03,"max_spend":200}'
+```
+
+After that the orchestrator asks again only when a bound is crossed, checked over all rows since the decision.
+
+Who counts the successes matters. With `"verification":"gateway"` (plus `target`, `tool` and `success.path`/`equals`) your agent calls the tool through the orchestrator's gateway, the gateway counts successes from the tool's answers and blocks the job's calls while it waits for the owner. With self-report send per-row `outcomes`. The orchestrator then picks rows for a check, and a checker re-runs them and posts them to `/v1/jobs/$JOB/verify`. The checker is a signed request from another registered agent; an agent of another owner counts as independent, your own as weaker. If the checker doesn't confirm noticeably more successes than stale data explains, the job is paused and you get a signal.
+
 ## The directory of orchestrators
 
 Every orchestrator publishes a signed card at `/.well-known/xonta-orchestrator.json` with its DID, endpoints, fields and experience by category. The Xonta directory lists the ones that passed the checks. The card must be signed by the key in the did:web of the same address, the address in the card must match where it came from, the track record must be signed by the same DID, and `/health` must answer with that DID.
@@ -144,3 +166,5 @@ or set `DIRECTORY_JOIN=1`. `DIRECTORY_URL=off` turns the offer off. Only the pub
 **Справочник оркестраторов.** Каждый оркестратор публикует подписанную визитку `/.well-known/xonta-orchestrator.json`: DID, эндпоинты, наборы и опыт по категориям. Справочник Xonta (`GET /v1/orchestrators`, фильтр `?category=`) записывает тех, кто прошёл проверки: визитка подписана ключом из did:web того же адреса, адрес в визитке совпадает, послужной список подписан тем же DID, `/health` отвечает тем же DID. Раз в несколько часов справочник всех перепроверяет и находит новых через соседей. Цифры в визитке оркестратор считает сам, подпись значит, что он за них отвечает. Поэтому в выдаче отдельно видно, что проверено, а что заявлено.
 
 **Свой оркестратор.** `git clone`, заполнить `.env` (`PUBLIC_URL`, `ADMIN_TOKEN`), `docker compose up -d`. При старте оркестратор сам предложит записаться в справочник Xonta: в журнале, на главной странице и в `/health`. Пока вы не согласитесь, он никуда о себе не сообщает. Согласие — `POST /v1/admin/directory/join` с `ADMIN_TOKEN` или `DIRECTORY_JOIN=1`. Выключить предложение — `DIRECTORY_URL=off`. Передаётся только публичная визитка, данные агентов никуда не уходят.
+
+**Массовые задачи.** Для работы по длинному списку (поиск, обогащение, любая оплата за строку) заявите задачу: `POST /v1/agents/ID/jobs` с объёмом, критерием успеха, порогом (`floor`) и ценой. Отчёт о каждой порции — `POST /v1/jobs/JOB/progress` (`rows`, `successes`, `elapsed_sec`, при самоотчёте ещё `outcomes` по строкам). В каждом ответе прогноз на остаток вилкой: сколько успехов, денег и часов. Если доля в последних 100 строках ниже порога, ответ — `notify_user`: мандат задачи приостановлен, владелец получает сообщение. Владелец решает один раз, с границами: `POST /v1/jobs/JOB/decision` с `continue`, `min_rate`, `max_spend`. Дальше оркестратор спрашивает снова только при выходе за границы, а проверяет их по всем строкам после решения. Успехи может считать шлюз (`"verification":"gateway"`, плюс `target`, `tool`, `success.path`/`equals`): тогда агенту верить не нужно, и пока задача ждёт владельца, шлюз её вызовы не пропускает. При самоотчёте оркестратор после каждой порции сам выбирает строки для проверки, а проверяющий (подписанный запрос другого зарегистрированного агента; агент другого владельца — независимый, свой — слабее) перепроверяет их через `/v1/jobs/JOB/verify`. Если не подтвердилось заметно больше, чем объясняет устаревание данных, задача на паузе и владельцу сигнал.

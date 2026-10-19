@@ -7,7 +7,8 @@
   "CHECK_EVERY": 100,
   "WINDOW": 300,
   "ALPHA": 0.01,
-  "MORNING": 0.012822605965463108
+  "MORNING": 0.012822605965463108,
+  "STALE": 0.05
  },
  "results": {
   "morning|cap": {
@@ -17,7 +18,8 @@
    "stopped": 0,
    "latency_median": null,
    "latency_p95": null,
-   "stopped_early": 0
+   "stopped_early": 0,
+   "asks": 0
   },
   "morning|probe": {
    "rows": 1336,
@@ -26,7 +28,8 @@
    "stopped": 98.8,
    "latency_median": 100,
    "latency_p95": 100,
-   "stopped_early": 0
+   "stopped_early": 0,
+   "asks": 1
   },
   "morning|xonta": {
    "rows": 286,
@@ -35,7 +38,28 @@
    "stopped": 100,
    "latency_median": 200,
    "latency_p95": 400,
-   "stopped_early": 0
+   "stopped_early": 0,
+   "asks": 1
+  },
+  "morning|jobs": {
+   "rows": 1000,
+   "found": 13,
+   "bad_rows": 1000,
+   "stopped": 100,
+   "latency_median": 100,
+   "latency_p95": 300,
+   "stopped_early": 0,
+   "asks": 1.1
+  },
+  "morning|jobs_gw": {
+   "rows": 132,
+   "found": 2,
+   "bad_rows": 132,
+   "stopped": 100,
+   "latency_median": 100,
+   "latency_p95": 300,
+   "stopped_early": 0,
+   "asks": 1.1
   },
   "good20|cap": {
    "rows": 24987,
@@ -44,7 +68,8 @@
    "stopped": 0,
    "latency_median": null,
    "latency_p95": null,
-   "stopped_early": 0
+   "stopped_early": 0,
+   "asks": 0
   },
   "good20|probe": {
    "rows": 103100,
@@ -53,7 +78,8 @@
    "stopped": 0,
    "latency_median": null,
    "latency_p95": null,
-   "stopped_early": 0
+   "stopped_early": 0,
+   "asks": 1
   },
   "good20|xonta": {
    "rows": 103000,
@@ -62,7 +88,28 @@
    "stopped": 0,
    "latency_median": null,
    "latency_p95": null,
-   "stopped_early": 0
+   "stopped_early": 0,
+   "asks": 0
+  },
+  "good20|jobs": {
+   "rows": 103000,
+   "found": 20596,
+   "bad_rows": 0,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0,
+   "asks": 0
+  },
+  "good20|jobs_gw": {
+   "rows": 103000,
+   "found": 20596,
+   "bad_rows": 0,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0,
+   "asks": 0
   },
   "good14|cap": {
    "rows": 35736,
@@ -71,7 +118,8 @@
    "stopped": 0,
    "latency_median": null,
    "latency_p95": null,
-   "stopped_early": 0
+   "stopped_early": 0,
+   "asks": 0
   },
   "good14|probe": {
    "rows": 103100,
@@ -80,7 +128,8 @@
    "stopped": 0,
    "latency_median": null,
    "latency_p95": null,
-   "stopped_early": 0
+   "stopped_early": 0,
+   "asks": 1
   },
   "good14|xonta": {
    "rows": 103000,
@@ -89,7 +138,28 @@
    "stopped": 0,
    "latency_median": null,
    "latency_p95": null,
-   "stopped_early": 0
+   "stopped_early": 0,
+   "asks": 0
+  },
+  "good14|jobs": {
+   "rows": 103000,
+   "found": 14420,
+   "bad_rows": 0,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0,
+   "asks": 0.7
+  },
+  "good14|jobs_gw": {
+   "rows": 103000,
+   "found": 14420,
+   "bad_rows": 0,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0,
+   "asks": 0.7
   },
   "spliced|cap": {
    "rows": 24997,
@@ -98,7 +168,8 @@
    "stopped": 0,
    "latency_median": null,
    "latency_p95": null,
-   "stopped_early": 0
+   "stopped_early": 0,
+   "asks": 0
   },
   "spliced|probe": {
    "rows": 84766,
@@ -107,7 +178,8 @@
    "stopped": 17.8,
    "latency_median": null,
    "latency_p95": null,
-   "stopped_early": 17.8
+   "stopped_early": 17.8,
+   "asks": 1
   },
   "spliced|xonta": {
    "rows": 31300,
@@ -116,7 +188,128 @@
    "stopped": 100,
    "latency_median": 300,
    "latency_p95": 500,
-   "stopped_early": 0
+   "stopped_early": 0,
+   "asks": 1
+  },
+  "spliced|jobs": {
+   "rows": 31098,
+   "found": 6015,
+   "bad_rows": 1098,
+   "stopped": 100,
+   "latency_median": 300,
+   "latency_p95": 400,
+   "stopped_early": 0,
+   "asks": 2
+  },
+  "spliced|jobs_gw": {
+   "rows": 30403,
+   "found": 6006,
+   "bad_rows": 403,
+   "stopped": 100,
+   "latency_median": 300,
+   "latency_p95": 400,
+   "stopped_early": 0,
+   "asks": 2
+  },
+  "border6|cap": {
+   "rows": 83366,
+   "found": 5000,
+   "bad_rows": 0,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0,
+   "asks": 0
+  },
+  "border6|probe": {
+   "rows": 73230,
+   "found": 4390,
+   "bad_rows": 0,
+   "stopped": 29,
+   "latency_median": 100,
+   "latency_p95": 100,
+   "stopped_early": 0,
+   "asks": 1
+  },
+  "border6|xonta": {
+   "rows": 75924,
+   "found": 4555,
+   "bad_rows": 0,
+   "stopped": 50.6,
+   "latency_median": 45300,
+   "latency_p95": 95900,
+   "stopped_early": 0,
+   "asks": 0.5
+  },
+  "border6|jobs": {
+   "rows": 95248,
+   "found": 5714,
+   "bad_rows": 0,
+   "stopped": 7.6,
+   "latency_median": 100,
+   "latency_p95": 200,
+   "stopped_early": 0,
+   "asks": 1
+  },
+  "border6|jobs_gw": {
+   "rows": 95182,
+   "found": 5710,
+   "bad_rows": 0,
+   "stopped": 7.6,
+   "latency_median": 100,
+   "latency_p95": 200,
+   "stopped_early": 0,
+   "asks": 1
+  },
+  "inflating|cap": {
+   "rows": 84162,
+   "found": 1080,
+   "bad_rows": 84162,
+   "stopped": 0,
+   "latency_median": null,
+   "latency_p95": null,
+   "stopped_early": 0,
+   "asks": 0
+  },
+  "inflating|probe": {
+   "rows": 75290,
+   "found": 965,
+   "bad_rows": 75217,
+   "stopped": 27,
+   "latency_median": 100,
+   "latency_p95": 100,
+   "stopped_early": 0,
+   "asks": 1
+  },
+  "inflating|xonta": {
+   "rows": 71420,
+   "found": 918,
+   "bad_rows": 71420,
+   "stopped": 56,
+   "latency_median": 42800,
+   "latency_p95": 93900,
+   "stopped_early": 0,
+   "asks": 0.6
+  },
+  "inflating|jobs": {
+   "rows": 1000,
+   "found": 13,
+   "bad_rows": 1000,
+   "stopped": 100,
+   "latency_median": 100,
+   "latency_p95": 300,
+   "stopped_early": 0,
+   "asks": 1.3
+  },
+  "inflating|jobs_gw": {
+   "rows": 128,
+   "found": 2,
+   "bad_rows": 128,
+   "stopped": 100,
+   "latency_median": 100,
+   "latency_p95": 300,
+   "stopped_early": 0,
+   "asks": 1.2
   }
  }
 }

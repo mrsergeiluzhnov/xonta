@@ -829,5 +829,69 @@ await t("0.16.2: платный поиск по неподходящему сп�
   assert.equal(L.runPolicy("xonta", "good14", 1).stopped, false, "на подходящем списке не останавливает");
 });
 
+await t("0.17: массовые задачи — когда спрашивать владельца, прогноз вилкой, расхождение проверяющего", async () => {
+  const J = await import("../src/jobs.js");
+  const job = { floor: 0.05, approval: null, spent: 0 };
+  assert.equal(J.shouldAsk(job, { n: 100, k: 1 }).ask, true, "1% при пороге 5% — спросить");
+  assert.equal(J.shouldAsk(job, { n: 100, k: 7 }).ask, false);
+  const ap = { ...job, approval: { rate_at: 0.04, min_rate: 0.02, max_spend: null } };
+  assert.equal(J.shouldAsk(ap, { n: 100, k: 3 }).ask, false, "после согласия на 4% колебание до 3% — не спрашивать снова");
+  assert.equal(J.shouldAsk({ ...ap, since: { n: 100, k: 0 } }, { n: 100, k: 0 }).ask, false, "0 из 100 после решения ещё не уверенно ниже 2%");
+  assert.equal(J.shouldAsk({ ...ap, since: { n: 500, k: 3 } }, { n: 100, k: 1 }).reason, "below_approved_min", "0,6% на 500 строках после решения — уверенно ниже 2%");
+  assert.equal(J.shouldAsk({ ...ap, approval: { rate_at: 0.2, min_rate: null } }, { n: 100, k: 3 }).ask, true, "с 20% до 3% — заметное падение");
+  assert.equal(J.shouldAsk({ ...ap, spent: 250, approval: { rate_at: 0.04, max_spend: 200 } }, { n: 100, k: 4 }).reason, "spend_bound");
+  const f = J.forecast({ total_rows: 100000, totals: { rows: 100, successes: 1, errors: 2, stale: 8, elapsed_sec: 120 }, last_window: { n: 100, k: 1 }, price: { per: "found", amount: 0.1, currency: "USD" }, spent: 0.1, verification: "gateway" });
+  assert.ok(f.successes_left.low < f.successes_left.expected && f.successes_left.expected < f.successes_left.high); assert.equal(f.successes_left.expected, 999);
+  assert.ok(f.window_rate_ci[1] > 5, "на 100 строках 1% не исключает 5%"); assert.equal(f.hours_left, 33.3); assert.equal(f.stale_share, 8);
+  assert.equal(J.divergence({ claimed_ok: 7, unconfirmed: 1 }).diverged, false, "одна неподтверждённая из 7 — устаревание");
+  assert.equal(J.divergence({ claimed_ok: 7, unconfirmed: 5 }).diverged, true, "5 из 7 не подтвердились — сигнал");
+});
+
+await t("0.17: массовая задача от начала до конца — самоотчёт, вопрос, решение владельца, проверяющий, подсчёт шлюзом", async () => {
+  const { spawn } = await import("node:child_process"), { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { z } = await import("zod"), { startAgent, startOwner, ownerCall } = await import("../lab/agentkit.js"), { connectMcp } = await import("../src/scan.js"), { signingFetch, signRequest } = await import("../src/callerauth.js");
+  const B = "http://localhost:4972", srv = spawn(process.execPath, ["src/server.js"], { env: { ...process.env, PORT: "4972", PUBLIC_URL: B, DATA_DIR: mkdtempSync(join(tmpdir(), "jobs-")), ALLOW_PRIVATE_TARGETS: "1", OPEN_REGISTRATION: "1", OPEN_REG_PER_IP: "50", ADMIN_TOKEN: "adm", TRUST_PROXY: "0", LLM_PROVIDER: "", DIRECTORY_SCAN_HOURS: "0" }, stdio: "ignore" });
+  const call = async (m, path, body, token, headers = {}) => { const r = await fetch(B + path, { method: m, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json() }; };
+  const closers = [];
+  try {
+    for (let i = 0; i < 100; i++) { try { if ((await fetch(`${B}/health`)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 100)); }
+    const owner = await startOwner({ port: 4973 }); closers.push(owner);
+    let n = 0;
+    const api = await startAgent({ port: 4974, name: "lookup-api", ownerDid: owner.did, tools: [{ name: "lookup", description: "find a phone", input: { row: z.any() }, run: async () => ({ status: ++n % 100 === 0 ? "found" : "no_phone" }) }] }); closers.push(api);
+    const buyer = await startAgent({ port: 4975, name: "buyer", ownerDid: owner.did, tools: [{ name: "noop", description: "noop", input: {}, run: async () => ({}) }] }); closers.push(buyer);
+    const other = await startAgent({ port: 4976, name: "checker", ownerDid: owner.did, tools: [{ name: "noop", description: "noop", input: {}, run: async () => ({}) }] }); closers.push(other);
+    const ra = (await call("POST", "/v1/agents", { name: "lookup-api", mcp_url: api.mcp })).body;
+    await ownerCall(owner, `${api.url}/owner/challenge`, { token: ra.domain_challenge.content }); assert.equal((await call("POST", `/v1/agents/${ra.id}/domain-check`, {}, ra.owner_token)).status, 200); await call("POST", `/v1/agents/${ra.id}/scan`, {}, ra.owner_token);
+    const rb = (await call("POST", "/v1/agents", { name: "buyer", mcp_url: buyer.mcp, did: buyer.did })).body;
+    const rc = (await call("POST", "/v1/agents", { name: "checker", mcp_url: other.mcp, did: other.did })).body;
+    // 1. самоотчёт: 1% в первой сотне — вопрос владельцу, мандат приостановлен
+    const cj = await call("POST", `/v1/agents/${rb.id}/jobs`, { name: "phones", total_rows: 103000, success: { description: "a phone number found" }, floor: 0.05, price: { per: "found", amount: 0.1, currency: "USD" } }, rb.owner_token);
+    assert.equal(cj.status, 200, JSON.stringify(cj.body)); const jid = cj.body.job.id; assert.ok(cj.body.mandate.type.includes("JobMandate"));
+    let p = await call("POST", `/v1/jobs/${jid}/progress`, { rows: 100, successes: 1, elapsed_sec: 120 }, rb.owner_token);
+    assert.equal(p.body.recommendation, "notify_user", JSON.stringify(p.body)); assert.equal(p.body.ask.forecast.successes_left.expected, 1029); assert.ok(p.body.ask.forecast.hours_left > 30);
+    assert.equal((await call("POST", `/v1/jobs/${jid}/progress`, { rows: 100, successes: 1 }, rb.owner_token)).body.recommendation, "wait_for_owner");
+    // 2. владелец продолжает с границами — пока доля держится, не спрашиваем
+    const d = await call("POST", `/v1/jobs/${jid}/decision`, { continue: true, min_rate: 0.01, max_spend: 100 }, rb.owner_token); assert.equal(d.status, 200); assert.equal(d.body.job.paused, null);
+    for (const k of [1, 2, 0, 1]) assert.equal((await call("POST", `/v1/jobs/${jid}/progress`, { rows: 100, successes: k }, rb.owner_token)).body.recommendation, "continue", `k=${k}`);
+    // 3. агент заявляет 20 успехов из 100, независимый проверяющий подтверждает 1 — сигнал
+    const outcomes = Array.from({ length: 100 }, (_, i) => ({ id: `r${i}`, ok: i < 20 }));
+    p = await call("POST", `/v1/jobs/${jid}/progress`, { rows: 100, successes: 20, outcomes }, rb.owner_token); assert.ok(p.body.verify.rows.length === 10, JSON.stringify(p.body));
+    const results = p.body.verify.rows.map((id) => ({ id, ok: id === "r0" })), body = JSON.stringify({ batch: p.body.verify.batch, results }), url = `${B}/v1/jobs/${jid}/verify`;
+    assert.equal((await fetch(url, { method: "POST", headers: { "content-type": "application/json", ...signRequest({ did: buyer.did, privateKey: buyer.privateKey, url, body }) }, body })).status, 403, "агент сам себя не проверяет");
+    const v = await (await fetch(url, { method: "POST", headers: { "content-type": "application/json", ...signRequest({ did: other.did, privateKey: other.privateKey, url, body }) }, body })).json();
+    assert.equal(v.check.diverged, true, JSON.stringify(v)); assert.equal(v.signal.recommendation, "notify_user"); assert.match(v.check.verifier.independence, /another owner/, "у проверяющего свой ключ владельца — независимый");
+    assert.equal((await call("GET", `/v1/jobs/${jid}`, null, rb.owner_token)).body.paused.reason, "claims_not_confirmed");
+    // 4. подсчёт шлюзом: 1 находка на 100 вызовов, окно 20 — после 20 вызовов задача ждёт владельца, 21-й вызов не проходит
+    const gj = (await call("POST", `/v1/agents/${rb.id}/jobs`, { name: "via gateway", total_rows: 1000, success: { path: "status", equals: "found" }, floor: 0.05, window: 20, verification: "gateway", target: ra.id, tool: "lookup" }, rb.owner_token)).body.job.id;
+    const cl = await connectMcp(`${B}/gw/${ra.id}/mcp`, { fetch: signingFetch({ did: buyer.did, privateKey: buyer.privateKey }) });
+    for (let i = 0; i < 20; i++) { const o = await cl.callTool({ name: "lookup", arguments: { row: i } }); assert.ok(!o.isError, o.content?.[0]?.text); }
+    const blocked = await cl.callTool({ name: "lookup", arguments: { row: 21 } }); assert.ok(blocked.isError); assert.match(blocked.content[0].text, /ждёт решения владельца/);
+    const gs = (await call("GET", `/v1/jobs/${gj}`, null, rb.owner_token)).body; assert.equal(gs.forecast.rows_done, 20); assert.equal(gs.paused.reason, "below_floor");
+    await call("POST", `/v1/jobs/${gj}/decision`, { continue: true }, rb.owner_token);
+    assert.ok(!(await cl.callTool({ name: "lookup", arguments: { row: 22 } })).isError, "после решения владельца вызовы снова идут");
+    await cl.close();
+  } finally { for (const c of closers) c.close?.(); srv.kill(); }
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно

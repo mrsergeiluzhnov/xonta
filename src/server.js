@@ -17,6 +17,7 @@ import { createGuardian, mountGuardian } from "./guardian.js";
 import { createFields, mountFields } from "./fields.js";
 import { createDirectory, mountDirectory } from "./directory.js";
 import { createLineageAdvice, mountLineageAdvice } from "./lineage-advice.js";
+import { createJobs, mountJobs } from "./jobs.js";
 import { errorBody } from "./i18n.js";
 import { verifyCaller } from "./callerauth.js";
 import { createLLM } from "../stand/llm.js";
@@ -27,7 +28,7 @@ import { scanMcpServer } from "./scan.js";
 import { publicKeyFromMultibase } from "./crypto.js";
 import * as xontaDocsSuite from "../suites/xonta-docs.js";
 
-export const VERSION = "0.16.2";
+export const VERSION = "0.17.0";
 const env = process.env;
 const PORT = Number(env.PORT || 4040);
 const PUBLIC_URL = (env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
@@ -90,6 +91,8 @@ const dir = createDirectory({ store, issuer, resolver, exp, fields, publicUrl: P
   cfg: { hub_url: env.DIRECTORY_URL ?? (ALLOW_PRIVATE ? "off" : undefined), // в режиме разработки справочник выключен, пока не задан явно
     scan_hours: Number(env.DIRECTORY_SCAN_HOURS || 6), ...(env.DIRECTORY_ACCEPT != null ? { accept: env.DIRECTORY_ACCEPT === "1" } : {}) } });
 const adv = createLineageAdvice({ store, orch, fields, dir, exp, publicUrl: PUBLIC_URL });
+// 0.17: массовые задачи — доля успехов на ходу, прогноз, вопрос владельцу, мандат с границами, выборочная проверка
+const jobs = createJobs({ store, issuer, orch, notify, publicUrl: PUBLIC_URL });
 const app = express();
 app.set("trust proxy", Number(env.TRUST_PROXY ?? 1)); // за одним обратным прокси (nginx); без прокси задайте TRUST_PROXY=0
 app.use(express.json({ limit: "8mb", verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } })); // тело нужно для проверки подписи запроса
@@ -179,6 +182,7 @@ mountGuardian(app, { guardian, wrap, admin });
 mountFields(app, { fields, wrap, limit, ownerAuth, bearer, isAdmin });
 mountDirectory(app, { dir, wrap, admin, limit });
 mountLineageAdvice(app, { adv, wrap, ownerAuth, limit, bearer });
+mountJobs(app, { jobs, wrap, ownerAuth, store, resolver, verifyCaller });
 app.get("/v1/agents/:id/proposals", wrap((req) => evo.listProposals(orch.get(req.params.id).id)));
 app.get("/v1/agents/:id/merges", wrap((req) => evo.listMerges(orch.get(req.params.id).id)));
 app.get("/v1/agents/:id/signals", wrap((req) => { ownerOrAdmin(req, req.params.id); return orch.listSignals(req.params.id); }));
@@ -206,7 +210,7 @@ app.get("/", (_req, res) => res.type("html").send(`<!doctype html><html lang="ru
 ${(() => { const o = dir.offer(); return o ? `<p style="border:1px solid #c9a227;padding:10px 12px;border-radius:6px"><b>Владельцу.</b> ${o.message_ru}<br><code>${o.how[0].replace(/</g, "&lt;")}</code><br><small>${o.message}</small></p>` : ""; })()}
 <p>Версия ${VERSION}. Спецификация и код — Apache 2.0.</p></body></html>`));
 
-mountGateway(app, { store, resolver, testerDid: orch.tester.did, guardian });
+mountGateway(app, { store, resolver, testerDid: orch.tester.did, guardian, jobs });
 mountMcp(app, { version: VERSION, verifier, orch, scanPublic, limit });
 
 // суточная фиксация контрольной суммы: проверка раз в час, фиксация — если с прошлой прошло больше суток (переживает перезапуски)
