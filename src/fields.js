@@ -110,7 +110,7 @@ export function createFields({ store, issuer, orch, publicUrl, exp = null }) {
     const rec = { ...f, id, version, created: new Date().toISOString(), author_key_hash: sha256hex(key), author_owner_hash: owner_token ? sha256hex(owner_token) : null };
     save(rec);
     issuer.event("field_created", { field: id, name: f.name, tasks: f.tasks.length, version });
-    return { id, author_key: key, version, note: "Сохраните author_key: им можно скрыть набор. Задания никому не показываются, публичны только описание и статистика." };
+    return { id, author_key: key, version, note: "Save author_key, it lets you hide the field. Tasks are never shown to anyone, only the description and statistics are public.", note_ru: "Сохраните author_key: им можно скрыть набор. Задания никому не показываются, публичны только описание и статистика." };
   }
   function get(id) { const f = all()[id]; if (!f || f.hidden) throw err(404, "набор не найден"); return f; }
   const list = () => Object.values(all()).filter((f) => !f.hidden).map(pub);

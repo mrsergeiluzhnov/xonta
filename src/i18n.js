@@ -1,0 +1,65 @@
+// Ответы публичного оркестратора на двух языках (0.15.2). Сообщения в коде остаются русскими (на них опирается стенд),
+// а сервер перед отправкой переводит их: error — по-английски, error_ru — как было. Чего нет в списке, уходит как есть.
+const T = [
+  [/^нужны name и mcp_url$/, () => "name and mcp_url are required"],
+  [/^нужен https-адрес$/, () => "an https URL is required"],
+  [/^некорректный адрес$/, () => "invalid URL"],
+  [/^поддерживаются только http\(s\)-адреса$/, () => "only http(s) URLs are supported"],
+  [/^адрес ведёт во внутреннюю сеть — обращение запрещено$/, () => "the URL points to a private network, requests there are not allowed"],
+  [/^адрес не найден в DNS$/, () => "the host was not found in DNS"],
+  [/^адрес недоступен$/, () => "the URL is not reachable"],
+  [/^ответ не является корректным JSON$/, () => "the response is not valid JSON"],
+  [/^ответ слишком большой$/, () => "the response is too large"],
+  [/^did: ожидается did:web$/, () => "did: a did:web identifier is expected"],
+  [/^owner_did: ожидается did:web$/, () => "owner_did: a did:web identifier is expected"],
+  [/^did:web агента должен быть на том же хосте, что и mcp_url$/, () => "the agent's did:web must be on the same host as mcp_url"],
+  [/^запрос регистрации должен быть подписан owner_did$/, () => "the registration request must be signed by owner_did"],
+  [/^owner_public_key: ожидается Ed25519 Multikey/, () => "owner_public_key: an Ed25519 Multikey (z6Mk...) is expected"],
+  [/^level: 1, 2 или 3$/, () => "level must be 1, 2 or 3"],
+  [/^этот DID уже зарегистрирован$/, () => "this DID is already registered"],
+  [/^этот адрес уже зарегистрирован$/, () => "this URL is already registered"],
+  [/^агент не найден$/, () => "agent not found"],
+  [/^агент (\S+): новые аттестаты не выдаются$/, (m) => `agent is ${m[1]}, no new credentials are issued`],
+  [/^агент (\S+): экзамен не проводится$/, (m) => `agent is ${m[1]}, exams are not run`],
+  [/^сначала подтвердите управление доменом агента \(domain-check\)$/, () => "prove control of the agent's domain first (domain-check)"],
+  [/^код подтверждения не найден по адресу (\S+) \((.*)\)\. Положите туда: (\S+)$/, (m) => `the challenge code was not found at ${m[1]} (${m[2]}). Put this there: ${m[3]}`],
+  [/^нужен ключ владельца \(Authorization: Bearer …\)$/, () => "the owner token is required (Authorization: Bearer ...)"],
+  [/^нужен ключ владельца или подпись owner_did$/, () => "the owner token or a request signed by owner_did is required"],
+  [/^нужен ключ администратора$/, () => "the admin token is required"],
+  [/^регистрация по приглашению: нужен ключ регистрации$/, () => "registration is by invitation, a registration token is required"],
+  [/^регистрация временно закрыта: достигнут предел агентов$/, () => "registration is temporarily closed, the agent limit is reached"],
+  [/^слишком много проверок, попробуйте позже$/, () => "too many requests from your address, try again later"],
+  [/^нет трафика через шлюз за период — репутацию не из чего считать$/, () => "no traffic through the gateway in this window, there is nothing to compute reputation from"],
+  [/^набор не найден$/, () => "field not found"],
+  [/^нужен author_key набора$/, () => "the field's author_key is required"],
+  [/^у агента нет инструмента «(.+)», который нужен этому набору$/, (m) => `the agent has no tool "${m[1]}" that this field needs`],
+  [/^name: от 1 до (\d+) символов$/, (m) => `name must be 1 to ${m[1]} characters`],
+  [/^description: не больше (\d+) символов$/, (m) => `description must be at most ${m[1]} characters`],
+  [/^tool: имя инструмента MCP/, () => "tool: an MCP tool name (letters, digits, _ . -)"],
+  [/^arg: имя аргумента/, () => "arg: the argument name the agent receives the task in"],
+  [/^actions: от 2 до (\d+) действий, каждое до 40 символов$/, (m) => `actions: 2 to ${m[1]} actions, each up to 40 characters`],
+  [/^human_action должен быть одним из actions$/, () => "human_action must be one of actions"],
+  [/^currency: код валюты ISO 4217/, () => "currency: an ISO 4217 code such as USD, EUR, RUB"],
+  [/^для (\S+) задайте wrong_harm и human_cost явно$/, (m) => `for ${m[1]} set wrong_harm and human_cost explicitly`],
+  [/^wrong_harm и human_cost: сумма в (\S+) от 0$/, (m) => `wrong_harm and human_cost: an amount in ${m[1]}, 0 or more`],
+  [/^tasks: от (\d+) до (\d+) заданий$/, (m) => `tasks: ${m[1]} to ${m[2]} tasks`],
+  [/^tasks\[(\d+)\]: ожидается объект$/, (m) => `tasks[${m[1]}]: an object is expected`],
+  [/^tasks\[(\d+)\]\.input: что получает агент$/, (m) => `tasks[${m[1]}].input: what the agent receives is required`],
+  [/^tasks\[(\d+)\]\.input: не больше (\d+) байт$/, (m) => `tasks[${m[1]}].input: at most ${m[2]} bytes`],
+  [/^tasks\[(\d+)\]\.correct: одно из (.+)$/, (m) => `tasks[${m[1]}].correct: one of ${m[2]}`],
+  [/^tasks\[(\d+)\]\.harm: неизвестное действие (.+)$/, (m) => `tasks[${m[1]}].harm: unknown action ${m[2]}`],
+  [/^tasks\[(\d+)\]\.harm\.(.+): сумма в (\S+) от 0$/, (m) => `tasks[${m[1]}].harm.${m[2]}: an amount in ${m[3]}, 0 or more`],
+  [/^budget: сколько вреда за период владелец готов допустить, в (\S+)$/, (m) => `budget: how much harm per period the owner accepts, in ${m[1]}`],
+  [/^Некорректный JSON$/, () => "invalid JSON"],
+];
+
+export function translate(msg) {
+  const s = String(msg || "");
+  for (const [re, fn] of T) { const m = s.match(re); if (m) return fn(m); }
+  return null;
+}
+// тело ошибки: английский — основной, русский — рядом
+export function errorBody(msg) {
+  const en = translate(msg);
+  return en ? { error: en, error_ru: String(msg) } : { error: String(msg) };
+}

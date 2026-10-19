@@ -15,6 +15,7 @@ import { createSupport, mountSupport } from "./support.js";
 import { createExperience, mountExperience } from "./experience.js";
 import { createGuardian, mountGuardian } from "./guardian.js";
 import { createFields, mountFields } from "./fields.js";
+import { errorBody } from "./i18n.js";
 import { verifyCaller } from "./callerauth.js";
 import { createLLM } from "../stand/llm.js";
 import { createOrchestrator } from "./orchestrator.js";
@@ -24,7 +25,7 @@ import { scanMcpServer } from "./scan.js";
 import { publicKeyFromMultibase } from "./crypto.js";
 import * as xontaDocsSuite from "../suites/xonta-docs.js";
 
-export const VERSION = "0.15.1";
+export const VERSION = "0.15.2";
 const env = process.env;
 const PORT = Number(env.PORT || 4040);
 const PUBLIC_URL = (env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
@@ -85,12 +86,12 @@ const fields = createFields({ store, issuer, orch, publicUrl: PUBLIC_URL, exp })
 const app = express();
 app.set("trust proxy", Number(env.TRUST_PROXY ?? 1)); // за одним обратным прокси (nginx); без прокси задайте TRUST_PROXY=0
 app.use(express.json({ limit: "8mb", verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } })); // тело нужно для проверки подписи запроса
-app.use((e, _req, res, next) => (e ? res.status(400).json({ error: "Некорректный JSON" }) : next()));
+app.use((e, _req, res, next) => (e ? res.status(400).json(errorBody("Некорректный JSON")) : next()));
 
 const bearer = (req) => (req.get("authorization") || "").replace(/^Bearer\s+/i, "") || null;
 const wrap = (fn) => async (req, res) => {
   try { res.json(await fn(req, res)); }
-  catch (e) { res.status(e.status || 500).json({ error: e.message }); if (!e.status) console.error(e); }
+  catch (e) { res.status(e.status || 500).json(e.status ? errorBody(e.message) : { error: "internal error", error_ru: e.message }); if (!e.status) console.error(e); }
 };
 const h = (x) => createHash("sha256").update(String(x)).digest();
 const isAdmin = (req) => !!ADMIN_TOKEN && !!bearer(req) && timingSafeEqual(h(bearer(req)), h(ADMIN_TOKEN));

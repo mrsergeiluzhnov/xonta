@@ -35,21 +35,21 @@ export function mountGateway(app, { store, resolver, testerDid, guardian = null 
   app.post("/gw/:id/mcp", async (req, res) => {
     const agents = store.get("agents", {});
     const rec = Object.hasOwn(agents, req.params.id) ? agents[req.params.id] : null;
-    if (!rec) return res.status(404).json({ jsonrpc: "2.0", error: { code: -32001, message: "агент не зарегистрирован" }, id: null });
+    if (!rec) return res.status(404).json({ jsonrpc: "2.0", error: { code: -32001, message: "agent is not registered", data: { ru: "агент не зарегистрирован" } }, id: null });
     if (["suspended", "revoked"].includes(rec.status))
-      return res.status(403).json({ jsonrpc: "2.0", error: { code: -32002, message: `агент ${rec.status === "revoked" ? "отозван" : "приостановлен"}` }, id: null });
+      return res.status(403).json({ jsonrpc: "2.0", error: { code: -32002, message: `agent is ${rec.status === "revoked" ? "revoked" : "suspended"}`, data: { ru: `агент ${rec.status === "revoked" ? "отозван" : "приостановлен"}` } }, id: null });
     // 0.15: шлюз ведёт только к агенту с подтверждённым доменом — иначе при открытой регистрации его можно было бы направить
     // на чужой сервер. И предел частоты с одного адреса на одного агента
-    if (!rec.domain_verified_at && !rec.parent) return res.status(403).json({ jsonrpc: "2.0", error: { code: -32004, message: "домен агента не подтверждён: шлюз к нему не ведёт" }, id: null });
+    if (!rec.domain_verified_at && !rec.parent) return res.status(403).json({ jsonrpc: "2.0", error: { code: -32004, message: "the agent's domain is not verified, the gateway does not lead to it", data: { ru: "домен агента не подтверждён: шлюз к нему не ведёт" } }, id: null });
     if (GW_RATE) { const k = `${rec.id}|${req.ip}`, now = Date.now(), w = (gwHits.get(k) || []).filter((t) => now - t < 60_000);
-      if (w.length >= GW_RATE) return res.status(429).json({ jsonrpc: "2.0", error: { code: -32005, message: `не больше ${GW_RATE} вызовов в минуту` }, id: null });
+      if (w.length >= GW_RATE) return res.status(429).json({ jsonrpc: "2.0", error: { code: -32005, message: `at most ${GW_RATE} calls per minute`, data: { ru: `не больше ${GW_RATE} вызовов в минуту` } }, id: null });
       w.push(now); gwHits.set(k, w); if (gwHits.size > 20000) gwHits.clear(); }
     if (rec.status === "deprecated" && rec.sunset) res.set("Sunset", new Date(rec.sunset).toUTCString());
     if (rec.status === "deprecated" && rec.successor) res.set("Link", `<${rec.successor}>; rel="successor-version"`);
 
     const caller = await verifyCaller(req, resolver);
     if (rec.require_signed_callers && !caller.verified)
-      return res.status(401).json({ jsonrpc: "2.0", error: { code: -32003, message: "нужна подпись вызывающего агента" }, id: null });
+      return res.status(401).json({ jsonrpc: "2.0", error: { code: -32003, message: "a signed request from the calling agent is required", data: { ru: "нужна подпись вызывающего агента" } }, id: null });
     // метки задачи учитываются только от проверенных вызывающих: иначе сигналы можно было бы подделать
     let task = null, category = null;
     if (caller.verified) {

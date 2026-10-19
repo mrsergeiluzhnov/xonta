@@ -64,7 +64,9 @@ export function createOrchestrator({ store, issuer, notify, signals, publicUrl, 
       id, did: rec.did, owner_token: ownerToken,
       gateway: `${publicUrl}/gw/${id}/mcp`,
       domain_challenge: { url: `${new URL(mcp_url).origin}/.well-known/xonta-challenge.txt`, content: rec.challenge },
-      note: "Сохраните owner_token: он показывается один раз. Подключение по уровню " + rec.level + " — условия по договору этого уровня.",
+      next: [`put domain_challenge.content at ${new URL(mcp_url).origin}/.well-known/xonta-challenge.txt`, `POST ${publicUrl}/v1/agents/${id}/domain-check`, `POST ${publicUrl}/v1/agents/${id}/scan`, `GET ${publicUrl}/v1/fields, then POST ${publicUrl}/v1/agents/${id}/field-exam`],
+      note: "Save owner_token, it is shown only once. Send it as Authorization: Bearer for owner actions.",
+      note_ru: "Сохраните owner_token: он показывается один раз. Подключение по уровню " + rec.level + " — условия по договору этого уровня.",
     };
   }
 

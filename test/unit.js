@@ -731,5 +731,14 @@ await t("0.15: открытая регистрация и свой экзаме�
   } finally { srv.kill(); }
 });
 
+await t("0.15.2: ответы публичного оркестратора по-английски, русский рядом", async () => {
+  const { errorBody, translate } = await import("../src/i18n.js");
+  assert.deepEqual(errorBody("агент не найден"), { error: "agent not found", error_ru: "агент не найден" });
+  assert.equal(translate("код подтверждения не найден по адресу https://a.example/.well-known/xonta-challenge.txt (404). Положите туда: xonta-abc"), "the challenge code was not found at https://a.example/.well-known/xonta-challenge.txt (404). Put this there: xonta-abc");
+  assert.equal(translate("tasks[3].correct: одно из reply, refund"), "tasks[3].correct: one of reply, refund");
+  assert.equal(translate("у агента нет инструмента «decide», который нужен этому набору"), 'the agent has no tool "decide" that this field needs');
+  assert.deepEqual(errorBody("что-то новое"), { error: "что-то новое" }, "нет перевода — как есть");
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно
