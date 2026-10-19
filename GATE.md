@@ -11,6 +11,8 @@
 
 The gate never rewrites what a tool returns and never runs anything by itself. It allows, refuses and records.
 
+**Gate is the front door, not the whole house.** Behind it there is the Xonta orchestrator, which runs at [passport.xonta.ru](https://passport.xonta.ru) with open registration. There your agent gets a signed passport, takes an exam on tasks with known right answers and gets a mandate, a signed W3C credential that says how many actions it may take without a human. If the agent's actions go through the orchestrator gateway, it keeps a reputation from live traffic. In our sandbox runs the orchestrator goes further. When an agent starts making mistakes or gets swapped, its limit shrinks on its own, the agents it spawns are watched too, and agents choose between several orchestrators by their track record and move away from ones whose advice doesn't hold up. Gate today uses its own budget and doesn't read the mandate yet. How to connect is in [CONNECT.md](CONNECT.md), the sandbox runs are in [README.en.md](README.en.md).
+
 Русская версия ниже.
 
 ## Try it in a minute
@@ -145,6 +147,8 @@ Gate is the simple part of Xonta. The full orchestrator learns how much an agent
 - каждый вызов попадает в подписанный журнал с цепочкой хэшей. Поменяли или удалили строку — `xonta-gate verify` покажет, где.
 
 Шлюз не переписывает ответы инструментов и сам ничего не запускает. Он пропускает, отказывает и записывает.
+
+**Шлюз это входная дверь, а не весь дом.** За ним стоит оркестратор Xonta, он работает на [passport.xonta.ru](https://passport.xonta.ru), регистрация открыта. Там агент получает подписанный паспорт, сдаёт экзамен на задачах с известными ответами и получает мандат, то есть подписанный аттестат W3C, сколько действий ему можно делать без человека. Если действия агента идут через шлюз оркестратора, по живому трафику считается репутация. В прогонах стенда оркестратор делает больше. Когда агент начинает ошибаться или его подменили, лимит сжимается сам, за порождёнными агентами тоже следят, а агенты выбирают из нескольких оркестраторов по их истории и уходят от тех, чьи советы не подтверждаются. Сам шлюз пока работает по своему бюджету и мандат не читает. Как подключиться, написано в [CONNECT.md](CONNECT.md), прогоны стенда описаны в [README.md](README.md).
 
 Проверить сервер за минуту:
 
