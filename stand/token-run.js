@@ -8,8 +8,10 @@
 //   lite  — всё решает младшая (GigaChat-2);
 //   risk  — решает младшая, старший потомок подключается, когда младшая хочет вернуть деньги, отказать или передать человеку;
 //   digest — как risk, но старший получает выжимку вместо полного контекста;
-//   cache — как risk, но повторные проверки статей берутся из кэша (кэш живёт NET_TOK_CACHE_TTL раундов: дешевле,
-//           но после смены правил может отдать старую статью);
+//   cache — как risk, но повторные проверки статей берутся из кэша. 0.15.3: ключ кэша содержит версию набора правил
+//           (реестр отдаёт её бесплатно), смена правил сама сбрасывает кэш. В run-11b кэш по времени (NET_TOK_CACHE_TTL
+//           раундов) после смены срока возврата 59 раз отдал старую статью — совет из обсуждения статьи на dev.to;
+//   cache_ttl — прежний кэш по времени, для сравнения (по умолчанию не запускается);
 //   orch  — решает оркестратор: на своём экзамене (скрытые обращения с известным ответом) меряет, при каком решении
 //           младшей второе мнение старшего окупается (вред + время человека против цены токенов старшего), и зовёт старшего
 //           только там; у старшего бюджет токенов на раунд, сверх бюджета денежное решение младшей уходит человеку.
@@ -42,7 +44,7 @@ export const P = {
 const DIR = E.STAND_DIR || join(ROOT, "stand-data", P.run_id);
 const RISKY = ["refund", "refuse", "escalate"];
 const ACTIONS = ["reply", "refund", "escalate", "ask", "refuse"];
-const ARM_NAME = { max: "всё на старшей", lite: "всё на младшей", risk: "старшая при риске", digest: "старшая при риске, выжимка", cache: "старшая при риске, кэш проверок", orch: "решает оркестратор" };
+const ARM_NAME = { max: "всё на старшей", lite: "всё на младшей", risk: "старшая при риске", digest: "старшая при риске, выжимка", cache: "старшая при риске, кэш с версией правил", cache_ttl: "старшая при риске, кэш по времени", orch: "решает оркестратор" };
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
 // ---------- модель: один вызов на одинаковый запрос, оплата — каждой группе ----------
@@ -73,13 +75,16 @@ export function makeMeter(llms) {
 
 // ---------- проверяющие (как support-checker.js, без сети) ----------
 const registry = (id) => ({ status: "ok", stale: S.isStale(id), current: S.article(S.topicOf(id)) });
-export function verify(t, feed, { cache = null, round = 0, ttl = P.cache_ttl } = {}) {
+// версия набора правил: меняется вместе с действующими значениями статей (смена мира в раундах era1/era2)
+export const rulesVersion = () => S.TOPICS.map((t) => `${t}=${S.KB[t].cur}`).join(";");
+export function verify(t, feed, { cache = null, round = 0, ttl = P.cache_ttl, versioned = false } = {}) {
   const card = S.crmCard(t, "precise"); let cost = S.COST.precise, hits = 0, cachedStale = 0;
   const replaced = [], newFeed = [];
   for (const a of feed) {
     let res; const c = cache?.get(a.id);
-    if (c && round - c.round < ttl) { res = c.res; hits++; const fresh = registry(a.id); if (fresh.current.text !== res.current.text || fresh.stale !== res.stale) cachedStale++; }
-    else { res = registry(a.id); cost += S.COST.kb_check; cache?.set(a.id, { res, round }); }
+    const fresh = versioned ? c && c.ver === rulesVersion() : c && round - c.round < ttl;
+    if (fresh) { res = c.res; hits++; const now = registry(a.id); if (now.current.text !== res.current.text || now.stale !== res.stale) cachedStale++; }
+    else { res = registry(a.id); cost += S.COST.kb_check; cache?.set(a.id, { res, round, ver: rulesVersion() }); }
     if (res.stale) replaced.push(a.id);
     newFeed.push(res.current);
   }
@@ -165,7 +170,7 @@ export async function main() {
     max: createLLM({ provider: E.LLM_PROVIDER || "mock", model: P.senior_model, role: "max", usageFile: join(DIR, "llm-usage.jsonl"), budgetTokens: num(E.SENIOR_LLM_BUDGET_TOKENS, 10e6), mock: mock?.mockSenior, shared }),
   };
   const meter = makeMeter(llms);
-  const caches = { cache: new Map() };
+  const caches = { cache: new Map(), cache_ttl: new Map() };
   let pol = run.exams.at(-1) || null;
   log(`прогон ${P.run_id}: ${P.rounds} раундов по ${P.tasks} обращений, способы ${P.arms.join(", ")}; младшая ${P.agent_model}, старшая ${P.senior_model}; тариф ${P.price_lite} / ${P.price_max} ₽ за 1 млн токенов, человек ${P.human_rub} ₽`);
   for (let r = run.round + 1; r <= P.rounds; r++) {
@@ -182,14 +187,14 @@ export async function main() {
       const t = S.makeTicket(`${P.seed}-r${r}-${i}`), feed = S.kbFeed(t);
       for (const arm of P.arms) {
         const tk = {}, cache = caches[arm] || null;
-        const v = verify(t, feed, { cache, round: r });
+        const v = verify(t, feed, { cache, round: r, versioned: arm === "cache" });
         const lite = meter.client("lite", arm, tk), max = meter.client("max", arm, tk);
         let o;
         if (arm === "max") o = await decideWith(t, v.verified, { junior: max });
         else if (arm === "lite") o = await decideWith(t, v.verified, { junior: lite });
         else if (arm === "risk") o = await decideWith(t, v.verified, { junior: lite, senior: max, seniorOn: (d) => RISKY.includes(d.action) });
         else if (arm === "digest") o = await decideWith(t, v.verified, { junior: lite, senior: max, seniorOn: (d) => RISKY.includes(d.action), seniorCtx: digest });
-        else if (arm === "cache") o = await decideWith(t, v.verified, { junior: lite, senior: max, seniorOn: (d) => RISKY.includes(d.action) });
+        else if (arm === "cache" || arm === "cache_ttl") o = await decideWith(t, v.verified, { junior: lite, senior: max, seniorOn: (d) => RISKY.includes(d.action) });
         else if (arm === "orch") o = await decideWith(t, v.verified, { junior: lite, senior: max, seniorCtx: digest, seniorOn: (d) => {
           if (!pol.policy[d.action]?.call) return false;
           if (budgetLeft >= pol.senior_tokens_per_call) { budgetLeft -= pol.senior_tokens_per_call; return true; }
@@ -243,7 +248,7 @@ export function report(run) {
   // парные разницы
   const ids = [...new Set(run.rows.map((x) => `${x.round}|${x.id}`))], cell = {};
   for (const x of run.rows) (cell[`${x.round}|${x.id}`] ||= {})[x.arm] = x.model_rub + x.checks + x.human + x.harm;
-  const pairs = [["lite", "max"], ["risk", "max"], ["risk", "lite"], ["digest", "risk"], ["cache", "risk"], ["orch", "risk"], ["orch", "max"]].filter(([a, b]) => arms.includes(a) && arms.includes(b));
+  const pairs = [["lite", "max"], ["risk", "max"], ["risk", "lite"], ["digest", "risk"], ["cache", "risk"], ["cache_ttl", "risk"], ["orch", "risk"], ["orch", "max"]].filter(([a, b]) => arms.includes(a) && arms.includes(b));
   if (pairs.length) {
     L.push(`\n## Парные сравнения на одних и тех же обращениях\n`, `Цена с вредом, ₽ на обращение: первый способ минус второй, минус — первый дешевле. 95% интервал — бутстреп по обращениям; если он целиком по одну сторону от нуля, разница не случайна.\n`, `| Сравнение | Разница | 95% интервал |`, `|---|---|---|`);
     for (const [a, b] of pairs) { const d = ids.map((k) => (cell[k][a] ?? 0) - (cell[k][b] ?? 0)), m = d.reduce((s, x) => s + x, 0) / (d.length || 1), ci = bootCI(d, `boot-${a}-${b}`); L.push(`| ${ARM_NAME[a]} − ${ARM_NAME[b]} | ${f(m)} | ${f(ci[0])} … ${f(ci[1])} |`); }
@@ -254,7 +259,7 @@ export function report(run) {
   // по эпохам
   L.push(`\n## До и после смены мира\n`, `| Способ | ${[0, 1, 2].map((e) => `эпоха ${e}: верно / с вредом ₽`).join(" | ")} |`, `|---|---|---|---|`);
   for (const a of arms) { const cells = [0, 1, 2].map((e) => { const rows = run.rows.filter((x) => x.arm === a && x.era === e); if (!rows.length) return "—"; const tot = rows.reduce((s, x) => s + x.model_rub + x.checks + x.human + x.harm, 0) / rows.length; return `${Math.round(100 * rows.filter((x) => x.correct).length / rows.length)}% / ${f(tot)}`; }); L.push(`| ${ARM_NAME[a]} | ${cells.join(" | ")} |`); }
-  for (const a of ["cache"].filter((a) => by[a])) L.push(``, `Кэш проверок у «${ARM_NAME[a]}»: ${by[a].cache_hits} проверок статей из кэша (сэкономлено ${f(by[a].cache_hits * S.COST.kb_check, 0)} ₽), обращений, где кэш отдал устаревшее, — ${by[a].cached_stale}.`);
+  for (const a of ["cache", "cache_ttl"].filter((a) => by[a])) L.push(``, `Кэш проверок у «${ARM_NAME[a]}»: ${by[a].cache_hits} проверок статей из кэша (сэкономлено ${f(by[a].cache_hits * S.COST.kb_check, 0)} ₽), обращений, где кэш отдал устаревшее, — ${by[a].cached_stale}.`);
   if (run.exams?.length) {
     L.push(`\n## Решения оркестратора\n`, `| Экзамен перед раундом | Верно: младшая / старшая | Звать старшего при | Бюджет старшего, токенов на раунд |`, `|---|---|---|---|`);
     for (const e of run.exams) L.push(`| ${e.round} | ${Math.round(100 * e.accuracy.lite)}% / ${Math.round(100 * e.accuracy.senior)}% | ${ACTIONS.filter((a) => e.policy[a].call).map((a) => `${a} (${e.policy[a].gain ?? "—"} ₽)`).join(", ") || "никогда"} | ${e.budget} |`);

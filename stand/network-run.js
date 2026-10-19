@@ -665,6 +665,10 @@ function report() {
   }
   L.push(`\n## По раундам (выгода, ₽ / лимит действий)\n`, `| Раунд | ${ag.map((a, i) => `агент ${i + 1} · о${NUM[a.orch] || "?"}`).join(" | ")} |`, `|---|${ag.map(() => "---|").join("")}`);
   for (const x of run.rounds) L.push(`| ${x.round} | ${ag.map((_, i) => { const y = x.agents.find((z) => z.agent === i + 1); return y ? `${y.utility} / ${y.limit ?? "—"}${y.corrupt ? " ⚠" : ""}` : "—"; }).join(" | ")} |`);
+  // 0.15.3: платные проверки на обращение по раундам — ранний признак порчи: подменённый агент перестаёт звать своих
+  // проверяющих раньше, чем видно вред (совет из обсуждения статьи на dev.to). Тревога — на падение против собственной нормы
+  L.push(`\n## Платные проверки на обращение по раундам, ₽\n`, `Падение против собственной нормы агента — первый признак, что он перестал звать своих проверяющих (на этом поймана подмена). ⚠ — агент подменён.\n`, `| Раунд | ${ag.map((a, i) => `агент ${i + 1}`).join(" | ")} |`, `|---|${ag.map(() => "---|").join("")}`);
+  for (const x of run.rounds) L.push(`| ${x.round} | ${ag.map((_, i) => { const y = x.agents.find((z) => z.agent === i + 1); return y ? `${y.tasks ? Math.round(10 * (y.checks || 0) / y.tasks) / 10 : "—"}${y.corrupt ? " ⚠" : ""}` : "—"; }).join(" | ")} |`);
   L.push(`\n## Выбор оркестратора и направления\n`);
   const urlName = (u) => { const k = Object.keys(ORCH).find((x) => `http://localhost:${ORCH[x].port}` === u); return k ? ON(k) : u; };
   for (const r of run.referrals || []) L.push(`- агент ${r.agent}: ${r.offered ? `предложено: ${urlName(r.offered)}` : "без направления"} → выбран ${ON(r.choice)}. ${r.why}${r.skipped?.length ? ` Не направлен к: ${r.skipped.map((x) => `${urlName(x.url)} — ${x.reason}`).join("; ")}.` : ""}`);

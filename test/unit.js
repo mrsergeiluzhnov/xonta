@@ -673,6 +673,11 @@ await t("0.14.6 прогон токенов: одинаковый запрос �
   assert.equal(v2.cost, S2.COST.precise, "статьи из кэша бесплатно"); assert.ok(v2.cachedStale > 0, "но после смены срока возврата кэш отдал старый текст");
   const v3 = T.verify(t0, feed, { cache, round: 5, ttl: 3 });
   assert.equal(v3.cachedStale, 0, "срок кэша вышел — статья проверена заново");
+  // 0.15.3: кэш с версией правил — смена правил сама сбрасывает кэш, устаревшего нет
+  S2.setEra(0); const vc = new Map(); T.verify(t0, feed, { cache: vc, round: 1, versioned: true });
+  const same = T.verify(t0, feed, { cache: vc, round: 2, versioned: true }); assert.equal(same.cost, S2.COST.precise, "правила те же — из кэша");
+  S2.setEra(2); const after = T.verify(t0, feed, { cache: vc, round: 3, versioned: true });
+  assert.equal(after.cachedStale, 0, "после смены срока возврата старая статья не отдаётся"); assert.ok(after.cost > S2.COST.precise, "проверено заново");
   S2.setEra(0);
   const ctx = { card: v1.verified.card, flags: ["x"], feed: v1.verified.feed };
   assert.ok(T.digest(ctx, { action: "refund" }).feed.every((a) => S2.topicOf(a.id) === "returns"), "денежное решение — в выжимке только правила возврата");

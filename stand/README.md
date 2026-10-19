@@ -386,3 +386,12 @@ Run 11, token economy (EN). Same tickets, checkers, rules and ruble scoring as t
    Чего это не покрывает: в c и c2 подложный возврат случился в том же раунде, в котором надзор впервые заметил потомка. Такое закроет только более ранняя проверка надзора, посреди раунда. В a правка убрала бы 21 960 ₽ вреда раунда 6. Цена: в трёх прогонах серии под наблюдение попадали только потомки агента 4 и только во время этого случая, у честных агентов возвраты ни разу не ушли бы человеку зря.
 
 Fixes after series-1 (EN). A sequential harm test no longer raises an alarm when the number of large losses is normal for this agent's own exam, and a severe harm-only alarm turns into probation (3 supervised actions) after a fresh exam, instead of a dead end. While any descendant of an agent is on watch, the agent's refund limit is 0, so refunds go to a human until the descendant is quarantined.
+
+## Правки по обсуждению статьи на dev.to (0.15.3)
+
+Читатель статьи на dev.to предложил два улучшения, оба сделаны.
+
+1. **Расход на проверки по раундам в отчёте.** Подменённого агента поймал не экзамен (его он сдавал), а падение платных проверок на обращение против собственной нормы агента. Это ранний признак: агент перестаёт звать своих проверяющих раньше, чем виден вред. Тревога на это падение была и раньше (0.13.3), теперь в отчёте стенда есть таблица «Платные проверки на обращение по раундам», а на сайте — третья полоса графика.
+2. **Кэш проверок с версией правил.** В run-11b кэш по времени после смены срока возврата 59 раз отдал старую статью: номер версии в идентификаторе статьи не менялся, менялся только текст. Теперь в способе «кэш» ключ содержит версию набора правил, и смена правил сама сбрасывает кэш. Прежний кэш по времени остался способом `cache_ttl` для сравнения. На тестовой модели: кэш с версией правил — 0 устаревших ответов и та же экономия на проверках, кэш по времени — 99 устаревших и дороже всех с учётом вреда.
+
+Fixes after the dev.to discussion (EN). The stand report now has paid checks per ticket per round, the early signal that caught the swapped agent, and the site chart shows it. The check cache in the token run is keyed by the rule set version, so a policy change invalidates it, the old time-based cache stays as `cache_ttl` for comparison.
