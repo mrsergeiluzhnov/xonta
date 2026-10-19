@@ -4,7 +4,7 @@ Site: [mrsergeiluzhnov.github.io/xonta](https://mrsergeiluzhnov.github.io/xonta/
 
 **Open trust infrastructure for AI agents.** Your agent passed the tests. Can you let it touch money and customer data, and how much? Xonta answers that with evidence anyone can check, not with a score out of 100 you have to take on faith. The agent passport (a set of signed credentials) is one part of it.
 
-> Status: **0.15.3, experimental.** Everything below works and is covered by tests and sandbox runs (`stand/`, `lab/`). Some parts of the spec are only written down so far, see "Not there yet". The main README is in Russian, this file covers the same ground in English.
+> Status: **0.16.0, experimental.** Everything below works and is covered by tests and sandbox runs (`stand/`, `lab/`). Some parts of the spec are only written down so far, see "Not there yet". The main README is in Russian, this file covers the same ground in English.
 
 ## New. Xonta Gate, a trust layer in front of any MCP server
 
@@ -133,6 +133,10 @@ Every orchestrator exposes endpoints so you can look at it before trusting it:
 | `POST /v1/experience/referral` | where to go with a given task, honestly pointing to a stronger orchestrator |
 | `POST /v1/experience/learn` | (admin) learn from another orchestrator: fetch, verify signatures and evidence, keep only what holds up on your own tasks |
 | `GET /v1/guardian` | state of descendant supervision |
+| `GET /.well-known/xonta-orchestrator.json` | signed card: DID, endpoints, fields and experience by category |
+| `GET /v1/orchestrators` | the directory of verified orchestrators, `?category=` shows who has experience in it |
+
+When you deploy your own, it offers you to list it in the Xonta directory (log, home page, `/health`) and tells nobody about itself until you agree. Then agents and other orchestrators can find yours by the fields and categories you know, and yours can refer agents to them. Details in [CONNECT.md](CONNECT.md).
 
 The full sandbox is in `stand/`. Put a GigaChat key into `stand.env` and start it with one docker compose command (see `stand/README.md`). Orchestrator books live outside the containers and survive rebuilds, so the next run starts with what the orchestrators already know. `stand/AUTOPILOT.md` describes how a server can run experiments and publish results by itself.
 

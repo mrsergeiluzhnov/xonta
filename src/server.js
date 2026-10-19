@@ -15,6 +15,8 @@ import { createSupport, mountSupport } from "./support.js";
 import { createExperience, mountExperience } from "./experience.js";
 import { createGuardian, mountGuardian } from "./guardian.js";
 import { createFields, mountFields } from "./fields.js";
+import { createDirectory, mountDirectory } from "./directory.js";
+import { createLineageAdvice, mountLineageAdvice } from "./lineage-advice.js";
 import { errorBody } from "./i18n.js";
 import { verifyCaller } from "./callerauth.js";
 import { createLLM } from "../stand/llm.js";
@@ -25,7 +27,7 @@ import { scanMcpServer } from "./scan.js";
 import { publicKeyFromMultibase } from "./crypto.js";
 import * as xontaDocsSuite from "../suites/xonta-docs.js";
 
-export const VERSION = "0.15.3";
+export const VERSION = "0.16.0";
 const env = process.env;
 const PORT = Number(env.PORT || 4040);
 const PUBLIC_URL = (env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
@@ -83,6 +85,11 @@ const support = createSupport({ store, issuer, orch, resolver, publicUrl: PUBLIC
 const guardian = createGuardian({ store, issuer, orch, publicUrl: PUBLIC_URL, exp });
 // свой экзамен для новых сфер: наборы заданий от проводников, экзамен агента по набору, опыт по сферам
 const fields = createFields({ store, issuer, orch, publicUrl: PUBLIC_URL, exp });
+// 0.16: справочник оркестраторов (визитка, запись, обход соседей) и советы агенту: потомки и другие оркестраторы
+const dir = createDirectory({ store, issuer, resolver, exp, fields, publicUrl: PUBLIC_URL, version: VERSION, allowPrivate: ALLOW_PRIVATE, openRegistration: OPEN_REG,
+  cfg: { hub_url: env.DIRECTORY_URL ?? (ALLOW_PRIVATE ? "off" : undefined), // в режиме разработки справочник выключен, пока не задан явно
+    scan_hours: Number(env.DIRECTORY_SCAN_HOURS || 6), ...(env.DIRECTORY_ACCEPT != null ? { accept: env.DIRECTORY_ACCEPT === "1" } : {}) } });
+const adv = createLineageAdvice({ store, orch, fields, dir, exp, publicUrl: PUBLIC_URL });
 const app = express();
 app.set("trust proxy", Number(env.TRUST_PROXY ?? 1)); // за одним обратным прокси (nginx); без прокси задайте TRUST_PROXY=0
 app.use(express.json({ limit: "8mb", verify: (req, _res, buf) => { req.rawBody = buf.toString("utf8"); } })); // тело нужно для проверки подписи запроса
@@ -101,7 +108,8 @@ const ownerOrAdmin = (req, id) => { if (isAdmin(req)) return; orch.checkOwner(or
 async function ownerAuth(req, id) {
   if (isAdmin(req)) return;
   const rec = orch.get(id);
-  if (bearer(req)) return orch.checkOwner(rec, bearer(req));
+  // 0.16: потомком может управлять и владелец предка (его ключом)
+  if (bearer(req)) { for (let r = rec; r; r = r.parent ? store.get("agents", {})[r.parent] : null) { try { return orch.checkOwner(r, bearer(req)); } catch (e) { if (!r.parent) throw e; } } }
   const who = await verifyCaller(req, resolver);
   if (!rec.owner_did || !who.verified || who.did !== rec.owner_did) throw Object.assign(new Error("нужен ключ владельца или подпись owner_did"), { status: 403 });
 }
@@ -144,7 +152,11 @@ app.post("/v1/agents/:id/status", wrap(async (req) => {
   return { ...r, descendants_suspended: await evo.cascade(req.params.id, r.status, req.body?.reason) };
 }));
 // --- потомки, предложения, слияние (уровень 2: оркестратор оценивает и рекомендует, применяет владелец) ---
-app.post("/v1/agents/:id/children", wrap(async (req) => evo.registerChild(req.params.id, req.body || {}, await verifyCaller(req, resolver))));
+// с ключом владельца — простой путь (0.16), с подписанным мандатом owner_did — прежний
+app.post("/v1/agents/:id/children", wrap(async (req) => {
+  if (bearer(req)) { await ownerAuth(req, req.params.id); limit(req, 10, 86400_000, "children"); return adv.registerByOwner(req.params.id, req.body || {}); }
+  return evo.registerChild(req.params.id, req.body || {}, await verifyCaller(req, resolver));
+}));
 app.post("/v1/proposals", wrap((req) => { limit(req, 300); return evo.submitProposal(req.body || {}); }));
 app.post("/v1/agents/:id/evaluate", wrap(async (req) => { await ownerAuth(req, req.params.id); return evo.evaluate(req.params.id, req.body || {}); }));
 app.post("/v1/agents/:id/merge", wrap(async (req) => { await ownerAuth(req, req.params.id); return evo.merge(req.params.id, req.body || {}); }));
@@ -165,6 +177,8 @@ mountSupport(app, { support, wrap, admin, ownerAuth, orch });
 mountExperience(app, { exp, wrap, admin });
 mountGuardian(app, { guardian, wrap, admin });
 mountFields(app, { fields, wrap, limit, ownerAuth, bearer, isAdmin });
+mountDirectory(app, { dir, wrap, admin, limit });
+mountLineageAdvice(app, { adv, wrap, ownerAuth, limit, bearer });
 app.get("/v1/agents/:id/proposals", wrap((req) => evo.listProposals(orch.get(req.params.id).id)));
 app.get("/v1/agents/:id/merges", wrap((req) => evo.listMerges(orch.get(req.params.id).id)));
 app.get("/v1/agents/:id/signals", wrap((req) => { ownerOrAdmin(req, req.params.id); return orch.listSignals(req.params.id); }));
@@ -183,11 +197,13 @@ app.get("/v1/anchors", wrap(() => store.get("anchors", []).map(({ file, ...a }) 
 app.get("/ns/v0", (_req, res) => res.type("application/ld+json").set("Cache-Control", "public, max-age=86400").json({
   "@context": { "@version": 1.1, "@vocab": `${PUBLIC_URL}/ns/v0#` },
 }));
-app.get("/health", (_req, res) => res.json({ ok: true, version: VERSION, issuer: issuer.did, name: env.ORCH_NAME || "xonta", open_registration: OPEN_REG }));
+app.get("/health", (_req, res) => res.json({ ok: true, version: VERSION, issuer: issuer.did, name: env.ORCH_NAME || "xonta", open_registration: OPEN_REG, directory: (() => { const o = dir.offer(); return { hub: dir.hub, is_hub: dir.isHub, listed: dir.isHub || !!dir.status().joined?.listed, offer: o ? { message: o.message, message_ru: o.message_ru, how: o.how } : null }; })() }));
 app.get("/", (_req, res) => res.type("html").send(`<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Паспорт ИИ-агента — Xonta</title>
 <body style="font:16px/1.55 system-ui,sans-serif;max-width:760px;margin:40px auto;padding:0 16px">
 <h1>Паспорт ИИ-агента</h1><p>Оркестратор A2O2A от <a href="https://xonta.ru">Xonta</a>: проверяемые аттестаты для ИИ-агентов (W3C VC), проверка MCP-серверов на скрытые инструкции, агент-тестер и сигналы владельцу. Оркестратор рекомендует, но ничего не меняет в агентах сам.</p>
 <ul><li>Эмитент: <code>${issuer.did}</code> — <a href="/.well-known/did.json">DID-документ</a></li><li>MCP: <code>${PUBLIC_URL}/mcp</code> — verify_agent, get_passport, scan_mcp_server</li><li>Статусы: <a href="/status/revocation">отзыв</a>, <a href="/status/suspension">приостановка</a></li><li>Фиксации: <a href="/v1/anchors">/v1/anchors</a></li></ul>
+<p>Справочник оркестраторов: <a href="/v1/orchestrators">/v1/orchestrators</a>, визитка этого оркестратора: <a href="/.well-known/xonta-orchestrator.json">/.well-known/xonta-orchestrator.json</a></p>
+${(() => { const o = dir.offer(); return o ? `<p style="border:1px solid #c9a227;padding:10px 12px;border-radius:6px"><b>Владельцу.</b> ${o.message_ru}<br><code>${o.how[0].replace(/</g, "&lt;")}</code><br><small>${o.message}</small></p>` : ""; })()}
 <p>Версия ${VERSION}. Спецификация и код — Apache 2.0.</p></body></html>`));
 
 mountGateway(app, { store, resolver, testerDid: orch.tester.did, guardian });
@@ -201,4 +217,13 @@ function maybeAnchor() {
 }
 if (env.AUTO_ANCHOR !== "0") { setTimeout(maybeAnchor, 60_000).unref(); setInterval(maybeAnchor, 3600_000).unref(); }
 
-app.listen(PORT, () => console.log(`Xonta Agent Passport ${VERSION} on :${PORT} | issuer ${issuer.did} | ${PUBLIC_URL}`));
+app.listen(PORT, () => {
+  console.log(`Xonta Agent Passport ${VERSION} on :${PORT} | issuer ${issuer.did} | ${PUBLIC_URL}`);
+  // справочник: предложение владельцу записаться (сразу и раз в сутки, пока не записан), запись по согласию, обход соседей
+  dir.announce();
+  setInterval(() => dir.announce(), 24 * 3600_000).unref();
+  if (env.DIRECTORY_JOIN === "1" && dir.offer()?.ready) setTimeout(() => dir.join().then((r) => console.log(`[xonta directory] ${r.listed ? `listed at ${dir.hub}` : `not listed: ${JSON.stringify(r.checks?.filter((c) => !c.ok) || r.error)}`}`)).catch((e) => console.error("[xonta directory] join", e.message)), 5000).unref();
+  setInterval(() => dir.checkJoined(), 24 * 3600_000).unref();
+  const scanH = Number(env.DIRECTORY_SCAN_HOURS || 6);
+  if (scanH > 0) { setTimeout(() => dir.scan().catch(() => {}), 120_000).unref(); setInterval(() => dir.scan().catch(() => {}), scanH * 3600_000).unref(); }
+});

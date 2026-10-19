@@ -44,7 +44,8 @@ export function trackScore(t, minControl = TRACK_MIN_CONTROL) {
 export function createExperience({ store, issuer, resolver, publicUrl, name = process.env.ORCH_NAME || "orchestrator" }) {
   const W = { decay: num("EXP_DECAY", 0.6), cross_domain: num("EXP_CROSS_DOMAIN_W", 0.3), foreign: num("EXP_FOREIGN_W", 0.5), recipe_prob: num("EXP_RECIPE_PROB", 0.8) };
   const book = () => store.get("experience", { entries: {}, foreign: {}, evidence: {}, track: {}, runs: [] });
-  const upd = (fn) => store.update("experience", { entries: {}, foreign: {}, evidence: {}, track: {}, runs: [] }, fn);
+  let bookVer = 0; // 0.16: меняется при каждой записи в книгу — по нему сбрасывается кэш послужного списка
+  const upd = (fn) => { bookVer++; return store.update("experience", { entries: {}, foreign: {}, evidence: {}, track: {}, runs: [] }, fn); };
 
   // ---------- запись собственного опыта ----------
   function record({ domain, category = "all", technique, arm, success, gain = 0, credential = null, run = null, payload = null, origin = "own" }) {
@@ -164,7 +165,13 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
       peer_experience: imports, referrals: (t.referrals || []).length, archived_from: t.archived_from || [],
     };
   }
-  const trackRecord = () => issuer.issue("OrchestratorTrackRecord", { id: issuer.did, name, ...trackSummary(), method: "own measurements; advice outcomes vs control; honest failures (false alarms, rejected imports) included" }, { validDays: 7 });
+  // 0.16: пока книга не менялась (и не дольше 10 минут), отдаётся тот же аттестат — справочники и соседи забирают его при каждом обходе
+  let trCache = null;
+  const trackRecord = () => {
+    if (trCache && trCache.ver === bookVer && Date.now() - trCache.at < 600_000) return trCache.vc;
+    trCache = { ver: bookVer, at: Date.now(), vc: issuer.issue("OrchestratorTrackRecord", { id: issuer.did, name, ...trackSummary(), method: "own measurements; advice outcomes vs control; honest failures (false alarms, rejected imports) included" }, { validDays: 7 }) };
+    return trCache.vc;
+  };
 
   // ---------- засев опыта (из архивов прошлых прогонов) и доказательства ----------
   // архивные записи (исходы советов и подборов прошлых прогонов) оркестратор переподписывает своим ключом как ArchivedOutcome:

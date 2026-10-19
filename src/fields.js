@@ -100,7 +100,10 @@ export function createFields({ store, issuer, orch, publicUrl, exp = null }) {
   function statsOf(id) {
     const s = stats()[id]; if (!s) return { exams: 0, agents: 0 };
     const hardest = Object.entries(s.tasks || {}).filter(([, x]) => x.n >= 3).map(([k, x]) => ({ task: Number(k), error_rate: Math.round(100 * (1 - x.ok / x.n)), category: x.category || null })).sort((a, b) => b.error_rate - a.error_rate).slice(0, 5);
-    return { exams: s.exams, agents: Object.keys(s.agents || {}).length, accuracy_mean: s.exams ? Math.round(10 * s.acc_sum / s.exams) / 10 : null, harm_per_action_mean: s.hpa_n ? Math.round(s.hpa_sum / s.hpa_n) : null, hardest };
+    // 0.16: опыт по категориям: сколько агентов сдавали, средняя точность по последнему экзамену каждого
+    const categories = {};
+    for (const [cat, per] of Object.entries(s.cats || {})) { const l = Object.values(per).filter((x) => x.n > 0); if (l.length) categories[cat] = { agents: l.length, exams: l.reduce((a, x) => a + (x.exams || 1), 0), accuracy_mean: Math.round(1000 * l.reduce((a, x) => a + x.ok / x.n, 0) / l.length) / 10 }; }
+    return { exams: s.exams, agents: Object.keys(s.agents || {}).length, accuracy_mean: s.exams ? Math.round(10 * s.acc_sum / s.exams) / 10 : null, harm_per_action_mean: s.hpa_n ? Math.round(s.hpa_sum / s.hpa_n) : null, hardest, categories };
   }
 
   function create(body, { owner_token = null } = {}) {
@@ -121,7 +124,7 @@ export function createFields({ store, issuer, orch, publicUrl, exp = null }) {
     f.hidden = true; save(f); return { id, hidden: true };
   }
 
-  async function exam(agentId, { field, tasks = FIELD_DEFAULTS.exam_tasks, budget = null, seed } = {}, { owner_token = null } = {}) {
+  async function exam(agentId, { field, tasks = FIELD_DEFAULTS.exam_tasks, budget = null, seed, category = null } = {}, { owner_token = null } = {}) {
     const rec = orch.get(agentId);
     if (!["active", "deprecated"].includes(rec.status)) throw err(409, `агент ${rec.status}: экзамен не проводится`);
     if (!rec.domain_verified_at) throw err(409, "сначала подтвердите управление доменом агента (domain-check)");
@@ -132,9 +135,12 @@ export function createFields({ store, issuer, orch, publicUrl, exp = null }) {
     const cur = f.currency || "RUB";
     budget = budget == null ? CURRENCY_DEFAULTS[cur]?.budget : Number(budget);
     if (!(budget > 0 && budget <= 1e7)) throw err(400, `budget: сколько вреда за период владелец готов допустить, в ${cur}`);
-    const n = Math.max(10, Math.min(Number(tasks) || FIELD_DEFAULTS.exam_tasks, 200, f.tasks.length));
+    // 0.16: экзамен по одной категории — для потомка-специалиста (или чтобы перепроверить слабое место)
+    const pool = category ? f.tasks.filter((t) => t.category === String(category)) : f.tasks;
+    if (category && pool.length < 5) throw err(400, `category: в наборе меньше 5 заданий категории «${category}»`);
+    const n = Math.max(category ? 5 : 10, Math.min(Number(tasks) || FIELD_DEFAULTS.exam_tasks, 200, pool.length));
     seed = String(seed || rid(8)).slice(0, 64);
-    const rnd = seeded(`${f.id}|${seed}`), order = f.tasks.map((t) => [rnd(), t]).sort((a, b) => a[0] - b[0]).slice(0, n).map((x) => x[1]);
+    const rnd = seeded(`${f.id}|${category || ""}|${seed}`), order = pool.map((t) => [rnd(), t]).sort((a, b) => a[0] - b[0]).slice(0, n).map((x) => x[1]);
     const gw = `${publicUrl}/gw/${rec.id}/mcp`, rows = [];
     for (const [k, task] of order.entries()) {
       const fetch = signingFetch({ did: orch.tester.did, privateKey: orch.tester.privateKey, extraHeaders: { "x-task-id": `f-${seed.slice(0, 6)}-${k}`, "x-task-category": encodeURIComponent(task.category || f.name) } });
@@ -148,21 +154,34 @@ export function createFields({ store, issuer, orch, publicUrl, exp = null }) {
       rows.push({ task: task.i, category: task.category, ...gradeTask(f, task, action), error });
     }
     const m = summarize(f, rows, { budget });
+    const byCat = {};
+    for (const r of rows) { const c = (byCat[r.category || "—"] ||= { n: 0, ok: 0, auto: 0, harm: 0, human: 0 }); c.n++; if (r.correct) c.ok++; if (r.autonomous) c.auto++; c.harm += r.harm; c.human += r.human; }
     const author_is_owner = !!f.author_owner_hash && f.author_owner_hash === rec.owner_token_hash;
-    const evaluation = { data: "field-pack", field: { id: f.id, name: f.name, version: f.version, author_is_owner }, seed, cases: n, hash: sha256hex(jcs(order.map((t) => t.i))).slice(0, 16) };
+    const evaluation = { data: "field-pack", field: { id: f.id, name: f.name, version: f.version, author_is_owner }, category: category || null, seed, cases: n, hash: sha256hex(jcs(order.map((t) => t.i))).slice(0, 16) };
     const vc = issuer.issue("AgentFieldEvaluation", { id: rec.did, evaluation, metrics: { currency: cur, accuracy: m.accuracy, autonomy: m.autonomy, harm_per_action: m.harm_per_action, human_handoffs: m.human_handoffs, invalid: m.invalid }, tester: orch.tester.did, method: "xonta-field-exam/0.1: random sample of the field pack, signed calls through the gateway, harm per autonomous action in the pack's currency" }, { validDays: 30, agentId: rec.id });
     const mandate = issuer.issue("ActionMandate", { id: rec.did, field: f.id, actions_per_period: m.trust.start_actions, target_actions: m.trust.target_actions, harm_budget: budget, currency: cur, basis: { evaluation: vc.id, harm_per_action: m.harm_per_action, accuracy: m.accuracy }, reason: m.trust.why, recommendation: true, applies: "владелец выпускает токен действий с этим лимитом у шлюза; без шлюза — рекомендация" }, { validDays: 14, agentId: rec.id });
     // опыт по сфере
     store.update("fields_stats", {}, (x) => {
       const s = (x[f.id] ||= { exams: 0, acc_sum: 0, hpa_sum: 0, hpa_n: 0, agents: {}, tasks: {} });
-      s.exams++; s.acc_sum += m.accuracy; if (m.harm_per_action != null) { s.hpa_sum += m.harm_per_action; s.hpa_n++; } s.agents[rec.id] = (s.agents[rec.id] || 0) + 1;
+      // экзамен по одной категории в общую точность набора не идёт: он про узкое место, а не про весь набор
+      if (!category) { s.exams++; s.acc_sum += m.accuracy; if (m.harm_per_action != null) { s.hpa_sum += m.harm_per_action; s.hpa_n++; } }
+      s.agents[rec.id] = (s.agents[rec.id] || 0) + 1;
       for (const r of rows) { const t = (s.tasks[r.task] ||= { n: 0, ok: 0, category: r.category }); t.n++; if (r.correct) t.ok++; }
+      // по категориям: последний результат каждого агента
+      for (const [cat, c] of Object.entries(byCat)) { const per = ((s.cats ||= {})[cat] ||= {}); per[rec.id] = { ...c, exams: (per[rec.id]?.exams || 0) + 1, at: new Date().toISOString() }; }
     });
+    // экзамены агента: по ним оркестратор советует, где нужен потомок-специалист, где человек, а какой потомок лишний
+    store.update("agent_exams", {}, (x) => { (x[rec.id] ||= []).push({ field: f.id, version: f.version, category: category || null, at: new Date().toISOString(), accuracy: m.accuracy, harm_per_action: m.harm_per_action, cases: n, categories: byCat, credential: vc.id }); x[rec.id] = x[rec.id].slice(-20); });
     if (exp) try { exp.track("field_exam", { domain: `field:${f.id}`, agent: rec.did, accuracy: m.accuracy, harm_per_action: m.harm_per_action }); } catch {}
-    return { field: { id: f.id, name: f.name, version: f.version, author_is_owner }, metrics: m, mistakes: rows.filter((r) => !r.correct).slice(0, 20).map(({ task, category, action, harm, error, invalid }) => ({ task, category, action, harm, invalid: !!invalid, error })), credential: vc, mandate };
+    return { field: { id: f.id, name: f.name, version: f.version, author_is_owner }, metrics: m, mistakes: rows.filter((r) => !r.correct).slice(0, 20).map(({ task, category, action, harm, error, invalid }) => ({ task, category, action, harm, invalid: !!invalid, error })), credential: vc, mandate,
+      next: [`GET ${publicUrl}/v1/agents/${rec.id}/descendant-advice — where a specialised child or a human would pay off, and which child to remove`, `GET ${publicUrl}/v1/agents/${rec.id}/orchestrator-advice — other orchestrators with more experience in your weak categories`] };
   }
 
-  return { create, list, describe, hide, exam, statsOf };
+  const examsOf = (agentId) => store.get("agent_exams", {})[agentId] || [];
+  // последний результат каждого агента по категории набора (для сравнения «кто справляется лучше»)
+  const categoryResults = (fieldId, cat) => store.get("fields_stats", {})[fieldId]?.cats?.[cat] || {};
+  const peek = (id) => { const f = all()[id]; return f && !f.hidden ? f : null; };
+  return { create, list, describe, hide, exam, statsOf, examsOf, categoryResults, peek };
 }
 
 export function mountFields(app, { fields, wrap, limit, ownerAuth, bearer, isAdmin }) {

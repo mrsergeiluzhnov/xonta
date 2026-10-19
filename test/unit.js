@@ -745,5 +745,79 @@ await t("0.15.2: ответы публичного оркестратора по
   assert.deepEqual(errorBody("что-то новое"), { error: "что-то новое" }, "нет перевода — как есть");
 });
 
+await t("0.16: справочник оркестраторов — визитка, запись с проверкой, предложение записаться; советы по потомкам и оркестраторам", async () => {
+  const { spawn } = await import("node:child_process"), { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { z } = await import("zod"), { startAgent, startOwner, ownerCall } = await import("../lab/agentkit.js");
+  const A = "http://localhost:4970", B = "http://localhost:4971";
+  const run = (port, base, extra) => spawn(process.execPath, ["src/server.js"], { env: { ...process.env, PORT: String(port), PUBLIC_URL: base, DATA_DIR: mkdtempSync(join(tmpdir(), "dir-")), ALLOW_PRIVATE_TARGETS: "1", OPEN_REGISTRATION: "1", OPEN_REG_PER_IP: "50", ADMIN_TOKEN: "adm", TRUST_PROXY: "0", LLM_PROVIDER: "", DIRECTORY_URL: A, DIRECTORY_SCAN_HOURS: "0", ...extra }, stdio: "ignore" });
+  const sa = run(4970, A, { DIRECTORY_ACCEPT: "1" }), sb = run(4971, B, {});
+  const call = async (base, m, path, body, token) => { const r = await fetch(base + path, { method: m, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined }); return { status: r.status, body: await r.json() }; };
+  const agents = [];
+  try {
+    for (const b of [A, B]) for (let i = 0; i < 100; i++) { try { if ((await fetch(`${b}/health`)).ok) break; } catch {} await new Promise((r) => setTimeout(r, 100)); }
+    // визитка подписана, справочник Xonta знает только себя
+    const card = (await call(A, "GET", "/.well-known/xonta-orchestrator.json")).body;
+    assert.ok(card.type.includes("OrchestratorCard")); assert.equal(card.credentialSubject.url, A);
+    assert.equal((await call(A, "GET", "/v1/orchestrators")).body.length, 1);
+    // развёрнутый у себя оркестратор сам предлагает записаться; без согласия никуда не пишет
+    const hb = (await call(B, "GET", "/health")).body; assert.ok(hb.directory.offer, "предложение записаться есть"); assert.equal(hb.directory.listed, false);
+    assert.match(await (await fetch(B + "/")).text(), /Владельцу/);
+    assert.equal((await call(A, "GET", "/v1/orchestrators")).body.length, 1, "до согласия B в справочнике нет");
+    assert.equal((await call(B, "POST", "/v1/orchestrators", { url: A })).status, 403, "обычный оркестратор чужие записи не принимает");
+    const j = await call(B, "POST", "/v1/admin/directory/join", {}, "adm"); assert.equal(j.body.listed, true, JSON.stringify(j.body));
+    assert.equal((await call(B, "GET", "/health")).body.directory.offer, null, "записан — больше не предлагает");
+    const lst = (await call(A, "GET", "/v1/orchestrators")).body; assert.equal(lst.length, 2); assert.ok(lst.some((o) => o.url === B && o.verified.signature_and_domain));
+    // не оркестратор — не записывается, причины видны
+    const fake = await call(A, "POST", "/v1/orchestrators", { url: "http://localhost:4969" }); assert.equal(fake.body.listed, false); assert.ok(fake.body.checks.some((c) => !c.ok));
+    // одинаковый набор на обоих оркестраторах: версия совпадает
+    const tasks = Array.from({ length: 30 }, (_, i) => { const days = 3 + (i * 7) % 30, amount = 10 + (i * 13) % 90; return { input: { days, amount }, correct: days <= 14 ? "approve" : "reject", harm: { approve: amount, reject: 5 }, category: days <= 14 ? "on time" : "late" }; });
+    const fieldBody = { name: "Refunds", tool: "decide", actions: ["approve", "reject", "escalate"], human_action: "escalate", human_cost: 3, tasks };
+    const fa = (await call(A, "POST", "/v1/fields", fieldBody)).body, fb = (await call(B, "POST", "/v1/fields", fieldBody)).body; assert.equal(fa.version, fb.version);
+    // агенты: «плохой» одобряет всё, «хороший» смотрит срок
+    const owner = await startOwner({ port: 4960 }); agents.push(owner);
+    const mk = async (port, name, good) => { const a = await startAgent({ port, name, ownerDid: owner.did, tools: [{ name: "decide", description: "refund decision", input: { task: z.any() }, run: async ({ task }) => ({ action: good ? (task.days <= 14 ? "approve" : "reject") : "approve" }) }] }); agents.push(a); return a; };
+    const onboard = async (a, reg) => { await ownerCall(owner, `${a.url}/owner/challenge`, { token: reg.domain_challenge.content }); assert.equal((await call(A, "POST", `/v1/agents/${reg.id}/domain-check`, {}, reg.owner_token)).status, 200); };
+    const bad = await mk(4961, "bad", false), good = await mk(4962, "good", true);
+    const rb = (await call(A, "POST", "/v1/agents", { name: "bad", mcp_url: bad.mcp })).body, rg = (await call(A, "POST", "/v1/agents", { name: "good", mcp_url: good.mcp })).body;
+    await onboard(bad, rb); await onboard(good, rg);
+    const exB = await call(A, "POST", `/v1/agents/${rb.id}/field-exam`, { field: fa.id, tasks: 30, seed: "x" }, rb.owner_token); assert.equal(exB.status, 200, JSON.stringify(exB.body)); assert.ok(exB.body.next.length === 2);
+    assert.equal((await call(A, "POST", `/v1/agents/${rg.id}/field-exam`, { field: fa.id, tasks: 30, seed: "x" }, rg.owner_token)).status, 200);
+    // совет: родить специалиста по «late» — его вред, а другой агент решает лучше
+    let adv = (await call(A, "GET", `/v1/agents/${rb.id}/descendant-advice`, null, rb.owner_token)).body;
+    assert.equal(adv.spawn.length, 1, JSON.stringify(adv)); assert.equal(adv.spawn[0].category, "late"); assert.equal(adv.spawn[0].best_accuracy, 100);
+    // потомок по ключу владельца родителя; экзамен потомка по категории ключом родителя
+    const kidGood = await mk(4963, "kid-good", true), kidBad = await mk(4964, "kid-bad", false);
+    const k1 = await call(A, "POST", `/v1/agents/${rb.id}/children`, { name: "kid-good", mcp_url: kidGood.mcp, specialization: "late", field: fa.id }, rb.owner_token); assert.equal(k1.status, 200, JSON.stringify(k1.body));
+    const k2 = (await call(A, "POST", `/v1/agents/${rb.id}/children`, { name: "kid-bad", mcp_url: kidBad.mcp, specialization: "late", field: fa.id }, rb.owner_token)).body;
+    await ownerCall(owner, `${kidGood.url}/owner/challenge`, { token: k1.body.domain_challenge.content }); await call(A, "POST", `/v1/agents/${k1.body.id}/domain-check`, {}, rb.owner_token);
+    await ownerCall(owner, `${kidBad.url}/owner/challenge`, { token: k2.domain_challenge.content }); await call(A, "POST", `/v1/agents/${k2.id}/domain-check`, {}, k2.owner_token);
+    for (const k of [k1.body, k2]) { const e = await call(A, "POST", `/v1/agents/${k.id}/field-exam`, { field: fa.id, category: "late", tasks: 10, seed: "y" }, rb.owner_token); assert.equal(e.status, 200, JSON.stringify(e.body)); assert.equal(e.body.metrics.cases, 10); }
+    adv = (await call(A, "GET", `/v1/agents/${rb.id}/descendant-advice`, null, rb.owner_token)).body;
+    assert.equal(adv.keep.length, 1, JSON.stringify(adv)); assert.equal(adv.keep[0].child, k1.body.id);
+    assert.equal(adv.remove.length, 1); assert.equal(adv.remove[0].child, k2.id); assert.match(adv.remove[0].why, /no better than the parent/);
+    assert.equal(adv.spawn.length, 0, "потомок по «late» уже есть — рожать ещё не советуем");
+    // обход справочника обновляет визитку B (набор там появился после записи)
+    const sc = await call(A, "POST", "/v1/admin/directory/scan", {}, "adm"); assert.equal(sc.body.listed, 1, JSON.stringify(sc.body));
+    // другие оркестраторы: B знает тот же набор — второе мнение; опыта больше ни у кого нет
+    const oa = (await call(A, "GET", `/v1/agents/${rb.id}/orchestrator-advice`, null, rb.owner_token)).body;
+    assert.equal(oa.known_orchestrators, 1); assert.equal(oa.refer.length, 0); assert.equal(oa.second_opinion.length, 1); assert.equal(oa.second_opinion[0].orchestrator.url, B);
+    assert.equal((await call(A, "GET", "/v1/orchestrators?category=late")).body.length, 2);
+  } finally { for (const a of agents) a.close?.(); sa.kill(); sb.kill(); }
+});
+
+await t("0.16: направление к оркестратору, у которого по слабой категории больше агентов", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createLineageAdvice } = await import("../src/lineage-advice.js");
+  const store = openStore(mkdtempSync(join(tmpdir(), "ref-")));
+  store.put("agents", { a: { id: "a", status: "active", created: new Date().toISOString() } });
+  const exams = [{ field: "f1", category: null, at: "t", categories: { late: { n: 10, ok: 3, auto: 10, harm: 400, human: 0 } } }];
+  const fields = { examsOf: () => exams, peek: () => ({ id: "f1", name: "Refunds", version: "v1", currency: "USD", human_cost: 3, human_action: "escalate" }), statsOf: () => ({ categories: { late: { agents: 1 } } }), categoryResults: () => ({}) };
+  const entry = { did: "did:web:o2", url: "https://o2.example", card: { name: "o2", fields: [{ id: "g", version: "v1", stats: { exams: 9, categories: { late: { agents: 6, accuracy_mean: 88 } } } }], experience: {} } };
+  const dir = { entries: () => [entry], peerUrls: () => [entry.url], evidenceFor: () => ({ match: true, exams: 9, agents: 6, controlled: 0 }) };
+  const adv = createLineageAdvice({ store, orch: { get: (id) => store.get("agents")[id] }, fields, dir, publicUrl: "http://x" });
+  const r = await adv.orchestrators("a"); assert.equal(r.refer.length, 1); assert.equal(r.refer[0].orchestrator.name, "o2"); assert.equal(r.refer[0].their_agents_in_category, 6); assert.equal(r.second_opinion.length, 1);
+  const h = adv.descendants("a"); assert.equal(h.route_to_human.length, 1, "никто не решает лучше, вред 40 на задание дороже человека (3)"); assert.equal(h.spawn.length, 0);
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно

@@ -50,6 +50,16 @@ const T = [
   [/^tasks\[(\d+)\]\.harm: неизвестное действие (.+)$/, (m) => `tasks[${m[1]}].harm: unknown action ${m[2]}`],
   [/^tasks\[(\d+)\]\.harm\.(.+): сумма в (\S+) от 0$/, (m) => `tasks[${m[1]}].harm.${m[2]}: an amount in ${m[3]}, 0 or more`],
   [/^budget: сколько вреда за период владелец готов допустить, в (\S+)$/, (m) => `budget: how much harm per period the owner accepts, in ${m[1]}`],
+  [/^нужен url оркестратора$/, () => "the orchestrator url is required"],
+  [/^справочник заполнен, попробуйте позже$/, () => "the directory is full, try again later"],
+  [/^оркестратор не найден в справочнике$/, () => "orchestrator not found in the directory"],
+  [/^этот оркестратор не принимает записи, запишитесь в справочник Xonta$/, () => "this orchestrator does not accept listings, list yours in the Xonta directory"],
+  [/^справочник выключен \(DIRECTORY_URL=off\)$/, () => "the directory is off (DIRECTORY_URL=off)"],
+  [/^родитель (\S+): потомки не регистрируются$/, (m) => `the parent is ${m[1]}, children are not registered`],
+  [/^specialization: категория, которую берёт потомок$/, () => "specialization: the category the child takes"],
+  [/^глубина потомков не больше (\d+)$/, (m) => `descendants can be at most ${m[1]} levels deep`],
+  [/^не больше (\d+) потомков у одного агента$/, (m) => `at most ${m[1]} children per agent`],
+  [/^category: в наборе меньше 5 заданий категории «(.+)»$/, (m) => `category: the field has fewer than 5 tasks in "${m[1]}"`],
   [/^Некорректный JSON$/, () => "invalid JSON"],
 ];
 
