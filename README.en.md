@@ -80,6 +80,8 @@ Run 11, "Saving tokens" ([results/run-11](results/run-11/README.en.md)): the sam
 
 The repeat on different tickets ([results/run-11b](results/run-11b/README.en.md)): the large model is again about 36 ₽ per ticket cheaper than the small one, and calling it "on risk" again barely reduced harm. Without a tight budget the orchestrator caught up with the large model and edged past it, 68.51 ₽ against 73.39, but the gap rests on four tickets, so there will be a third run. After the rule change the check cache served the old refund article 59 times, and the large model used it to overrule two correct refunds. A cache that expires on a timer rather than when the article changes does harm once the rules change.
 
+The third run ([results/run-11c](results/run-11c/README.en.md)) and all three together: the large model is 37 ₽ per ticket cheaper than the small one (30–45), and "on risk" costs 27 ₽ more than the large model (20–35), three times out of three. Without a tight budget the orchestrator is 5.57 ₽ cheaper than the large model (1.51–10.57) across two runs: the "small answers, large checks" pair more often hands a person the complaints that the large model answers on its own. The gap is small and depends on what a complaint mistake costs. The cache did harm after the rule change both times it had the chance (+31 and +55 ₽ per ticket in rounds 7–8). The digest halves the large model's tokens with no loss in quality, but in money that's still pennies.
+
 ## Check it yourself
 
 ```bash
