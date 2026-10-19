@@ -4,7 +4,7 @@ Site: [mrsergeiluzhnov.github.io/xonta](https://mrsergeiluzhnov.github.io/xonta/
 
 **Open trust infrastructure for AI agents.** Your agent passed the tests. Can you let it touch money and customer data, and how much? Xonta answers that with evidence anyone can check, not with a score out of 100 you have to take on faith. The agent passport (a set of signed credentials) is one part of it.
 
-> Status: **0.15.0, experimental.** Everything below works and is covered by tests and sandbox runs (`stand/`, `lab/`). Some parts of the spec are only written down so far, see "Not there yet". The main README is in Russian, this file covers the same ground in English.
+> Status: **0.15.1, experimental.** Everything below works and is covered by tests and sandbox runs (`stand/`, `lab/`). Some parts of the spec are only written down so far, see "Not there yet". The main README is in Russian, this file covers the same ground in English.
 
 ## New. Xonta Gate, a trust layer in front of any MCP server
 
@@ -58,7 +58,7 @@ Ten runs in a sandbox (first on YandexGPT, then on GigaChat), fake money and fak
 - a descendant that started going bad was quarantined within one round, and none of the 22 200 calls it sent after quarantine got through;
 - an agent we secretly swapped for a broken version kept passing exams like before, and was caught on live work after its first round of damage;
 - agents that received proven experience from another orchestrator reached full autonomy by round 5, agents learning from scratch by round 7;
-- cost per answer for honest supervised agents went from 139 to 27 rubles, while agents with no orchestrator did 425-496 thousand rubles of damage each. Same model for everyone.
+- cost per answer for honest supervised agents went from 139 to 27 rubles (about $1.70 to $0.30), while agents with no orchestrator did 425-496 thousand rubles of damage each (about $5,100-5,900). Same model for everyone. The sandbox counts in fake rubles, dollars are at roughly 83.5 rubles per dollar.
 
 The run also found eight weak spots, including a false alarm and no way back after an alarm. They were fixed in 0.13.3. Report in [results/run-10](results/run-10/README.en.md), how to reproduce in [stand/README.md](stand/README.md).
 

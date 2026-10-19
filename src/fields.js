@@ -1,5 +1,5 @@
 // Свой экзамен для новой сферы (0.15). Кто угодно присылает набор заданий своей области: что пришло на вход, какое действие
-// правильное и сколько стоит каждое неверное действие в рублях. Агент, владелец которого подтвердил домен, сдаёт по этому
+// правильное и сколько стоит каждое неверное действие в валюте набора (USD, EUR, RUB…). Агент, владелец которого подтвердил домен, сдаёт по этому
 // набору экзамен через шлюз оркестратора: тестер подписанно вызывает инструмент агента, оркестратор сам считает точность и
 // вред на одно самостоятельное действие, выдаёт подписанный аттестат и рекомендуемый стартовый мандат.
 //
@@ -18,7 +18,11 @@ const err = (status, msg) => Object.assign(new Error(msg), { status });
 const rid = (n = 6) => randomBytes(n).toString("hex");
 const TOOL_RE = /^[A-Za-z0-9_.\-]{1,64}$/;
 export const FIELD_LIMITS = { min_tasks: 20, max_tasks: 500, max_actions: 10, max_input_bytes: 4000, max_name: 80, max_desc: 600 };
-export const FIELD_DEFAULTS = { budget: 2000, min_actions: 3, max_actions: 20, wrong_harm: 100, human_cost: 150, exam_tasks: 40 };
+export const FIELD_DEFAULTS = { min_actions: 3, max_actions: 20, exam_tasks: 40 };
+// Валюта набора задаётся автором (ISO 4217). Вред, цена передачи человеку, бюджет и мандат — в ней. Значения по умолчанию —
+// для самых частых валют; для остальных автор задаёт wrong_harm и human_cost, а владелец агента — budget явно
+export const CURRENCY_DEFAULTS = { USD: { budget: 25, wrong_harm: 2, human_cost: 3 }, EUR: { budget: 25, wrong_harm: 2, human_cost: 3 }, GBP: { budget: 20, wrong_harm: 2, human_cost: 2 }, RUB: { budget: 2000, wrong_harm: 100, human_cost: 150 } };
+const money = (x, cur) => `${x} ${cur}`;
 
 // Проверка и приведение набора. Возвращает нормализованный набор или бросает ошибку 400 с понятной причиной.
 export function normalizeField(body = {}) {
@@ -34,9 +38,13 @@ export function normalizeField(body = {}) {
   if (actions.length < 2 || actions.length > L.max_actions || actions.some((a) => a.length > 40)) throw err(400, `actions: от 2 до ${L.max_actions} действий, каждое до 40 символов`);
   const human_action = body.human_action == null ? null : String(body.human_action);
   if (human_action && !actions.includes(human_action)) throw err(400, "human_action должен быть одним из actions");
-  const wrong_harm = body.wrong_harm == null ? FIELD_DEFAULTS.wrong_harm : Number(body.wrong_harm);
-  const human_cost = body.human_cost == null ? FIELD_DEFAULTS.human_cost : Number(body.human_cost);
-  if (!(wrong_harm >= 0 && wrong_harm <= 1e7) || !(human_cost >= 0 && human_cost <= 1e6)) throw err(400, "wrong_harm и human_cost: число рублей от 0");
+  const currency = String(body.currency || "USD").toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) throw err(400, "currency: код валюты ISO 4217, например USD, EUR, RUB");
+  const cd = CURRENCY_DEFAULTS[currency];
+  if (!cd && (body.wrong_harm == null || body.human_cost == null)) throw err(400, `для ${currency} задайте wrong_harm и human_cost явно`);
+  const wrong_harm = body.wrong_harm == null ? cd.wrong_harm : Number(body.wrong_harm);
+  const human_cost = body.human_cost == null ? cd.human_cost : Number(body.human_cost);
+  if (!(wrong_harm >= 0 && wrong_harm <= 1e7) || !(human_cost >= 0 && human_cost <= 1e6)) throw err(400, `wrong_harm и human_cost: сумма в ${currency} от 0`);
   const tasks = Array.isArray(body.tasks) ? body.tasks : [];
   if (tasks.length < L.min_tasks || tasks.length > L.max_tasks) throw err(400, `tasks: от ${L.min_tasks} до ${L.max_tasks} заданий`);
   const out = tasks.map((t, i) => {
@@ -47,11 +55,11 @@ export function normalizeField(body = {}) {
     const correct = String(t.correct ?? "");
     if (!actions.includes(correct)) throw err(400, `tasks[${i}].correct: одно из ${actions.join(", ")}`);
     const harm = {};
-    for (const [a, v] of Object.entries(t.harm || {})) { if (!actions.includes(a)) throw err(400, `tasks[${i}].harm: неизвестное действие ${a}`); const n = Number(v); if (!(n >= 0 && n <= 1e7)) throw err(400, `tasks[${i}].harm.${a}: число рублей от 0`); harm[a] = n; }
+    for (const [a, v] of Object.entries(t.harm || {})) { if (!actions.includes(a)) throw err(400, `tasks[${i}].harm: неизвестное действие ${a}`); const n = Number(v); if (!(n >= 0 && n <= 1e7)) throw err(400, `tasks[${i}].harm.${a}: сумма в ${currency} от 0`); harm[a] = n; }
     const category = t.category == null ? null : String(t.category).slice(0, 40);
     return { i, input, correct, harm, category };
   });
-  return { name, description, tool, arg, actions, human_action, wrong_harm, human_cost, tasks: out };
+  return { name, description, tool, arg, actions, human_action, currency, wrong_harm, human_cost, tasks: out };
 }
 
 // Цена ответа на одно задание: что сделал агент и во что это обошлось.
@@ -64,15 +72,16 @@ export function gradeTask(field, task, action) {
 }
 
 // Сводка экзамена и рекомендуемый стартовый мандат: бюджет вреда / вред на действие, на старте не больше min_actions.
-export function summarize(field, rows, { budget = FIELD_DEFAULTS.budget } = {}) {
+export function summarize(field, rows, { budget } = {}) {
+  const cur = field.currency || "RUB";
   const n = rows.length, auto = rows.filter((r) => r.autonomous), ok = rows.filter((r) => r.correct).length;
   const harm = auto.reduce((s, r) => s + r.harm, 0), hpa = auto.length ? Math.round(harm / auto.length) : null;
   const target = auto.length ? Math.max(0, Math.min(FIELD_DEFAULTS.max_actions, Math.floor(budget / Math.max(1, hpa)))) : 0;
   const start = Math.min(FIELD_DEFAULTS.min_actions, target);
   return {
-    cases: n, accuracy: n ? Math.round(1000 * ok / n) / 10 : 0, autonomy: n ? Math.round(1000 * auto.length / n) / 10 : 0,
+    currency: cur, cases: n, accuracy: n ? Math.round(1000 * ok / n) / 10 : 0, autonomy: n ? Math.round(1000 * auto.length / n) / 10 : 0,
     harm_per_action: hpa, harm_total: harm, human_handoffs: rows.filter((r) => !r.autonomous).length, invalid: rows.filter((r) => r.invalid).length,
-    trust: { budget, target_actions: target, start_actions: start, why: !auto.length ? "агент ни разу не действовал сам — вред на действие мерить не на чем, только советует" : `бюджет ${budget} ₽ / вред ${hpa} ₽ на действие = до ${target} действий; на старте ${start}, дальше по работе через шлюз` },
+    trust: { budget, currency: cur, target_actions: target, start_actions: start, why: !auto.length ? "the agent never acted on its own, there is no harm per action to measure: advisory only" : `budget ${money(budget, cur)} / harm ${money(hpa, cur)} per action = up to ${target} actions; ${start} to start, then grows with work through the gateway` },
   };
 }
 
@@ -87,7 +96,7 @@ export function createFields({ store, issuer, orch, publicUrl, exp = null }) {
   const all = () => store.get("fields", {});
   const save = (f) => store.update("fields", {}, (x) => { x[f.id] = f; });
   const stats = () => store.get("fields_stats", {});
-  const pub = (f) => ({ id: f.id, name: f.name, description: f.description, tool: f.tool, arg: f.arg, actions: f.actions, human_action: f.human_action, tasks: f.tasks.length, categories: [...new Set(f.tasks.map((t) => t.category).filter(Boolean))], version: f.version, created: f.created, hidden: !!f.hidden, stats: statsOf(f.id) });
+  const pub = (f) => ({ id: f.id, name: f.name, description: f.description, tool: f.tool, arg: f.arg, actions: f.actions, human_action: f.human_action, currency: f.currency || "RUB", human_cost: f.human_cost, tasks: f.tasks.length, categories: [...new Set(f.tasks.map((t) => t.category).filter(Boolean))], version: f.version, created: f.created, hidden: !!f.hidden, stats: statsOf(f.id) });
   function statsOf(id) {
     const s = stats()[id]; if (!s) return { exams: 0, agents: 0 };
     const hardest = Object.entries(s.tasks || {}).filter(([, x]) => x.n >= 3).map(([k, x]) => ({ task: Number(k), error_rate: Math.round(100 * (1 - x.ok / x.n)), category: x.category || null })).sort((a, b) => b.error_rate - a.error_rate).slice(0, 5);
@@ -97,7 +106,7 @@ export function createFields({ store, issuer, orch, publicUrl, exp = null }) {
   function create(body, { owner_token = null } = {}) {
     const f = normalizeField(body);
     const id = `fld_${rid(5)}`, key = `fk_${rid(16)}`;
-    const version = sha256hex(jcs({ actions: f.actions, human_action: f.human_action, wrong_harm: f.wrong_harm, tasks: f.tasks.map(({ input, correct, harm }) => ({ input, correct, harm })) })).slice(0, 16);
+    const version = sha256hex(jcs({ actions: f.actions, human_action: f.human_action, currency: f.currency, wrong_harm: f.wrong_harm, tasks: f.tasks.map(({ input, correct, harm }) => ({ input, correct, harm })) })).slice(0, 16);
     const rec = { ...f, id, version, created: new Date().toISOString(), author_key_hash: sha256hex(key), author_owner_hash: owner_token ? sha256hex(owner_token) : null };
     save(rec);
     issuer.event("field_created", { field: id, name: f.name, tasks: f.tasks.length, version });
@@ -112,7 +121,7 @@ export function createFields({ store, issuer, orch, publicUrl, exp = null }) {
     f.hidden = true; save(f); return { id, hidden: true };
   }
 
-  async function exam(agentId, { field, tasks = FIELD_DEFAULTS.exam_tasks, budget = FIELD_DEFAULTS.budget, seed } = {}, { owner_token = null } = {}) {
+  async function exam(agentId, { field, tasks = FIELD_DEFAULTS.exam_tasks, budget = null, seed } = {}, { owner_token = null } = {}) {
     const rec = orch.get(agentId);
     if (!["active", "deprecated"].includes(rec.status)) throw err(409, `агент ${rec.status}: экзамен не проводится`);
     if (!rec.domain_verified_at) throw err(409, "сначала подтвердите управление доменом агента (domain-check)");
@@ -120,7 +129,9 @@ export function createFields({ store, issuer, orch, publicUrl, exp = null }) {
     if (!rec.tools) await orch.scan(agentId);
     const fresh = orch.get(agentId);
     if (!(fresh.tools || []).some((t) => t.name === f.tool)) throw err(422, `у агента нет инструмента «${f.tool}», который нужен этому набору`);
-    budget = Number(budget); if (!(budget > 0 && budget <= 1e7)) throw err(400, "budget: бюджет вреда владельца за период, ₽");
+    const cur = f.currency || "RUB";
+    budget = budget == null ? CURRENCY_DEFAULTS[cur]?.budget : Number(budget);
+    if (!(budget > 0 && budget <= 1e7)) throw err(400, `budget: сколько вреда за период владелец готов допустить, в ${cur}`);
     const n = Math.max(10, Math.min(Number(tasks) || FIELD_DEFAULTS.exam_tasks, 200, f.tasks.length));
     seed = String(seed || rid(8)).slice(0, 64);
     const rnd = seeded(`${f.id}|${seed}`), order = f.tasks.map((t) => [rnd(), t]).sort((a, b) => a[0] - b[0]).slice(0, n).map((x) => x[1]);
@@ -139,8 +150,8 @@ export function createFields({ store, issuer, orch, publicUrl, exp = null }) {
     const m = summarize(f, rows, { budget });
     const author_is_owner = !!f.author_owner_hash && f.author_owner_hash === rec.owner_token_hash;
     const evaluation = { data: "field-pack", field: { id: f.id, name: f.name, version: f.version, author_is_owner }, seed, cases: n, hash: sha256hex(jcs(order.map((t) => t.i))).slice(0, 16) };
-    const vc = issuer.issue("AgentFieldEvaluation", { id: rec.did, evaluation, metrics: { accuracy: m.accuracy, autonomy: m.autonomy, harm_per_action: m.harm_per_action, human_handoffs: m.human_handoffs, invalid: m.invalid }, tester: orch.tester.did, method: "xonta-field-exam/0.1: random sample of the field pack, signed calls through the gateway, harm per autonomous action in rubles from the pack" }, { validDays: 30, agentId: rec.id });
-    const mandate = issuer.issue("ActionMandate", { id: rec.did, field: f.id, actions_per_period: m.trust.start_actions, target_actions: m.trust.target_actions, harm_budget: budget, basis: { evaluation: vc.id, harm_per_action: m.harm_per_action, accuracy: m.accuracy }, reason: m.trust.why, recommendation: true, applies: "владелец выпускает токен действий с этим лимитом у шлюза; без шлюза — рекомендация" }, { validDays: 14, agentId: rec.id });
+    const vc = issuer.issue("AgentFieldEvaluation", { id: rec.did, evaluation, metrics: { currency: cur, accuracy: m.accuracy, autonomy: m.autonomy, harm_per_action: m.harm_per_action, human_handoffs: m.human_handoffs, invalid: m.invalid }, tester: orch.tester.did, method: "xonta-field-exam/0.1: random sample of the field pack, signed calls through the gateway, harm per autonomous action in the pack's currency" }, { validDays: 30, agentId: rec.id });
+    const mandate = issuer.issue("ActionMandate", { id: rec.did, field: f.id, actions_per_period: m.trust.start_actions, target_actions: m.trust.target_actions, harm_budget: budget, currency: cur, basis: { evaluation: vc.id, harm_per_action: m.harm_per_action, accuracy: m.accuracy }, reason: m.trust.why, recommendation: true, applies: "владелец выпускает токен действий с этим лимитом у шлюза; без шлюза — рекомендация" }, { validDays: 14, agentId: rec.id });
     // опыт по сфере
     store.update("fields_stats", {}, (x) => {
       const s = (x[f.id] ||= { exams: 0, acc_sum: 0, hpa_sum: 0, hpa_n: 0, agents: {}, tasks: {} });

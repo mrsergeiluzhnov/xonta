@@ -719,7 +719,7 @@ await t("0.15: открытая регистрация и свой экзаме�
       const ex = await call("POST", `/v1/agents/${id}/field-exam`, { field: fld.body.id, tasks: 30, seed: "s1" }, owner_token);
       assert.equal(ex.status, 200, JSON.stringify(ex.body));
       const m = ex.body.metrics; assert.ok(m.accuracy >= 10 && m.accuracy < 80, `точность ${m.accuracy}`); assert.ok(m.harm_per_action > 0); assert.ok(m.human_handoffs > 0);
-      assert.equal(ex.body.credential.type.includes("AgentFieldEvaluation"), true); assert.equal(ex.body.field.author_is_owner, false);
+      assert.equal(ex.body.credential.type.includes("AgentFieldEvaluation"), true); assert.equal(ex.body.metrics.currency, "USD", "валюта набора по умолчанию — доллары"); assert.equal(ex.body.metrics.trust.budget, 25); assert.equal(ex.body.field.author_is_owner, false);
       assert.ok(ex.body.mandate.credentialSubject.actions_per_period <= 3, "на старте не больше 3 действий");
       for (const sd of ["s2", "s3"]) assert.equal((await call("POST", `/v1/agents/${id}/field-exam`, { field: fld.body.id, tasks: 30, seed: sd }, owner_token)).status, 200);
       const st = (await call("GET", `/v1/fields/${fld.body.id}`)).body.stats; assert.equal(st.exams, 3); assert.equal(st.agents, 1); assert.ok(st.hardest.length > 0 && st.hardest[0].error_rate === 100, "самые трудные задания видны");
