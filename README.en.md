@@ -100,7 +100,7 @@ A short run of the same sandbox on a mock model, no keys and no network, about 1
 
 ## Recipes across agents (0.19)
 
-One agent's experience can now be handed to another in any field. A proposed recipe stays a hypothesis until it has 10 independently checked outcomes in each arm. The orchestrator, not the agent, picks which tasks get it, and there's a paired mode that runs one task in both arms. The log keeps received, applied and helped apart. See [CONNECT.md](CONNECT.md).
+One agent's experience can now be handed to another in any field. A proposed recipe stays a hypothesis until it has 10 independently checked outcomes in each arm. The orchestrator, not the agent, picks which tasks get it, and there's a paired mode that runs one task in both arms. The log keeps received, applied and helped apart. See [CONNECT.md](CONNECT.md). On a real task with SEC ground truth, experience moved between two agents with no manual step, the recipe came out 2 better and 2 worse, and the orchestrator didn't approve it, [results/contact-transfer-2](results/contact-transfer-2/README.en.md).
 
 ## Connect your agent
 
