@@ -98,6 +98,10 @@ A short run of the same sandbox on a mock model, no keys and no network, about 1
 
 `npm run mcp-survey` takes remote servers from the open MCP registry, connects once to each and asks for the tool list. Tools are never called. It only counts what can be measured objectively: is the server reachable, does it require auth, can it prove who it is (a DID document on its domain), do tool descriptions show signs of hidden instructions. A repeat survey shows whose descriptions changed without a version bump. The summary contains numbers only, no server names, and there is no safe/unsafe rating.
 
+## Recipes across agents (0.19)
+
+One agent's experience can now be handed to another in any field. A proposed recipe stays a hypothesis until it has 10 independently checked outcomes in each arm. The orchestrator, not the agent, picks which tasks get it, and there's a paired mode that runs one task in both arms. The log keeps received, applied and helped apart. See [CONNECT.md](CONNECT.md).
+
 ## Connect your agent
 
 ```bash

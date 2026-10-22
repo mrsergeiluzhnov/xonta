@@ -1,0 +1,172 @@
+// Живые рецепты (0.19): проверяемое накопление, оценка и передача приёмов между агентами любой сферы.
+// Откуда: эксперимент владельца с поиском телефонов головных офисов (22.10). Рецепт получил оценку 0,84 по одной паре,
+// группы назначал сам экспериментатор, «применено» не отличалось от «помогло», а живой выдачи рецептов для внешней сферы
+// не было вовсе. Здесь:
+//   - агент A предлагает приём (domain, category, stage, payload, applicability, safeguards) — это гипотеза;
+//   - любой агент той же сферы перед задачей просит рецепт, а ГРУППУ НАЗНАЧАЕТ ОРКЕСТРАТОР (рецепт или контроль, или парный
+//     режим — обе группы на одной задаче) и пишет это в журнал;
+//   - агент сообщает: принял или отклонил с причиной, применил ли, сработал ли на этой задаче, результат, и отдельно —
+//     независимую проверку (эталон, второй проверяющий). Статус рецепта двигают ТОЛЬКО независимо проверенные исходы;
+//   - доказан — не меньше min_n исходов в каждой группе и перевес значим (парный: точный биномиальный тест по
+//     расхождениям; непарный: P(лучше контроля)); отозван — так же значимо хуже или нарушение ограничений;
+//   - доказанный рецепт выдаётся, но control_share задач остаётся контролем, чтобы замер продолжался;
+//   - каждое событие: запрошено → выдано → принято/отклонено → применено → проверено → записано → статус изменён.
+// Рецепт не может обходить ограничения: содержимое проверяется теми же правилами, что описания инструментов в Gate,
+// а safeguards хранятся вместе с ним и выдаются агенту.
+import { randomUUID, createHash } from "node:crypto";
+import { analyzeTools } from "./scan.js";
+import { probBetter } from "./experience.js";
+
+const err = (status, m) => Object.assign(new Error(m), { status });
+const S = (x, n = 120) => String(x ?? "").slice(0, n);
+const num = (k, d) => (process.env[k] != null && process.env[k] !== "" ? Number(process.env[k]) : d);
+
+// точный односторонний биномиальный тест: P(X >= k | n, 1/2)
+export function binomTail(k, n) { let p = 0, c = 1; for (let i = 0; i <= n; i++) { if (i > 0) c = (c * (n - i + 1)) / i; if (i >= k) p += c; } return p / 2 ** n; }
+
+export function evaluateRecipe(r, cfg) {
+  const T = r.counts.treated, C = r.counts.control, P = r.counts.pairs;
+  const out = { measured_treated: T.indep_n, measured_control: C.indep_n, pairs: P.n, method: null, p_better: null, p_worse: null, prob_better: null };
+  if (P.n > 0) { // парный режим: решают только расхождения
+    const d = P.recipe_only + P.control_only;
+    out.method = "paired_exact"; out.discordant = d; out.recipe_only = P.recipe_only; out.control_only = P.control_only;
+    out.p_better = d ? +binomTail(P.recipe_only, d).toPrecision(3) : 1; out.p_worse = d ? +binomTail(P.control_only, d).toPrecision(3) : 1;
+    out.enough = P.n >= cfg.min_n;
+  } else if (T.indep_n && C.indep_n) {
+    out.method = "unpaired_bayes"; out.prob_better = probBetter({ n: T.indep_n, success: T.indep_success }, { n: C.indep_n, success: C.indep_success }, `recipe-${r.id}`);
+    out.enough = T.indep_n >= cfg.min_n && C.indep_n >= cfg.min_n;
+  } else { out.method = "none"; out.enough = false; }
+  let status = "hypothesis", why = `fewer than ${cfg.min_n} independently checked outcomes in each arm`;
+  if (r.violations > 0) { status = "revoked"; why = "the recipe broke a safeguard"; }
+  else if (out.enough && out.method === "paired_exact") {
+    if (out.p_better < cfg.alpha && P.recipe_only > P.control_only) { status = "proven"; why = `paired, ${P.recipe_only} tasks better with the recipe vs ${P.control_only} better without, p = ${out.p_better}`; }
+    else if (out.p_worse < cfg.alpha && P.control_only > P.recipe_only) { status = "revoked"; why = `paired, the recipe made ${P.control_only} tasks worse vs ${P.recipe_only} better, p = ${out.p_worse}`; }
+    else { status = "no_effect"; why = `paired, ${P.recipe_only} better vs ${P.control_only} worse of ${P.n}, not significant`; }
+  } else if (out.enough && out.method === "unpaired_bayes") {
+    if (out.prob_better >= 1 - cfg.alpha) { status = "proven"; why = `P(better than control) = ${out.prob_better}`; }
+    else if (out.prob_better <= cfg.alpha) { status = "revoked"; why = `P(better than control) = ${out.prob_better}`; }
+    else { status = "no_effect"; why = `P(better than control) = ${out.prob_better}, not decisive`; }
+  }
+  return { status, why, test: out };
+}
+
+export function createRecipes({ store, issuer, orch, publicUrl = "", now = () => Date.now(), rand = Math.random }) {
+  const cfg = { min_n: num("RECIPE_MIN_N", 10), alpha: num("RECIPE_ALPHA", 0.05), control_share: num("RECIPE_CONTROL_SHARE", 0.2), hypothesis_share: num("RECIPE_HYPOTHESIS_SHARE", 0.5) };
+  const all = () => store.get("recipes", {});
+  const reqs = () => store.get("recipe_requests", {});
+  const iso = () => new Date(now()).toISOString();
+  function event(e) { store.update("recipe_events", [], (l) => { l.push({ at: iso(), ...e }); if (l.length > 50000) l.splice(0, l.length - 50000); }); }
+  const blankArm = () => ({ n: 0, success: 0, indep_n: 0, indep_success: 0 });
+  const pub = (r) => ({ id: r.id, version: r.version, domain: r.domain, category: r.category, stage: r.stage, technique: r.technique, payload: r.payload, applicability: r.applicability, safeguards: r.safeguards, source_agent: r.source_agent, status: r.status, status_why: r.status_why, counts: r.counts, test: r.test, issued: r.issued, created: r.created, history: r.history.slice(-10), evaluation_vc: r.evaluation_vc || null });
+
+  function create(agentId, b = {}) {
+    const rec = orch.get(agentId);
+    for (const k of ["domain", "technique"]) if (!b[k] || typeof b[k] !== "string") throw err(400, `${k} is required`);
+    if (!b.payload || typeof b.payload !== "object" || Array.isArray(b.payload)) throw err(400, "payload must be a JSON object: what the agent should do differently");
+    const payload = JSON.parse(JSON.stringify(b.payload)), text = JSON.stringify(payload);
+    if (text.length > 4000) throw err(400, "payload is over 4000 characters");
+    const bad = analyzeTools([{ name: "recipe", description: text + " " + JSON.stringify(b.applicability || "") + " " + JSON.stringify(b.safeguards || "") }]).findings.filter((f) => f.severity === "high");
+    if (bad.length) throw err(400, `the recipe looks like hidden instructions (${bad.map((f) => f.rule).join(", ")}), refused`);
+    const key = [b.domain, b.category || "all", b.stage || "any", b.technique].map((x) => S(x, 80)).join("|");
+    const id = "rcp_" + createHash("sha256").update(key).digest("hex").slice(0, 10), ex = all()[id];
+    const r = ex ? { ...ex } : { id, version: 0, domain: S(b.domain, 80), category: S(b.category || "all", 80), stage: S(b.stage || "any", 80), technique: S(b.technique, 80), source_agent: rec.id, created: iso(), counts: { treated: blankArm(), control: blankArm(), pairs: { n: 0, both: 0, neither: 0, recipe_only: 0, control_only: 0 } }, violations: 0, issued: 0, history: [] };
+    // новая версия обнуляет счёт: оценка относится к конкретному содержимому
+    const changed = !ex || JSON.stringify(ex.payload) !== text;
+    if (changed) { r.version = (r.version || 0) + 1; r.counts = { treated: blankArm(), control: blankArm(), pairs: { n: 0, both: 0, neither: 0, recipe_only: 0, control_only: 0 } }; r.violations = 0; }
+    Object.assign(r, { payload, applicability: Array.isArray(b.applicability) ? b.applicability.map((x) => S(x, 200)).slice(0, 20) : b.applicability ? [S(b.applicability, 200)] : [], safeguards: Array.isArray(b.safeguards) ? b.safeguards.map((x) => S(x, 200)).slice(0, 20) : [] });
+    const ev = evaluateRecipe(r, cfg); r.status = ev.status; r.status_why = ev.why; r.test = ev.test;
+    if (changed) r.history.push({ version: r.version, status: r.status, at: iso(), why: ex ? "new version, counts reset" : "proposed" });
+    store.update("recipes", {}, (x) => { x[id] = r; });
+    event({ event: ex ? "recipe_updated" : "recipe_proposed", recipe_id: id, recipe_version: r.version, agent: rec.id });
+    return pub(r);
+  }
+
+  // агент просит рецепт перед задачей; группу назначает оркестратор
+  function request(agentId, b = {}) {
+    const rec = orch.get(agentId);
+    if (!b.domain || !b.task_id) throw err(400, "domain and task_id are required");
+    const cands = Object.values(all()).filter((r) => r.domain === b.domain && (r.category === (b.category || "all") || r.category === "all") && (!b.stage || r.stage === b.stage || r.stage === "any") && ["hypothesis", "proven", "no_effect"].includes(r.status));
+    // доказанные — по силе; иначе гипотеза, у которой меньше всего исходов (её надо замерить); «без эффекта» — в последнюю очередь
+    const rank = (r) => (r.status === "proven" ? 0 : r.status === "hypothesis" ? 1 : 2);
+    cands.sort((a, c) => rank(a) - rank(c) || (a.status === "proven" ? (c.test?.recipe_only || 0) - (a.test?.recipe_only || 0) : (a.counts.pairs.n + a.counts.treated.indep_n) - (c.counts.pairs.n + c.counts.treated.indep_n)));
+    const r = cands[0] || null, id = "rq_" + randomUUID().replace(/-/g, "").slice(0, 16);
+    let arm = "control", why = r ? null : "no recipe for this domain, category and stage";
+    if (r) {
+      if (b.paired) { arm = "both"; why = "paired: run the task with and without the recipe, report both"; }
+      else { const share = r.status === "proven" ? 1 - cfg.control_share : cfg.hypothesis_share; arm = rand() < share ? "recipe" : "control"; why = arm === "recipe" ? (r.status === "proven" ? "proven recipe" : "recipe under test") : r.status === "proven" ? `control group (${Math.round(cfg.control_share * 100)}% keep measuring a proven recipe)` : "control group for a recipe under test"; }
+    }
+    const q = { id: id, agent: rec.id, domain: S(b.domain, 80), category: S(b.category || "all", 80), stage: b.stage ? S(b.stage, 80) : null, task_id: S(b.task_id, 200), arm, recipe_id: r?.id || null, recipe_version: r?.version || null, at: iso(), outcome: null };
+    store.update("recipe_requests", {}, (x) => { x[id] = q; const ks = Object.keys(x); if (ks.length > 20000) for (const k of ks.slice(0, ks.length - 20000)) delete x[k]; });
+    if (r && arm !== "control") store.update("recipes", {}, (x) => { if (x[r.id]) x[r.id].issued = (x[r.id].issued || 0) + 1; });
+    event({ event: "recommendation_requested", request_id: id, task_id: q.task_id, agent: rec.id, recipe_id: q.recipe_id, recipe_version: q.recipe_version });
+    event({ event: "recommendation_received", request_id: id, task_id: q.task_id, agent: rec.id, recipe_id: q.recipe_id, recipe_version: q.recipe_version, arm });
+    return { request_id: id, arm, why, recipe: r && arm !== "control" ? { id: r.id, version: r.version, technique: r.technique, stage: r.stage, payload: r.payload, applicability: r.applicability, safeguards: r.safeguards, status: r.status, evidence: r.test } : null,
+      report_to: `${publicUrl}/v1/recipes/requests/${id}/outcome`,
+      report: arm === "both" ? { recipe: { accepted: true, applied: true, matched: true, success: true, independent: { verified: true, checker: "who" } }, control: { success: false, independent: { verified: false, checker: "who" } } } : { accepted: true, applied: true, matched: false, success: false, independent: { verified: false, checker: "who checked" } } };
+  }
+
+  const armOf = (o = {}) => ({ accepted: o.accepted !== false, reject_reason: o.accepted === false ? S(o.reject_reason || "not given", 200) : null, applied: !!o.applied, matched: !!o.matched, success: !!o.success, independent: o.independent && typeof o.independent === "object" ? { verified: !!o.independent.verified, checker: S(o.independent.checker, 80) } : null, violated_safeguard: !!o.violated_safeguard, tokens: Number.isFinite(+o.tokens) ? +o.tokens : null, elapsed_ms: Number.isFinite(+o.elapsed_ms) ? +o.elapsed_ms : null, cost: Number.isFinite(+o.cost) ? +o.cost : null, note: o.note ? S(o.note, 300) : null });
+
+  function outcome(requestId, b = {}, { authAgent } = {}) {
+    const q = reqs()[requestId]; if (!q) throw err(404, "no such request");
+    if (authAgent && authAgent !== q.agent) throw err(403, "this request belongs to another agent");
+    if (q.outcome) throw err(409, "outcome already reported for this request");
+    const base = { request_id: q.id, task_id: q.task_id, agent: q.agent, recipe_id: q.recipe_id, recipe_version: q.recipe_version };
+    let res;
+    if (q.arm === "both") { if (!b.recipe || !b.control) throw err(400, "paired request: send both recipe and control"); res = { recipe: armOf(b.recipe), control: armOf(b.control) }; }
+    else res = { [q.arm]: armOf(b) };
+    q.outcome = { at: iso(), ...res };
+    store.update("recipe_requests", {}, (x) => { x[q.id] = q; });
+    const t = res.recipe;
+    if (t) {
+      event({ ...base, event: t.accepted ? "recommendation_accepted" : "recommendation_rejected", reason: t.reject_reason || undefined });
+      if (t.applied) event({ ...base, event: "recommendation_applied", matched: t.matched });
+    }
+    event({ ...base, event: "task_completed", arm: q.arm, success: Object.fromEntries(Object.entries(res).map(([k, v]) => [k, v.success])) });
+    const ind = Object.fromEntries(Object.entries(res).filter(([, v]) => v.independent).map(([k, v]) => [k, v.independent.verified]));
+    if (Object.keys(ind).length) event({ ...base, event: "result_evaluated", independent: ind, checker: Object.values(res).find((v) => v.independent)?.independent.checker });
+    if (!q.recipe_id) return { ok: true, recorded: false, why: "no recipe was in play" };
+    let r = all()[q.recipe_id];
+    if (!r || r.version !== q.recipe_version) { event({ ...base, event: "experience_recorded", stale_version: true }); return { ok: true, recorded: false, why: "the recipe changed since this request, the outcome is kept in the log but doesn't count" }; }
+    r = structuredClone(r);
+    const add = (arm, v) => { const a = r.counts[arm === "recipe" ? "treated" : "control"]; a.n++; if (v.success) a.success++; if (v.independent) { a.indep_n++; if (v.independent.verified) a.indep_success++; } };
+    // отклонённый агентом рецепт не идёт в оценку: он не применялся. Причина отказа — в журнале и в счёте отказов
+    if (res.recipe && !res.recipe.accepted) { r.rejected = (r.rejected || 0) + 1; r.reject_reasons = { ...(r.reject_reasons || {}), [res.recipe.reject_reason]: ((r.reject_reasons || {})[res.recipe.reject_reason] || 0) + 1 }; }
+    else {
+      for (const [arm, v] of Object.entries(res)) add(arm, v);
+      if (res.recipe && res.control && res.recipe.independent && res.control.independent) {
+        const a = res.recipe.independent.verified, c = res.control.independent.verified, P = r.counts.pairs; P.n++;
+        if (a && c) P.both++; else if (!a && !c) P.neither++; else if (a) P.recipe_only++; else P.control_only++;
+      }
+      if (res.recipe?.violated_safeguard) r.violations = (r.violations || 0) + 1;
+    }
+    const prev = r.status, ev = evaluateRecipe(r, cfg); r.status = ev.status; r.status_why = ev.why; r.test = ev.test;
+    event({ ...base, event: "experience_recorded" });
+    if (prev !== r.status) {
+      r.history.push({ version: r.version, status: r.status, at: iso(), why: ev.why });
+      if (issuer && ["proven", "revoked", "no_effect"].includes(r.status)) { try { const vc = issuer.issue("RecipeEvaluation", { id: `${publicUrl}/v1/recipes/${r.id}`, recipe: { id: r.id, version: r.version, domain: r.domain, category: r.category, stage: r.stage, technique: r.technique, source_agent: r.source_agent }, status: r.status, why: ev.why, test: ev.test, method: "xonta-recipes/0.19: arms assigned by the orchestrator; only independently checked outcomes count; paired exact binomial test on discordant tasks or Bayesian P(better than control)" }, { validDays: 90 }); r.evaluation_vc = vc.id; } catch {} }
+      event({ ...base, event: r.status === "revoked" ? "recipe_revoked" : "recipe_updated", status: r.status, why: ev.why });
+    }
+    store.update("recipes", {}, (x) => { x[r.id] = r; });
+    return { ok: true, recorded: true, recipe: { id: r.id, version: r.version, status: r.status, why: r.status_why, test: r.test } };
+  }
+
+  function revoke(id, why = "revoked by the owner") { const r = all()[id]; if (!r) throw err(404, "no such recipe"); store.update("recipes", {}, (x) => { x[id].status = "revoked"; x[id].status_why = S(why, 200); x[id].history.push({ version: x[id].version, status: "revoked", at: iso(), why: S(why, 200) }); }); event({ event: "recipe_revoked", recipe_id: id, recipe_version: r.version, why: S(why, 200) }); return pub(all()[id]); }
+  const list = (q = {}) => Object.values(all()).filter((r) => (!q.domain || r.domain === q.domain) && (!q.category || r.category === q.category) && (!q.stage || r.stage === q.stage)).map(pub);
+  const get = (id) => { const r = all()[id]; if (!r) throw err(404, "no such recipe"); return pub(r); };
+  const events = ({ agent = null, recipe = null, limit = 500 } = {}) => store.get("recipe_events", []).filter((e) => (!agent || e.agent === agent) && (!recipe || e.recipe_id === recipe)).slice(-Math.min(5000, limit));
+  const sourceOf = (id) => all()[id]?.source_agent || null;
+  const requestAgent = (rid) => reqs()[rid]?.agent || null;
+  return { create, request, outcome, revoke, list, get, events, sourceOf, requestAgent, cfg };
+}
+
+export function mountRecipes(app, { recipes, wrap, ownerAuth, isAdmin }) {
+  app.post("/v1/agents/:id/recipes", wrap(async (req) => { await ownerAuth(req, req.params.id); return recipes.create(req.params.id, req.body || {}); }));
+  app.post("/v1/agents/:id/recipes/request", wrap(async (req) => { await ownerAuth(req, req.params.id); return recipes.request(req.params.id, req.body || {}); }));
+  app.post("/v1/recipes/requests/:rid/outcome", wrap(async (req) => { const a = recipes.requestAgent(req.params.rid); if (!a) throw Object.assign(new Error("no such request"), { status: 404 }); await ownerAuth(req, a); return recipes.outcome(req.params.rid, req.body || {}, { authAgent: a }); }));
+  app.get("/v1/agents/:id/recipe-events", wrap(async (req) => { await ownerAuth(req, req.params.id); return recipes.events({ agent: req.params.id, limit: Number(req.query?.limit || 500) }); }));
+  app.get("/v1/recipes", wrap((req) => recipes.list({ domain: req.query?.domain, category: req.query?.category, stage: req.query?.stage })));
+  app.get("/v1/recipes/:id", wrap((req) => recipes.get(req.params.id)));
+  app.get("/v1/recipes/:id/events", wrap(async (req) => { const src = recipes.sourceOf(req.params.id); if (!src) throw Object.assign(new Error("no such recipe"), { status: 404 }); if (!isAdmin(req)) await ownerAuth(req, src); return recipes.events({ recipe: req.params.id, limit: Number(req.query?.limit || 500) }); }));
+  app.post("/v1/recipes/:id/revoke", wrap(async (req) => { const src = recipes.sourceOf(req.params.id); if (!src) throw Object.assign(new Error("no such recipe"), { status: 404 }); if (!isAdmin(req)) await ownerAuth(req, src); return recipes.revoke(req.params.id, req.body?.why); }));
+}

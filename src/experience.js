@@ -42,7 +42,7 @@ export function trackScore(t, minControl = TRACK_MIN_CONTROL) {
 }
 
 export function createExperience({ store, issuer, resolver, publicUrl, name = process.env.ORCH_NAME || "orchestrator" }) {
-  const W = { decay: num("EXP_DECAY", 0.6), cross_domain: num("EXP_CROSS_DOMAIN_W", 0.3), foreign: num("EXP_FOREIGN_W", 0.5), recipe_prob: num("EXP_RECIPE_PROB", 0.8) };
+  const W = { decay: num("EXP_DECAY", 0.6), cross_domain: num("EXP_CROSS_DOMAIN_W", 0.3), foreign: num("EXP_FOREIGN_W", 0.5), recipe_prob: num("EXP_RECIPE_PROB", 0.8), recipe_min_n: num("EXP_RECIPE_MIN_N", 0) };
   const book = () => store.get("experience", { entries: {}, foreign: {}, evidence: {}, track: {}, runs: [] });
   let bookVer = 0; // 0.16: меняется при каждой записи в книгу — по нему сбрасывается кэш послужного списка
   const upd = (fn) => { bookVer++; return store.update("experience", { entries: {}, foreign: {}, evidence: {}, track: {}, runs: [] }, fn); };
@@ -115,13 +115,17 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
 
   // приёмы, которые можно сразу дать новичку: в своей области (свой опыт или подтверждённый чужой), с содержимым приёма,
   // P(лучше контроля) по сложенным исходам ≥ min_prob и хотя бы один успех
-  function recipes(domain, { min_prob = W.recipe_prob, category = "all" } = {}) {
+  // 0.19: минимальная выборка (EXP_RECIPE_MIN_N в каждой группе). По умолчанию 0 — так работает песочница, где рецепты
+  // из книги-затравки идут на 2 исхода против 0–1; на живых сферах используйте /v1/recipes (src/recipes.js), там минимум
+  // обязателен, а группы назначает оркестратор
+  function recipes(domain, { min_prob = W.recipe_prob, category = "all", min_n = W.recipe_min_n } = {}) {
     const b = book(), seen = new Map();
     for (const e of Object.values(b.entries)) if (e.domain === domain && e.category === category && e.payload) seen.set(e.technique, { e, origin: e.origin || "own" });
     for (const [did, p] of Object.entries(b.foreign)) for (const e of Object.values(p.entries || {})) if (e.status === "validated" && e.domain === domain && e.category === category && e.payload && !seen.has(e.technique)) seen.set(e.technique, { e, origin: `peer:${did}` });
     const out = [];
     for (const [tech, { e, origin }] of seen) {
       const agg = prior(domain, tech, category); if (agg.treated.success < 1) continue;
+      if (min_n > 0 && (agg.treated.n < min_n || agg.control.n < min_n)) continue;
       const pb = probBetter(agg.treated, agg.control, tech); if (pb < min_prob) continue;
       out.push({ technique: tech, category, prob_better: pb, treated: agg.treated, control: agg.control, origin, runs: (e.runs || []).length, payload: e.payload });
     }
@@ -129,7 +133,9 @@ export function createExperience({ store, issuer, resolver, publicUrl, name = pr
   }
 
   // ---------- каталог, пакет опыта, послужной список ----------
-  function summarize(e) { const pb = probBetter(e.treated, e.control, e.technique); return { domain: e.domain, category: e.category, technique: e.technique, treated: e.treated, control: e.control, mean_gain: e.treated.n ? Math.round(100 * e.treated.gain / e.treated.n) / 100 : null, prob_better: pb, evidence: e.evidence.length, runs: e.runs.length, origin: e.origin || "own", payload: e.payload || null, stale: e.stale ? { since: e.stale.since, history_prob: e.stale.history_prob, fresh_prob: e.stale.fresh_prob } : null }; }
+  // 0.19: measured — есть исходы в обеих группах; без этого P(лучше контроля) получается из одного априорного распределения
+  // (0 применений против 0 из 7 давало 0,9) и смысла не несёт
+  function summarize(e) { const pb = probBetter(e.treated, e.control, e.technique), measured = e.treated.n > 0 && e.control.n > 0; return { measured, status: !measured ? "unmeasured" : (W.recipe_min_n > 0 && (e.treated.n < W.recipe_min_n || e.control.n < W.recipe_min_n)) ? "hypothesis" : "measured", domain: e.domain, category: e.category, technique: e.technique, treated: e.treated, control: e.control, mean_gain: e.treated.n ? Math.round(100 * e.treated.gain / e.treated.n) / 100 : null, prob_better: pb, evidence: e.evidence.length, runs: e.runs.length, origin: e.origin || "own", payload: e.payload || null, stale: e.stale ? { since: e.stale.since, history_prob: e.stale.history_prob, fresh_prob: e.stale.fresh_prob } : null }; }
   function catalog({ domain = null } = {}) {
     const b = book(), out = {};
     for (const e of Object.values(b.entries)) { if (domain && e.domain !== domain) continue; ((out[e.domain] ||= {})[e.category] ||= []).push(summarize(e)); }

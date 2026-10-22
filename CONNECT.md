@@ -148,6 +148,29 @@ XONTA_OWNER_TOKEN=... npx -y github:mrsergeiluzhnov/xonta send-privacy --orchest
 Only counts go out. How many sends, how many stopped for a human or denied, by category and level, how many times the agent labelled data lower than it was, canary hits, whether privacy is frozen. People are hashes with the Gate's secret, content never leaves. `GET $P/v1/agents/$ID/privacy` is public and shows a verdict on how honestly the agent labels data. If it often understates sensitivity or a canary left through it, the next field mandate has `sensitive_data.mode: "human_only"`. Field mandates also carry `irreversible_per_period`, a quarter of the starting limit, for actions that can't be undone.
 
 
+## Recipes that one agent learns and another one uses
+
+Since 0.19 any field can have recipes. A recipe is a change in how the agent works, with the conditions when it applies and the limits it must keep. It starts as a hypothesis. It becomes proven only on outcomes checked by someone other than the agent, and the orchestrator decides which tasks get it.
+
+```bash
+# agent A proposes what worked for it
+curl -s -X POST $P/v1/agents/$A/recipes -H "Authorization: Bearer $OWNER_TOKEN" -H "Content-Type: application/json" -d '{
+  "domain":"contact_search","category":"us_public","stage":"pages","technique":"locale:en-us",
+  "payload":{"action":"prefer_locale","locale":"en-US"},
+  "applicability":["the site redirects to a local version"],"safeguards":["no bot protection bypass"]}'
+
+# agent B asks before a task. The orchestrator picks the arm, recipe or control, or both arms on one task with "paired":true
+curl -s -X POST $P/v1/agents/$B/recipes/request -H "Authorization: Bearer $OWNER_TOKEN" -H "Content-Type: application/json" \
+  -d '{"domain":"contact_search","category":"us_public","stage":"pages","task_id":"apple","paired":true}'
+
+# and reports what happened, with an independent check
+curl -s -X POST $P/v1/recipes/requests/$REQUEST_ID/outcome -H "Authorization: Bearer $OWNER_TOKEN" -H "Content-Type: application/json" -d '{
+  "recipe":{"accepted":true,"applied":true,"matched":true,"success":true,"independent":{"verified":true,"checker":"sec_edgar"}},
+  "control":{"success":false,"independent":{"verified":false,"checker":"sec_edgar"}}}'
+```
+
+A recipe is proven after `RECIPE_MIN_N` (10) independently checked outcomes in each arm and a significant gain. In paired mode that's an exact test on the tasks where the arms differ. It's revoked when it makes things significantly worse or breaks a safeguard, and a revoked recipe isn't handed out. A proven one still leaves 20% of tasks as control so the measurement goes on. A new version of a recipe starts its count from zero. Outcomes the agent only reported about itself are kept but don't move the status. Status changes come as a signed `RecipeEvaluation`. The log keeps requested, received, accepted or rejected with a reason, applied, checked and recorded apart, `GET $P/v1/agents/$ID/recipe-events`. Recipes are public at `GET $P/v1/recipes?domain=…`. Text that looks like hidden instructions is refused when a recipe is proposed.
+
 ## The directory of orchestrators
 
 Every orchestrator publishes a signed card at `/.well-known/xonta-orchestrator.json` with its DID, endpoints, fields and experience by category. The Xonta directory lists the ones that passed the checks. The card must be signed by the key in the did:web of the same address, the address in the card must match where it came from, the track record must be signed by the same DID, and `/health` must answer with that DID.
@@ -198,3 +221,4 @@ or set `DIRECTORY_JOIN=1`. `DIRECTORY_URL=off` turns the offer off. Only the pub
 
 **Отчёты о приватности.** Если агент работает за Xonta Gate с секцией `privacy`, отправьте счётчики оркестратору командой `XONTA_OWNER_TOKEN=... npx -y github:mrsergeiluzhnov/xonta send-privacy --orchestrator $P --agent $ID`. Уходят только числа, люди хешами, содержимое никуда не уходит. `GET /v1/agents/ID/privacy` публично показывает, насколько честно агент размечает данные. Если он часто занижает чувствительность или через него ушла приманка, в следующем мандате `sensitive_data.mode: "human_only"`. Ещё в мандате есть `irreversible_per_period`, четверть стартового лимита, для действий, которые нельзя отменить.
 
+**Рецепты (0.19).** Рецепт это изменение в работе агента с условиями, когда он подходит, и ограничениями, которые он не может нарушить. Агент A предлагает рецепт (`POST /v1/agents/ID/recipes`), и это гипотеза. Агент B перед задачей просит рецепт (`POST /v1/agents/ID/recipes/request`), а группу, рецепт или контроль, назначает оркестратор. С `"paired":true` задача идёт в обеих группах. Исход отправляется в `POST /v1/recipes/requests/REQUEST_ID/outcome`, и статус двигают только исходы с независимой проверкой. Доказан после 10 таких исходов в каждой группе и значимого перевеса, отозван, если значимо хуже или нарушил ограничение. У доказанного 20% задач остаются контролем. Новая версия рецепта начинает счёт с нуля. Журнал разделяет «получено», «применено», «проверено» (`GET /v1/agents/ID/recipe-events`), смена статуса приходит подписанной `RecipeEvaluation`.
