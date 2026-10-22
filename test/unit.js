@@ -957,6 +957,16 @@ await t("0.17.2: квитанции о тратах — живой остато�
     const fam = (await call("POST", `/v1/agents/${rb.id}/spend-claims`, { period: 2, total: 0 }, rb.owner_token)).body;
     assert.equal(fam.verdict, "hidden_spending", "родитель заявил 0, а потомок потратил 120"); assert.ok(fam.family.some((x) => x.child && x.confirmed === 120));
     const sum = (await call("GET", `/v1/agents/${rb.id}/spend`)).body; assert.ok(sum.receipt_anomalies >= 2); assert.ok(sum.hidden_spending_periods >= 1);
+    // 0.19.2 (run-series1-c3): тот же DID после нового прогона — новая запись; квитанции прошлой регистрации за тот же номер
+    // периода в сверку не идут
+    assert.equal((await call("POST", "/v1/support/new-run", { id: "rcpt-2" }, "adm")).status, 200);
+    const rb2 = (await call("POST", "/v1/agents", { name: "buyer", mcp_url: buyer.mcp, did: buyer.did })).body;
+    assert.ok(rb2.id && rb2.id !== rb.id, JSON.stringify(rb2));
+    const w2 = createReceiptWriter({ did: shop.did, vm: shop.vm, privateKey: shop.privateKey });
+    await call("POST", "/v1/receipts", { receipts: [w2({ payer: buyer.did, allowance: { ref: "card-3", per_period: 1000 }, period: 1, amount: 70 })] });
+    const again = (await call("POST", `/v1/agents/${rb2.id}/spend-claims`, { period: 1, total: 70 }, rb2.owner_token)).body;
+    assert.equal(again.verdict, "matches", JSON.stringify(again)); assert.equal(again.confirmed_by_receipts, 70, "350 прошлой регистрации не в счёт");
+    assert.equal((await call("GET", `/v1/agents/${rb2.id}/receipt-accounts`, null, rb2.owner_token)).body.length, 1);
   } finally { for (const c of closers) c.close?.(); srv.kill(); }
 });
 

@@ -104,6 +104,7 @@ export function createReceipts({ store, issuer, orch, resolver, notify = async (
   }
 
   // что агент заявляет о своих тратах за период — сверка с квитанциями всей семьи (агент и его потомки)
+  const accountsOfFamily = (ids) => Object.values(st().accounts).filter((a) => ids.has(a.agent));
   function claim(agentId, { period, total, count = null, currency = null } = {}) {
     const rec = orch.get(agentId);
     if (period == null || !(Number(total) >= 0)) throw err(400, "period и total: за какой период и сколько агент потратил по своим словам");
@@ -114,10 +115,12 @@ export function createReceipts({ store, issuer, orch, resolver, notify = async (
   }
   // деньги сверяются в одной валюте; квитанции на число действий (ACTIONS) в денежную сверку не идут
   function reconcile(rec, period, { claimed = null, count = null, currency = null } = {}) {
-    const fam = familyOf(rec), dids = new Set(fam.map((a) => a.did));
-    const accs = Object.values(st().accounts).filter((a) => dids.has(a.payer) && String(a.period) === String(period) && a.currency !== "ACTIONS" && (!currency || a.currency === currency));
+    // 0.19.2: счета по записи агента, а не по DID. Тот же DID после повторной регистрации — новая запись, и траты прошлой
+    // регистрации с тем же номером периода в сверку не идут (run-series1-c3: квитанции прогона a3 попали к агенту 8)
+    const fam = familyOf(rec), ids = new Set(fam.map((a) => a.id));
+    const accs = accountsOfFamily(ids).filter((a) => String(a.period) === String(period) && a.currency !== "ACTIONS" && (!currency || a.currency === currency));
     const confirmed = r2(accs.reduce((s, a) => s + a.total, 0)), n = accs.reduce((s, a) => s + a.n, 0);
-    const byMember = fam.map((a) => ({ agent: a.id, did: a.did, child: a.id !== rec.id, confirmed: r2(accs.filter((x) => x.payer === a.did).reduce((s, x) => s + x.total, 0)) })).filter((x) => x.confirmed > 0);
+    const byMember = fam.map((a) => ({ agent: a.id, did: a.did, child: a.id !== rec.id, confirmed: r2(accs.filter((x) => x.agent === a.id).reduce((s, x) => s + x.total, 0)) })).filter((x) => x.confirmed > 0);
     const anomalies = st().anomalies.filter((x) => fam.some((a) => a.id === x.agent)).length;
     let verdict = "no_claim", why = null, why_ru = null;
     if (claimed != null) {
@@ -131,7 +134,7 @@ export function createReceipts({ store, issuer, orch, resolver, notify = async (
 
   // сводка для оценки агента: что подтверждено независимо, что со слов агента, найденные скрытые траты, замечания к квитанциям
   function summary(agentId) {
-    const rec = orch.get(agentId), cl = st().claims[rec.id] || {}, periods = new Set([...Object.keys(cl), ...Object.values(st().accounts).filter((a) => familyOf(rec).some((m) => m.did === a.payer)).map((a) => String(a.period))]);
+    const rec = orch.get(agentId), cl = st().claims[rec.id] || {}, periods = new Set([...Object.keys(cl), ...accountsOfFamily(new Set(familyOf(rec).map((m) => m.id))).map((a) => String(a.period))]);
     const rows = [...periods].sort().map((p) => reconcile(rec, p, { claimed: cl[p]?.total ?? null }));
     return {
       agent: rec.id, periods: rows.map(({ accounts, ...r }) => r),
@@ -142,7 +145,7 @@ export function createReceipts({ store, issuer, orch, resolver, notify = async (
       note_ru: "Подтверждены только траты с квитанциями, подписанными исполнителем. Остальное — со слов агента.",
     };
   }
-  const accountsOf = (agentId) => { const rec = orch.get(agentId), dids = new Set(familyOf(rec).map((a) => a.did)); return Object.values(st().accounts).filter((a) => dids.has(a.payer)).map(({ hashes, ...a }) => ({ ...a, liveness: liveness(a) })); };
+  const accountsOf = (agentId) => { const rec = orch.get(agentId); return accountsOfFamily(new Set(familyOf(rec).map((a) => a.id))).map(({ hashes, ...a }) => ({ ...a, liveness: liveness(a) })); };
 
   // свои квитанции оркестратора — за то, что прошло через его шлюз
   const ownSigner = { did: issuer.did, vm: issuer.vm, privateKey: issuer.privateKey, context: ["https://www.w3.org/ns/credentials/v2", `${publicUrl}/ns/v0`] };

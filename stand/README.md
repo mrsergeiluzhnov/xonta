@@ -411,3 +411,11 @@ A calculation on a public trace of one morning on a metered phone lookup (103,00
 Проверка: короткий прогон на тестовой модели с копией книг после run-series1-a2 — агенты 7–9 у оркестратора 2, агент 7 подменён там.
 
 Fix after run-series1-a2 (EN). If no agent ended up at orchestrator 1, the stand now swaps the first referred agent wherever it works, so the swap check no longer depends on which orchestrator the agents picked. In a2 they stayed at orchestrator 2 because its track record started counting old untagged recipe outcomes once it had three control cases (bug 27); the choice rule itself is unchanged for now.
+
+## Правка после run-series1-c3 (0.19.2)
+
+**Сверка трат больше не смешивает прогоны.** Оркестраторы 1 и 2 хранят квитанции между прогонами, а агенты стенда в каждом прогоне регистрируются заново с тем же DID. Сверка искала счета по DID и номеру периода, поэтому в c3 квитанция агента 8 из раунда 9 прогона a3 (1 890 ₽) попала в раунд 9 прогона c3. Агент 8 честно заявил 1 730 ₽, а по квитанциям вышло 3 620 — ложное обвинение в скрытых тратах. Теперь счета привязаны к записи агента: та же DID после новой регистрации — новая запись, старые траты в её сверку не идут.
+
+Проверка: юнит-тест (повторная регистрация того же DID после нового прогона); пересчёт всех 20 сверок c3 по квитанциям оркестраторов — ложных обвинений 0, скрытые траты агента 5 пойманы в обоих периодах; два коротких прогона подряд на тестовой модели с общими книгами — во втором по старому правилу был бы ложно обвинён агент 6, по новому обвинений нет.
+
+Fix after run-series1-c3 (EN). Orchestrators 1 and 2 keep receipts between runs, and stand agents re-register with the same DID every run. Reconciliation matched accounts by DID and period number, so in c3 a receipt from run a3 (period 9, 1,890 RUB) landed on agent 8, and its honest claim of 1,730 looked like hidden spending. Accounts are now tied to the agent's registration record, so spending from an earlier registration of the same DID no longer counts.
