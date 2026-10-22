@@ -22,5 +22,5 @@ Zero model failures, all 127 pairs counted.
 
 - The loop from the owner's report ran with no manual step. Agent A found and proposed a technique, a separate agent on another model got it from the live orchestrator, the use was logged, outcomes were checked against independent ground truth, and the estimate updated on its own.
 - No improvement. A recipe that looked like 3 to 1 on training gave 2 to 2 on new companies. The orchestrator didn't approve it, and this time for the right reason.
-- The ceiling of this task is low. 28% of sites are blocked, 35 of the 36 blocked are US companies. The right number was among the ones found in only 21 of 127 tasks. The bottleneck is access to the sites and the fact that they rarely publish a head office number, not choosing the number.
+- The ceiling of this task is low. 28% of sites are blocked. Part is bot protection, part looks like sites refusing addresses from Russia, a run from another country will tell. The right number was among the ones found in only 21 of 127 tasks. The bottleneck is access to the sites and the fact that they rarely publish a head office number, not choosing the number.
 - Between runs 1 and 2, agent B's right answers without the recipe went from 4 to 7. That's the model retries, not the recipe.

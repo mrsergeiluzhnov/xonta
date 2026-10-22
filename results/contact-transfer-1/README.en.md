@@ -29,7 +29,7 @@ Agent A proposed one recipe, `labels:hq-wide` (recognise head office labels more
 
 The orchestrator did the right thing and didn't approve the recipe. But for an incomplete reason.
 
-**Where companies are lost.** 29% of sites answer 403, and 36 of the 37 blocked are US companies. Part of them seem to refuse addresses in Russia. The right number was among the candidates at all in only 19 of 127 tasks. Most companies don't publish a head office phone on the pages the agent reaches. A recipe at the number-choice stage can't do much here.
+**Where companies are lost.** 29% of sites answer 403. Part is bot protection, part looks like sites refusing addresses in Russia. The right number was among the candidates at all in only 19 of 127 tasks. Most companies don't publish a head office phone on the pages the agent reaches. A recipe at the number-choice stage can't do much here.
 
 ## Fixed after the run (0.19.1)
 
