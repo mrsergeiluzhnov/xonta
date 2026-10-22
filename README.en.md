@@ -84,6 +84,8 @@ The third run ([results/run-11c](results/run-11c/README.en.md)) and all three to
 
 A rerun of the first series run on 0.14.7 ([results/run-series1-a2](results/run-series1-a2/README.en.md)): an agent no longer follows hidden commands from a bad child while that child is under watch; its refunds go through a person for that time. On the same tickets round 6 cost 200 ₽ instead of 21,960 ₽, at the price of 9 extra handoffs. No false alarms. There was no swap this time: the agents stayed with orchestrator 2, because its track record picked up old recipe outcomes that were never tagged. The stand is fixed and the rerun is next.
 
+The third run on the same tickets, on 0.17.2 ([results/run-series1-a3](results/run-series1-a3/README.en.md)), went to plan with no false alarms. The agents followed the referral to orchestrator 1, the swapped agent was caught there after 5 tickets and had no actions left until the end. Gateway receipts caught all 4 times an agent left its own refund out of its report, and never accused an honest one. The per-action cap (2,000 ₽) brought honest agents' harm down from 93,250 to 81,200 ₽, but sent 158 refunds to a person, and once you pay for that time it came out 7,500 ₽ worse. It also didn't stop a small 1,700 ₽ refund to a fraudster. That's one run; we'll check it on other tickets.
+
 ## Check it yourself
 
 ```bash
