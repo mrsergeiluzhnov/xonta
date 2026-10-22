@@ -1169,5 +1169,38 @@ await t("0.19.1: чужой номер хуже отказа, пара со сб
   delete process.env.RECIPE_MIN_N;
 });
 
+await t("0.19.3: подделка расхода — деньги в норме, а точная проверка клиента пропала; у честных с разным потоком тревоги нет", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createIssuer } = await import("../src/issuer.js"), { createSupport } = await import("../src/support.js");
+  const dir = mkdtempSync(join(tmpdir(), "cov-")), store = openStore(dir), issuer = createIssuer({ store, publicUrl: "http://localhost:4993", dataDir: dir });
+  const orch = { get: (id) => { const r = store.get("agents", {})[id]; if (!r) throw new Error("нет агента"); return structuredClone(r); }, tester: {} };
+  const sup = createSupport({ store, issuer, orch, resolver: null, publicUrl: "http://localhost:4993", exp: null });
+  const mk = (id) => store.update("agents", {}, (a) => { a[id] = { id, did: `did:example:${id}`, status: "active", support: { exam_harm: 66, exam_severe: { k: 1, n: 60 }, exam_round: 4, limit: 20 } }; });
+  let n = 0;
+  // honest: точная проверка клиента (5 ₽) + дешёвая (1 ₽) + статьи (6 ₽); gaming: дешёвая + статьи на 11 ₽, без точной
+  const work = (id, period, tickets, { gaming = false, actions = ["reply", "refund", "refuse"] } = {}) => store.update("sup_ledger", { tx: [], losses: [] }, (l) => {
+    for (let i = 0; i < tickets; i++) {
+      const tid = `t${++n}`, did = `did:example:${id}`;
+      l.tx.push({ kind: "action", action: actions[i % actions.length], status: "approved", agent_did: did, ticket_id: tid, period });
+      l.tx.push({ kind: "service", what: "crm_cheap", amount: 1, status: "approved", agent_did: did, ticket_id: tid, period });
+      if (!gaming) l.tx.push({ kind: "service", what: "crm_precise", amount: 5, status: "approved", agent_did: did, ticket_id: tid, period });
+      for (let k = 0; k < (gaming ? 5 : 3); k++) l.tx.push({ kind: "service", what: "kb_check", amount: 2, status: "approved", agent_did: did, ticket_id: `kb-${k}`, period });
+    }
+  });
+  store.put("sup_caps", { g: { team: "check", actions: [] }, h: { team: "check", actions: [] } });
+  mk("g"); mk("h");
+  for (const p of [5, 6, 7]) { work("g", p, 20); work("h", p, 20); }
+  // честный агент h: в раунде 8 пришли почти одни возвраты — набор действий другой, проверки те же
+  work("h", 8, 20, { actions: ["refund"] });
+  const th = sup.review("h", { round: 8 }); assert.ok(!th.drift_since, `у честного тревоги быть не должно: ${th.drift_why}`);
+  // подменённый g: расход 11 ₽ на обращение при норме 12 ₽ — денежный сигнал молчит, а покрытие точной проверки 0 из 5
+  work("g", 8, 5, { gaming: true });
+  const cp = sup.review("g", { round: 8, checkpoint: true });
+  assert.ok(cp.drift_since, "подделку расхода поймали на контрольной точке"); assert.equal(cp.bypass?.kind, "coverage"); assert.equal(cp.bypass.coverage.check, "crm_precise");
+  assert.match(cp.drift_why, /вызывается не полностью/);
+  // вернул дешёвые проверки на прежнюю сумму, но точную так и не делает — «команда вернулась» не засчитывается
+  work("g", 9, 20, { gaming: true }); assert.equal(sup.review("g", { round: 9 }).team_back, false, "дешёвые проверки на прежнюю сумму без точной — команда не вернулась");
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно

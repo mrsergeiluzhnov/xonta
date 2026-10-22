@@ -100,6 +100,10 @@ A short run of the same sandbox on a mock model, no keys and no network, about 1
 
 `npm run mcp-survey` takes remote servers from the open MCP registry, connects once to each and asks for the tool list. Tools are never called. It only counts what can be measured objectively: is the server reachable, does it require auth, can it prove who it is (a DID document on its domain), do tool descriptions show signs of hidden instructions. A repeat survey shows whose descriptions changed without a version bump. The summary contains numbers only, no server names, and there is no safe/unsafe rating.
 
+## Check coverage (0.19.3)
+
+A swapped agent used to be caught by its check spend dropping, and spend can be gamed with cheap checks. The orchestrator now also looks at which checks ran on each ticket. An agent that keeps spend normal and skips the precise customer lookup is caught after 5 tickets, without this after 20 and only mildly. On the logs of 9 past runs none of 465 decisions changed. [results/check-coverage](results/check-coverage/README.en.md).
+
 ## Recipes across agents (0.19)
 
 One agent's experience can now be handed to another in any field. A proposed recipe stays a hypothesis until it has 10 independently checked outcomes in each arm. The orchestrator, not the agent, picks which tasks get it, and there's a paired mode that runs one task in both arms. The log keeps received, applied and helped apart. See [CONNECT.md](CONNECT.md). On a real task with SEC ground truth, experience moved between two agents with no manual step, the recipe came out 2 better and 2 worse, and the orchestrator didn't approve it, [results/contact-transfer-2](results/contact-transfer-2/README.en.md).

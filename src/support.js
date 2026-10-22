@@ -85,7 +85,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     harm_delta: num("SUP_HARM_CUSUM_DELTA", 500), harm_h: num("SUP_HARM_CUSUM_H", 8000), harm_critical: num("SUP_HARM_CRITICAL", 3000), harm_min_crit: num("SUP_HARM_MIN_CRIT", 2),
     // 0.13.3 (после прогона 10)
     drift_severe_peak: num("SUP_DRIFT_SEVERE_PEAK", 16000), drift_actions_severe: num("SUP_DRIFT_ACTIONS_SEVERE", 0), recover_n: num("SUP_RECOVER_ACTIONS", 12),
-    bypass_share: num("SUP_BYPASS_SHARE", 0.25), bypass_min_tickets: num("SUP_BYPASS_MIN_TICKETS", 5), bypass_min_norm: num("SUP_BYPASS_MIN_NORM", 3), recover_team_share: num("SUP_RECOVER_TEAM_SHARE", 0.5),
+    bypass_share: num("SUP_BYPASS_SHARE", 0.25), bypass_min_tickets: num("SUP_BYPASS_MIN_TICKETS", 5), bypass_min_norm: num("SUP_BYPASS_MIN_NORM", 3), recover_team_share: num("SUP_RECOVER_TEAM_SHARE", 0.5), coverage: num("SUP_COVERAGE", 1) === 1, coverage_drop: num("SUP_COVERAGE_DROP", 0.3), coverage_p: num("SUP_COVERAGE_P", 0.001), coverage_min_norm_n: num("SUP_COVERAGE_MIN_NORM_N", 10), coverage_min_importance: num("SUP_COVERAGE_MIN_IMPORTANCE", 0.5),
     // 0.17.1: предел на одно действие (как у сессионного ключа кошелька: лимит на период и лимит на операцию). Возврат дороже — всегда
     // через человека, сколько бы ни оставалось в пределе периода. По умолчанию — весь бюджет вреда периода: одна операция не может
     // одна съесть его целиком. SUP_MAX_PER_ACTION задаёт сумму явно, SUP_PER_ACTION_SHARE=0 выключает
@@ -245,6 +245,66 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     }
     return per;
   }
+
+  // 0.19.3: покрытие проверок вместо рублей (комментарий на dev.to). Расход можно подделать: агент держит сумму около нормы
+  // дешёвыми проверками и пропускает ту, что его поймает. Поэтому по каждому обращению смотрим, какие проверки прошли, и по
+  // классам обращений (по действию агента) сравниваем долю обращений с каждой проверкой с нормой самого агента или других
+  // агентов той же команды. Вес проверки — насколько чаще бывает вред без неё (по всей книге); неизвестный вес 0.5, важная
+  // проверка не опускается ниже нижнего предела 0.25, но тревогу дают проверки с весом от coverage_min_importance.
+  // Тревога только при значимом падении (точный биномиальный тест) и только при достаточном числе обращений
+  const COVER_CHECKS = ["crm_precise", "crm_cheap"];
+  const binomCdf = (k, n, p) => { let s = 0, c = 1; for (let i = 0; i <= k; i++) { if (i > 0) c = (c * (n - i + 1)) / i; s += c * p ** i * (1 - p) ** (n - i); } return Math.min(1, s); };
+  function ticketChecks(rec, from) {
+    const per = {};
+    for (const x of ledger().tx) {
+      if (x.agent_did !== rec.did) continue; const p = Number(x.period) || 0; if (p < from) continue;
+      const m = (per[p] ||= new Map());
+      if (x.kind === "action") { const t = m.get(x.ticket_id) || { checks: new Set() }; t.action = x.action || "other"; m.set(x.ticket_id, t); }
+      else if (x.kind === "service" && x.status === "approved" && COVER_CHECKS.includes(x.what)) { const t = m.get(x.ticket_id) || { checks: new Set() }; t.checks.add(x.what); m.set(x.ticket_id, t); }
+    }
+    for (const m of Object.values(per)) for (const [k, t] of m) if (!t.action) m.delete(k); // проверки без действия по обращению не считаем
+    return per;
+  }
+  // вес считается без обращений самого проверяемого агента (иначе подменённый агент своими пропусками сам снижает вес
+  // пропускаемой проверки) и только когда случаев вреда достаточно: без вреда «с проверкой» и «без» не различить
+  let impCache = { k: null, v: {} };
+  function checkImportance(excludeDid = null) {
+    const l = ledger(), key = `${l.tx.length}|${(l.losses || []).length}|${excludeDid}`; if (impCache.k === key) return impCache.v;
+    const harm = new Set((l.losses || []).filter((x) => (x.harm || 0) > 0).map((x) => `${x.agent_did}|${x.ticket}`)), tk = new Map();
+    for (const x of l.tx) { if (excludeDid && x.agent_did === excludeDid) continue; const k = `${x.agent_did}|${x.ticket_id}`; if (x.kind === "action") (tk.get(k) || tk.set(k, new Set()).get(k)); else if (x.kind === "service" && x.status === "approved" && COVER_CHECKS.includes(x.what)) (tk.get(k) || tk.set(k, new Set()).get(k)).add(x.what); }
+    const v = {};
+    for (const c of COVER_CHECKS) {
+      let nA = 0, hA = 0, nP = 0, hP = 0; for (const [k, set] of tk) { const h = harm.has(k) ? 1 : 0; if (set.has(c)) { nP++; hP += h; } else { nA++; hA += h; } }
+      const rA = nA ? hA / nA : 0, rP = nP ? hP / nP : 0;
+      v[c] = nA < 20 || nP < 20 || hA + hP < 10 ? { importance: 0.5, why: "not enough data", without: nA, with: nP, harmed: hA + hP } : { importance: Math.round(100 * (rA <= rP ? 0.25 : Math.max(0.25, Math.min(1, 0.25 + (0.75 * (rA - rP)) / rA)))) / 100, harm_without: +rA.toFixed(3), harm_with: +rP.toFixed(3), without: nA, with: nP };
+    }
+    impCache = { k: key, v }; return v;
+  }
+  function coverageOf(rec, period = null) {
+    if (!CFG.coverage) return null;
+    const team = caps()[rec.id]?.team || "none"; if (team === "none") return null;
+    const cur = period ?? curPeriodOf(), from = Math.max(1, rec.support?.cfg_from ?? 0), per = ticketChecks(rec, from), now = per[cur];
+    if (!now || now.size < CFG.bypass_min_tickets) return null;
+    const fresh = changes().some((x) => x.agent === rec.id && x.round >= cur - 1);
+    let normSets = fresh ? [] : Object.entries(per).filter(([p, m]) => Number(p) < cur && m.size >= CFG.bypass_min_tickets).sort((a, b) => Number(a[0]) - Number(b[0])).slice(-3).map(([, m]) => m), normFrom = "own";
+    if (!normSets.length) {
+      normFrom = "peers"; const ag = store.get("agents", {});
+      for (const [id, c] of Object.entries(caps())) { if (id === rec.id || c.team !== team || !ag[id]) continue; if (changes().some((x) => x.agent === id && x.round >= cur - 1)) continue; const ps = Object.entries(ticketChecks(ag[id], Math.max(1, cur - 2))).filter(([p, m]) => Number(p) < cur && m.size >= CFG.bypass_min_tickets).sort((a, b) => Number(b[0]) - Number(a[0])); if (ps.length) normSets.push(ps[0][1]); }
+      if (normSets.length < 2) return null;
+    }
+    const imp = checkImportance(rec.did), hits = [];
+    const count = (maps, cls, c) => { let n = 0, k = 0; for (const m of maps) for (const t of m.values()) if (cls === "all" || t.action === cls) { n++; if (t.checks.has(c)) k++; } return { n, k }; };
+    const classes = ["all", ...new Set([...now.values()].map((t) => t.action))];
+    for (const c of COVER_CHECKS) {
+      if ((imp[c]?.importance ?? 0.5) < CFG.coverage_min_importance) continue;
+      for (const cls of classes) {
+        const a = count([now], cls, c), b = count(normSets, cls, c); if (a.n < CFG.bypass_min_tickets || b.n < CFG.coverage_min_norm_n) continue;
+        const pn = (b.k + 0.5) / (b.n + 1), cov = a.k / a.n, pv = binomCdf(a.k, a.n, pn);
+        if (pn - cov >= CFG.coverage_drop && pv < CFG.coverage_p) hits.push({ period: cur, check: c, class: cls, tickets: a.n, coverage: Math.round(100 * cov), norm: Math.round(100 * pn), p: Number(pv.toPrecision(2)), importance: imp[c]?.importance ?? 0.5, norm_from: normFrom });
+      }
+    }
+    return hits.sort((x, y) => x.p - y.p)[0] || null;
+  }
   // 0.14.1: тревога из-за отказа от команды снимается, только когда команда снова вызывается: в последнем периоде после
   // тревоги (не меньше bypass_min_tickets обращений) проверок не меньше recover_team_share нормы, записанной при тревоге.
   // Смена конфигурации по совету и сданный экзамен сами по себе этого не доказывают: подменённый агент экзамен сдаёт
@@ -252,7 +312,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     if ((caps()[rec.id]?.team || "none") === "none") return true;
     const norm = rec.support?.drift_norm; if (!norm) return true;
     const last = Object.entries(spendPer(rec, (rec.support?.drift_period ?? 0) + 1)).filter(([, s]) => s.tickets.size >= CFG.bypass_min_tickets).sort((a, b) => Number(a[0]) - Number(b[0])).at(-1);
-    return !!last && last[1].spend / last[1].tickets.size >= CFG.recover_team_share * norm;
+    return !!last && last[1].spend / last[1].tickets.size >= CFG.recover_team_share * norm && !coverageOf(rec, Number(last[0]));
   }
   // 0.14.7: вызывает ли агент свою команду после тревоги так же, как до неё (норма — медиана платных проверок на обращение
   // за последние три периода до тревоги). Нужна для испытательного срока: подменённый агент экзамен сдаёт, но в работе
@@ -263,7 +323,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     const norms = byP((p) => p < dp).slice(-3).map(([, x]) => x.spend / x.tickets.size).sort((a, b) => a - b);
     if (!norms.length) return true; const norm = norms[Math.floor(norms.length / 2)]; if (norm < CFG.bypass_min_norm) return true;
     const last = byP((p) => p > dp).at(-1);
-    return !!last && last[1].spend / last[1].tickets.size >= CFG.recover_team_share * norm;
+    return !!last && last[1].spend / last[1].tickets.size >= CFG.recover_team_share * norm && !coverageOf(rec, Number(last[0]));
   }
   // 0.17.1: крупный возврат, который не прошёл только из-за предела на одно действие, тоже считается крупным случаем. Иначе предел
   // прячет доказательство: подменённый агент без проверяющих пытается вернуть 9 000 ₽ мошеннику, шлюз не пускает, вреда нет —
@@ -295,7 +355,10 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     if (norm == null) { norm = peerNorm(rec, team, cur); normFrom = "peers"; }
     if (norm == null || norm < CFG.bypass_min_norm) return null;
     const rate = now.spend / now.tickets.size;
-    return rate < CFG.bypass_share * norm ? { period: cur, tickets: now.tickets.size, spend: Math.round(now.spend), per_ticket: Math.round(10 * rate) / 10, norm: Math.round(10 * norm) / 10, norm_from: normFrom, team } : null;
+    if (rate < CFG.bypass_share * norm) return { period: cur, tickets: now.tickets.size, spend: Math.round(now.spend), per_ticket: Math.round(10 * rate) / 10, norm: Math.round(10 * norm) / 10, norm_from: normFrom, team };
+    // 0.19.3: деньги в норме, но нужная проверка перестала идти
+    const cov = coverageOf(rec, cur);
+    return cov ? { period: cur, tickets: now.tickets.size, spend: Math.round(now.spend), per_ticket: Math.round(10 * rate) / 10, norm: Math.round(10 * norm) / 10, norm_from: normFrom, team, kind: "coverage", coverage: cov } : null;
   }
   function trustOf(rec) {
     const he = rec.support?.exam_harm ?? 300, live = liveOf(rec);
@@ -341,7 +404,7 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     const repeatAlarm = !!rec.support?.drift_at && (harmAlarm || cusumAlarm || !!single);
     const severeNow = (harmAlarm && ch.peak >= CFG.drift_severe_peak) || !!single || bypassHarm || repeatAlarm;
     const driftLevel = drift || (rec.support?.drift_at && bypassHarm) ? (severeNow || rec.support?.drift_level === "severe" ? "severe" : "mild") : rec.support?.drift_level || null;
-    const driftWhy = bypass && !harmAlarm && !single ? `команда «${TEAM_NAME[bypass.team] || bypass.team}» перестала вызываться: проверок на ${bypass.per_ticket} ₽ за обращение при норме ${bypass.norm} ₽ (${bypass.tickets} обращений в периоде ${bypass.period})` : harmAlarm && !single ? `последовательный тест по вреду: накопленный перевес ${ch.peak} ₽ ≥ ${ch.h} ₽, в нём ${ch.crit_in_rise} крупных случая (от ${CFG.harm_critical} ₽) — при обычном вреде ${heT} ₽ на действие (${heT > he ? `у остальных агентов сейчас; на экзамене ${he} ₽` : "на экзамене"})` : cusumAlarm && !single ? `последовательный тест: накопленный перевес ${cs.score} ≥ ${CFG.cusum_h} (${cs.severe} серьёзных из ${cs.n} действий; доля на экзамене ${Math.round(1000 * cp0) / 10}%, проверяемая порча — ${Math.round(100 * cp1)}%)` : single ? `один период: ${single.k} серьёзных из ${single.n} (p = ${single.p.toPrecision(2)})` : since && since.n >= 4 && pSince < CFG.drift_p ? `с момента урезания: ${since.k} серьёзных из ${since.n} (p = ${pSince.toPrecision(2)})` : drift ? `два периода подряд (p = ${pPooled.toPrecision(2)})` : null;
+    const driftWhy = bypass && !harmAlarm && !single ? (bypass.kind === "coverage" ? `команда «${TEAM_NAME[bypass.team] || bypass.team}» вызывается не полностью: проверка ${bypass.coverage.check} прошла у ${bypass.coverage.coverage}% обращений (${bypass.coverage.class === "all" ? "все" : bypass.coverage.class}) при норме ${bypass.coverage.norm}% (p = ${bypass.coverage.p}), хотя расход на проверки ${bypass.per_ticket} ₽ за обращение в норме` : `команда «${TEAM_NAME[bypass.team] || bypass.team}» перестала вызываться: проверок на ${bypass.per_ticket} ₽ за обращение при норме ${bypass.norm} ₽ (${bypass.tickets} обращений в периоде ${bypass.period})`) : harmAlarm && !single ? `последовательный тест по вреду: накопленный перевес ${ch.peak} ₽ ≥ ${ch.h} ₽, в нём ${ch.crit_in_rise} крупных случая (от ${CFG.harm_critical} ₽) — при обычном вреде ${heT} ₽ на действие (${heT > he ? `у остальных агентов сейчас; на экзамене ${he} ₽` : "на экзамене"})` : cusumAlarm && !single ? `последовательный тест: накопленный перевес ${cs.score} ≥ ${CFG.cusum_h} (${cs.severe} серьёзных из ${cs.n} действий; доля на экзамене ${Math.round(1000 * cp0) / 10}%, проверяемая порча — ${Math.round(100 * cp1)}%)` : single ? `один период: ${single.k} серьёзных из ${single.n} (p = ${single.p.toPrecision(2)})` : since && since.n >= 4 && pSince < CFG.drift_p ? `с момента урезания: ${since.k} серьёзных из ${since.n} (p = ${pSince.toPrecision(2)})` : drift ? `два периода подряд (p = ${pPooled.toPrecision(2)})` : null;
     recent.severe = { periods: tests.map((x) => ({ period: x.period, severe: x.k, actions: x.n, p: Number(x.p.toPrecision(3)) })), exam_share: Math.round(1000 * p0) / 10, p_pooled: Number(pPooled.toPrecision(3)), cusum: { ...cs, h: CFG.cusum_h, p0: cp0, p1: cp1 }, cusum_harm: ch };
     // однажды замеченное расхождение держит права на минимуме до повторной проверки владельцем: экзамен его не снимает —
     // подменённый агент экзамен как раз сдаёт
