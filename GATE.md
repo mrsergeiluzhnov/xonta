@@ -80,6 +80,38 @@ Which tools count as actions is decided by the tool name (create, delete, write,
 
 `max_concurrent` caps how many calls of one tool run at once (per tool too). An agent once launched 10 to 11 parallel copies of a metered lookup on one key, and 31% of its requests came back as rate-limit refusals. Parallel copies on one key don't finish faster.
 
+## Privacy. Who asks, what data, where it goes
+
+Added in 0.18 after a story where an agent posted a monthly financial report to a public Slack channel. Turn it on with a `privacy` section in the policy. Gate then looks at every outgoing message itself and doesn't trust how the agent labels it.
+
+```json
+{
+  "privacy": {
+    "users":      { "ivan": { "clearance": 3 }, "intern": { "clearance": 1 } },
+    "agents":     { "did:web:assistant.example": { "clearance": 3 } },
+    "recipients": { "#general": { "audience": "D", "clearance": 1 }, "@ivan": { "audience": "A", "clearance": 3, "spaces_of": ["ivan"] } },
+    "sources":    { "bank_statement": "finance" },
+    "tools":      { "slack_post_message": { "recipient_arg": "channel", "content_args": ["text"] } },
+    "categories": { "finance": { "actions_per_period": 3 } },
+    "canaries":   ["Z-CANARY-7731"],
+    "delay_irreversible_seconds": 30
+  }
+}
+```
+
+How it decides
+
+- Five levels (public, work, personal, restricted, secret) and eight categories (general, work, customer data, finance, HR and legal, health, children, secrets). Each category has its own rules, how wide the audience may be and how many sends per hour. The owner can only make them stricter.
+- The level comes from the data. Gate finds card numbers, IBANs, account and passport numbers, keys, sums next to money words, health and HR terms, and it decodes base64 and joins split digits first. The agent's label can only raise the level, never lower it. A label lower than the data is counted, and a few of those freeze privacy until a human looks.
+- After an agent reads a sensitive source (a bank statement), everything it sends in the same task is treated at that level for 30 minutes. A retelling without numbers doesn't slip through.
+- Every call carries the chain of who asked, `_xonta: { chain, category, task }`. It can be a person or another agent. The clearance is the lowest in the chain, and an unknown member counts as 0. So an outsider writing in by email or an unexamined agent in the middle can't pull out what the person at the start could see.
+- Canaries are fake records you put into your sources. If one shows up in an outgoing message, that's proof, the send is denied and privacy freezes. Several refusals in a row also freeze it, it looks like the agent is probing for a way around.
+- Irreversible sends (a post, an email, a payment) can be held for N seconds. The owner sees `xonta-gate cancel ID` in the log and can stop it.
+
+What leaks from this layer is kept small on purpose. The agent gets one sentence ("this needs a human") with no reason, so it can't learn where the line is. The reason goes to the owner and into the log, the log has keyed hashes, not content. `xonta-gate send-privacy` sends only counts to the orchestrator, people as hashes. The orchestrator turns them into a verdict on how honestly the agent labels data, and if it understates, the next mandate sends sensitive data through a human.
+
+Ten scenarios with results are in [results/privacy-demo](results/privacy-demo/REPORT.en.md), `node stand/privacy-demo.js`.
+
 ## Tested on the official MCP servers
 
 We ran `check` on 14 official servers from the `@modelcontextprotocol` npm scope. Each one was started locally and only asked for its tool list. No tool was called, nothing went to outside services, tokens were dummies just so the servers would start. 11 servers started, 3 didn't (puppeteer needs a browser, redis needs a database, gitlab sends a tool schema the MCP SDK rejects). Script: `npm run gate:survey`.
@@ -160,6 +192,8 @@ npx -y github:mrsergeiluzhnov/xonta check -- npx -y @modelcontextprotocol/server
 ```
 
 Подключить к Claude Desktop или Cursor — в настройках MCP-сервера добавить перед его командой `npx -y github:mrsergeiluzhnov/xonta --budget 10 --`, примеры выше. Удалённый сервер — `--url https://…/mcp --http 4950`. Настройки — файл `--policy`, журнал и ключ — в `~/.xonta-gate`, проверка журнала — `verify`, сводка — `report`.
+
+**Приватность (0.18).** Секция `privacy` в настройках. Шлюз сам смотрит, какие данные уходят, кто на самом деле просит и куда, и не верит метке агента. Пять уровней и восемь категорий со своими правилами, владелец может только ужесточить. Уровень берётся из самих данных, метка агента может его только поднять, а заниженная метка считается, и после нескольких таких приватность замораживается. После чтения закрытого источника всё, что агент отправляет в той же задаче, полчаса считается тем же уровнем, пересказ без цифр не проскочит. У каждого вызова есть цепочка инициаторов, человек или другой агент, допуск берётся наименьший, неизвестный считается нулём. Приманки в источниках ловят вынос, необратимые отправки можно задержать и отменить командой `xonta-gate cancel ID`. Агенту при отказе одна фраза без причины, причина владельцу, оркестратору только счётчики. Сценарии и результаты в [results/privacy-demo](results/privacy-demo/REPORT.md).
 
 **Проверено на официальных MCP-серверах.** `check` на 14 серверах из `@modelcontextprotocol` в npm: каждый запускался локально, у него спрашивался только список инструментов, ничего не вызывалось, токены — заглушки. Запустились 11, всего 83 инструмента: 27 посчитаны действиями, заблокировано 0. Нашли и исправили в 0.14.5 пять пропусков (`add_observations`, `fork_repository`, `add_issue_comment`, `slack_reply_to_thread`, `slack_add_reaction` считались чтением) и одно ложное предупреждение у `read_file` (отсылка «DEPRECATED: Use read_text_file instead» принималась за подмену). Таблица выше, скрипт `npm run gate:survey`.
 

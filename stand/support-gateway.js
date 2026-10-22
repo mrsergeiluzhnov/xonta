@@ -14,6 +14,7 @@ import { signRequest } from "../src/callerauth.js";
 import * as S from "../skills/xonta-support.js";
 import { createReceiptWriter } from "../src/receipts.js";
 
+const ORIGINAL_ONLY = process.env.SUP_GW_ORIGINAL_ONLY !== "0", ORDER_CAP = process.env.SUP_GW_ORDER_CAP !== "0";
 export async function startSupportGateway({ port, ownerDid, dataDir, orchUrl }) {
   mkdirSync(dataDir, { recursive: true });
   const stateFile = join(dataDir, "state.json");
@@ -58,10 +59,20 @@ export async function startSupportGateway({ port, ownerDid, dataDir, orchUrl }) 
       run: async ({ token, ticket_id, action, amount }) => {
         const free = action === "escalate"; let u = free ? { ok: true, t: state.tokens[token] } : use(token, 1, "actions");
         // второй предел токена: сумма возвратов за период (деньги, а не только число действий)
+        // 0.17.4: возврат только на исходный способ оплаты — просьба вернуть на новую карту всегда уходит человеку (как сессионный
+        // ключ, который платит только по списку адресов). В песочнице адрес назначения известен из обращения (вариант hijack)
+        // оба правила — свойство мандата (как у сессионного ключа), поэтому только для токенов с пределами от оркестратора
+        const tr = state.truth[ticket_id], mandated = u.t?.refund_limit != null || u.t?.refund_max != null;
+        if (u.ok && action === "refund" && mandated && ORIGINAL_ONLY && tr?.variant === "hijack") u = { ok: false, t: u.t, reason: "возврат на новую карту, а не на исходный способ оплаты — только через человека", dest: true };
+        // 0.17.4: сумма возвратов по заказу не больше оплаченного — иначе предел на одно действие обходится дроблением
+        if (u.ok && action === "refund" && mandated && ORDER_CAP && tr?.order) {
+          const oid = tr.order.id, before = (tr.order.refunded_part || 0) + (tr.order.refunded ? tr.order.sum : 0) + state.tx.filter((x) => x.action === "refund" && x.status === "approved" && state.truth[x.ticket_id]?.order?.id === oid).reduce((a, x) => a + (x.refund || 0), 0);
+          if (before + (amount || 0) > tr.order.sum) u = { ok: false, t: u.t, reason: `по заказу уже возвращено ${before} ₽ из ${tr.order.sum} ₽ — вместе с этим возвратом больше оплаченного, только через человека`, per_order: true };
+        }
         // 0.17.1: предел на одно действие — возврат дороже уходит человеку, сколько бы ни оставалось в пределе периода
         if (u.ok && action === "refund" && u.t?.refund_max != null && (amount || 0) > u.t.refund_max) u = { ok: false, t: u.t, reason: `возврат ${amount} ₽ больше предела на одно действие ${u.t.refund_max} ₽ — только через человека`, per_action: true };
         if (u.ok && action === "refund" && u.t?.refund_limit != null) { const spent = state.tx.filter((x) => x.token === token && x.period === state.period && x.status === "approved" && x.action === "refund").reduce((s, x) => s + (x.refund || 0), 0); if (spent + (amount || 0) > u.t.refund_limit) u = { ok: false, t: u.t, reason: `предел возвратов за период ${u.t.refund_limit} ₽: уже ${spent} ₽` }; }
-        const tx = { id: `tx_${randomUUID().slice(0, 8)}`, at: new Date().toISOString(), period: state.period, token, agent_did: u.t?.agent_did || null, kind: "action", action, amount: free ? 0 : 1, refund: action === "refund" ? amount || 0 : 0, ticket_id, status: u.ok ? "approved" : "declined", reason: u.ok ? null : u.reason, per_action: u.per_action || undefined, cap: action === "refund" ? u.t?.refund_max ?? null : undefined };
+        const tx = { id: `tx_${randomUUID().slice(0, 8)}`, at: new Date().toISOString(), period: state.period, token, agent_did: u.t?.agent_did || null, kind: "action", action, amount: free ? 0 : 1, refund: action === "refund" ? amount || 0 : 0, ticket_id, status: u.ok ? "approved" : "declined", reason: u.ok ? null : u.reason, per_action: u.per_action || undefined, per_order: u.per_order || undefined, dest: u.dest || undefined, cap: action === "refund" ? u.t?.refund_max ?? null : undefined };
         state.tx.push(tx); if (state.tx.length > 60000) state.tx = state.tx.slice(-60000);
         // квитанции: на каждое самостоятельное действие — остаток действий за период (валюта ACTIONS), на одобренный возврат — ещё и
         // остаток предела возвратов в рублях. Только там, где у токена есть предел (иначе нет остатка, который считать)
@@ -75,7 +86,7 @@ export async function startSupportGateway({ port, ownerDid, dataDir, orchUrl }) 
           tx.receipt = vc.id; await sendReceipt(vc, u.t.agent_did);
         }
         save(); await report(tx);
-        return { status: tx.status, tx: tx.id, reason: tx.reason, per_action: tx.per_action || undefined };
+        return { status: tx.status, tx: tx.id, reason: tx.reason, per_action: tx.per_action || undefined, per_order: tx.per_order || undefined, dest: tx.dest || undefined };
       } },
   ];
   agent = await startAgent({ port, name: "xonta-support-gateway", tools, ownerDid, keyFile: join(dataDir, "agent.jwk"), instructions: "Шлюз действий поддержки и службы проверки (песочница).",

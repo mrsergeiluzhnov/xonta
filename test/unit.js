@@ -972,5 +972,120 @@ await t("0.17.2: старые неразмеченные исходы не ид�
   const t2 = exp.trackSummary(); assert.equal(t2.advice.treated_n, 6, "новые размечены и считаются"); assert.equal(t2.advice.treated_success, 0.5);
 });
 
+await t("0.18: приватность — случай из новости, пересказ после чтения закрытого, посторонний, агент-посредник, приманка, подбор обхода", async () => {
+  const { createPrivacy } = await import("../src/gate-privacy.js");
+  const cfg = {
+    users: { ivan: { clearance: 3, profiles: ["finance"] }, intern: { clearance: 1 } },
+    agents: { "did:web:assistant.example": { clearance: 3 }, "did:web:mailer.example": { clearance: 1 } },
+    recipients: { "#general": { audience: "D", clearance: 1 }, "@ivan": { audience: "A", clearance: 3, spaces_of: ["ivan"] } },
+    sources: { bank_statement: "finance" },
+    tools: { slack_post_message: { recipient_arg: "channel", content_args: ["text"] } },
+    canaries: ["Z-CANARY-7731"],
+  };
+  const P = createPrivacy(cfg), meta = (chain, category = "general", task = "t1") => ({ _meta: { xonta: { chain, category, task } } });
+  const ivan = [{ type: "human", id: "ivan" }, { type: "agent", did: "did:web:assistant.example" }];
+  const send = (channel, text, m) => P.check("slack_post_message", { arguments: { channel, text }, ...m });
+  // 1. случай из новости: прочитал выписку Ивана и шлёт отчёт в общий канал, назвав это «общим»
+  assert.equal(P.check("bank_statement", { arguments: {}, ...meta(ivan) }).verdict, "allow", "Ивану можно читать свою выписку");
+  const news = send("#general", "Отчёт за сентябрь: доход 420 000 ₽, расходы 310 000 ₽", meta(ivan));
+  assert.equal(news.verdict, "human"); assert.equal(news.category, "finance"); assert.equal(news.mismatch, true, "заявил общее, а данные финансовые");
+  // в личку Ивану — можно
+  assert.equal(send("@ivan", "Отчёт за сентябрь: доход 420 000 ₽", meta(ivan, "finance")).verdict, "allow");
+  // 2. пересказ без цифр после чтения выписки — окно задачи держит уровень источника
+  const retell = send("#general", "Короче, у Ивана всё отлично, премию дали, денег теперь много", meta(ivan));
+  assert.equal(retell.verdict, "human", "детектор цифр не видит, но в этой задаче читали закрытое");
+  // дважды назвал финансы «общим» — для финансов этого хватает, приватность заморожена до человека
+  assert.ok(P.frozen, "две подмены категории на финансах — заморозка");
+  // в новом сеансе, в задаче без чтения закрытого, обычная рабочая фраза проходит
+  assert.equal(createPrivacy(cfg).check("slack_post_message", { arguments: { channel: "#general", text: "Встреча по проекту в 15:00" }, ...meta(ivan, "work", "t2") }).verdict, "allow");
+  // 3. посторонний через письмо просит выписку: допуск цепочки 0
+  const P2 = createPrivacy(cfg);
+  assert.equal(P2.check("bank_statement", { arguments: {}, ...meta([{ type: "human", id: "stranger@mail.example" }, { type: "agent", did: "did:web:assistant.example" }]) }).verdict, "human");
+  // 4. агент-посредник без допуска в цепочке: Иван → ассистент → рассыльщик с допуском 1
+  const P3 = createPrivacy(cfg), mid = [...ivan, { type: "agent", did: "did:web:mailer.example" }];
+  P3.check("bank_statement", { arguments: {}, ...meta(ivan, "finance", "t3") });
+  assert.equal(P3.check("slack_post_message", { arguments: { channel: "@ivan", text: "доход 420 000 ₽" }, ...meta(mid, "finance", "t3") }).verdict, "human", "итоговый допуск — минимум по цепочке");
+  // 5. приманка в исходящем — запрет и заморозка
+  const P4 = createPrivacy(cfg), c = P4.check("slack_post_message", { arguments: { channel: "@ivan", text: "вот данные Z-CANARY-7731" }, ...meta(ivan) });
+  assert.equal(c.verdict, "deny"); assert.ok(P4.frozen, "после приманки приватность заморожена");
+  // 6. секрет — никуда, даже себе
+  assert.equal(createPrivacy(cfg).check("slack_post_message", { arguments: { channel: "@ivan", text: "api_key: demo-not-a-real-key-7731" }, ...meta(ivan) }).verdict, "deny");
+  // 7. подбор обхода: три отказа подряд — заморозка, дальше даже безобидное ждёт человека
+  const P5 = createPrivacy(cfg), intern = [{ type: "human", id: "intern" }];
+  for (let i = 0; i < 3; i++) P5.check("slack_post_message", { arguments: { channel: "#general", text: `карта 4111 1111 1111 111${i === 0 ? 1 : i}` }, ...meta(intern) });
+  assert.ok(P5.frozen); assert.equal(P5.check("slack_post_message", { arguments: { channel: "#general", text: "привет" }, ...meta(intern, "general", "t9") }).verdict, "human");
+  // наружу — только счётчики, люди хешами
+  const rep = P.report(); assert.ok(rep.mismatches >= 1); assert.ok(Object.keys(rep.users).every((k) => /^[0-9a-f]{16}$/.test(k)), "без имён");
+});
+
+await t("0.18: Gate с приватностью — отказ без причины для агента, задержка необратимого с отменой, журнал без содержимого", async () => {
+  const { mkdtempSync, readFileSync, mkdirSync, writeFileSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { startGate, verifyAudit } = await import("../src/gate.js");
+  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js"), { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
+  const dir = mkdtempSync(join(tmpdir(), "gatep-")), fake = new URL("./fixtures/fake-mcp.js", import.meta.url).pathname;
+  process.env.FAKE_PRIVACY = "1";
+  const privacy = { users: { ivan: { clearance: 3 } }, agents: { "did:web:a": { clearance: 3 } }, recipients: { "#general": { audience: "D", clearance: 1 }, "#team": { audience: "C", clearance: 1 } }, sources: { bank_statement: "finance" }, tools: { slack_post_message: { recipient_arg: "channel", content_args: ["text"] } }, delay_irreversible_seconds: 1 };
+  const g = await startGate({ upstream: { command: process.execPath, args: [fake] }, policy: { actions_per_period: 20, privacy }, dir, serve: "http", port: 4962 });
+  const c = new Client({ name: "t", version: "1" }); await c.connect(new StreamableHTTPClientTransport(new URL("http://127.0.0.1:4962/mcp")));
+  const x = { chain: [{ type: "human", id: "ivan" }, { type: "agent", did: "did:web:a" }], task: "q1" };
+  await c.callTool({ name: "bank_statement", arguments: { month: "09", _xonta: x } });
+  const r = await c.callTool({ name: "slack_post_message", arguments: { channel: "#general", text: "Statement: income 420 000 RUB, balance 1 200 000 RUB", _xonta: x } });
+  assert.ok(r.isError); assert.match(r.content[0].text, /needs a human/); assert.ok(!/finance|restricted|income/.test(r.content[0].text), "агенту причина не раскрывается");
+  // безобидное рабочее сообщение в канал команды: необратимое — задерживается на 1 с, отменяем
+  const p = c.callTool({ name: "slack_post_message", arguments: { channel: "#team", text: "standup at 10", _xonta: { ...x, task: "q2", category: "work" } } });
+  await new Promise((res) => setTimeout(res, 300));
+  const heldId = readFileSync(join(dir, "audit.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).find((e) => e.event === "held").id;
+  mkdirSync(join(dir, "cancel"), { recursive: true }); writeFileSync(join(dir, "cancel", heldId), "x");
+  const cr = await p; assert.ok(cr.isError && /cancelled/.test(cr.content[0].text));
+  // без отмены уходит после задержки
+  const ok = await c.callTool({ name: "slack_post_message", arguments: { channel: "#team", text: "standup at 11", _xonta: { ...x, task: "q3", category: "work" } } }); assert.ok(!ok.isError, ok.content[0].text);
+  const log = readFileSync(join(dir, "audit.jsonl"), "utf8");
+  assert.ok(!log.includes("420 000") && !log.includes("standup"), "в журнале нет содержимого"); assert.ok(log.includes('"kind":"privacy"'));
+  assert.ok(verifyAudit(join(dir, "audit.jsonl"), readFileSync(join(dir, "gate-key.pub.pem"), "utf8")).ok);
+  await c.close(); await g.up.close(); g.close(); delete process.env.FAKE_PRIVACY;
+});
+
+await t("0.18: отчёты о приватности у оркестратора — только счётчики, вердикт честности разметки, мандат", async () => {
+  const { createPrivacyReports } = await import("../src/privacy-reports.js");
+  const mem = {}, store = { get: (k, d) => mem[k] ?? d, put: (k, v) => { mem[k] = v; } };
+  const R = createPrivacyReports({ store });
+  assert.equal(R.summary("a1").reports, 0);
+  R.submit("a1", { privacy: { sends: 40, allowed: 38, human: 2, denied: 0, mismatches: 1, canary_hits: 0, by_category: { finance: 5, general: 35 }, users: { "0123456789abcdef": 3, "ivan": 9 }, frozen: false } });
+  let s = R.summary("a1"); assert.equal(s.verdict, "occasional_understatement"); assert.equal(s.people, 1, "имя вместо хеша не считается");
+  R.submit("a1", { privacy: { sends: 10, allowed: 4, human: 6, mismatches: 5 } }); assert.equal(R.summary("a1").verdict, "understates_sensitivity");
+  R.submit("a2", { privacy: { sends: 3, allowed: 2, denied: 1, canary_hits: 1 } }); assert.equal(R.summary("a2").verdict, "leak_evidence");
+  assert.throws(() => R.submit("a3", { sends: 1, allowed: 5 }));
+  assert.ok(!JSON.stringify(mem).includes("ivan"), "имена не хранятся");
+});
+
+await t("0.18: поздний вред привязывается к периоду действия, а не к дню, когда о нём узнали", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createIssuer } = await import("../src/issuer.js"), { createSupport } = await import("../src/support.js");
+  const dir = mkdtempSync(join(tmpdir(), "sup-")), store = openStore(dir), issuer = createIssuer({ store, publicUrl: "http://localhost:4995", dataDir: dir });
+  const orch = { get: (id) => structuredClone(store.get("agents", {})[id]), tester: {} };
+  const sup = createSupport({ store, issuer, orch, resolver: null, publicUrl: "http://localhost:4995", exp: null });
+  store.update("agents", {}, (a) => { a.x = { id: "x", did: "did:example:x", status: "active", support: { exam_harm: 50, limit: 10 } }; });
+  assert.equal(sup.outcome({ agent_did: "did:example:x", ticket: "t1", kind: "leak", harm: 700, period: 3 }).late, false);
+  const r = sup.outcome({ agent_did: "did:example:x", ticket: "t2", kind: "fraud_refund", harm: 4000, period: 6, origin_period: 4 });
+  assert.equal(r.late, true);
+  const l = store.get("sup_ledger").losses.find((x) => x.ticket === "t2");
+  assert.equal(l.period, 4, "вред записан в период самого действия"); assert.equal(l.reported_period, 6); assert.equal(l.late, true);
+  const inc = Object.values(store.get("credentials", {})).map((c) => c.vc).find((v) => v.credentialSubject?.incident?.ticket === "t2");
+  assert.ok(inc && inc.credentialSubject.incident.late && inc.credentialSubject.incident.period === 4, "инцидент подписан с исходным периодом");
+});
+
+await t("0.17.4: мошенник с возвратом частями — отказ верен, возврат остатка сверх оплаченного стоит денег", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const out = execFileSync(process.execPath, ["--input-type=module", "-e", `
+    import * as S from "./skills/xonta-support.js";
+    const t = Array.from({ length: 400 }, (_, i) => S.makeTicket("split-t-" + i)).find((x) => x.variant === "split");
+    const g = (d) => S.grade(t, d, {});
+    console.log(JSON.stringify({ found: !!t, over: t.ask + t.order.refunded_part > t.order.sum, card: S.crmCard(t, "precise").refunded_part, refuse: g({ action: "refuse" }), refund: g({ action: "refund", amount: t.ask }), small: g({ action: "refund", amount: 10 }) }));`], { env: { ...process.env, SUP_SPLIT_FRAUD: "0.5" }, cwd: new URL("..", import.meta.url).pathname }).toString();
+  const r = JSON.parse(out);
+  assert.ok(r.found && r.over, "просят больше остатка"); assert.ok(r.card > 0, "в карточке видно, сколько уже вернули");
+  assert.equal(r.refuse.correct, true); assert.ok(r.refund.lost > 0 && r.refund.harm > 0, "возврат сверх оплаченного — потеря");
+  assert.equal(r.small.lost, 0, "в пределах остатка — без потерь");
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно

@@ -5,6 +5,9 @@
 //   xonta-gate check -- <command> [args...]       only scan the tools and print what would be blocked
 //   xonta-gate verify [--dir DIR]                 verify the signed audit log
 //   xonta-gate report [--dir DIR]                 summary of the audit log
+//   xonta-gate cancel ID [--dir DIR]              cancel a held irreversible call before it goes out
+//   xonta-gate send-privacy --orchestrator URL --agent ID   send privacy counts (no content, people hashed) to the
+//                                                  orchestrator; owner token from XONTA_OWNER_TOKEN
 // Options: --policy file.json  --dir DIR (default ~/.xonta-gate)  --http PORT (serve over HTTP instead of stdio)
 //          --budget N (actions per period)  --period SECONDS
 import { readFileSync, existsSync } from "node:fs";
@@ -18,7 +21,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 const argv = process.argv.slice(2), dash = argv.indexOf("--");
 const opts = dash >= 0 ? argv.slice(0, dash) : argv, cmd = dash >= 0 ? argv.slice(dash + 1) : [];
 const flag = (k) => { const i = opts.indexOf(k); return i >= 0 ? opts[i + 1] : null; };
-const sub = ["check", "verify", "report", "help", "--help", "-h"].includes(opts[0]) ? opts[0] : "run";
+const sub = ["check", "verify", "report", "cancel", "send-privacy", "help", "--help", "-h"].includes(opts[0]) ? opts[0] : "run";
 const dir = flag("--dir") || process.env.XONTA_GATE_DIR || join(homedir(), ".xonta-gate");
 const policy = flag("--policy") ? JSON.parse(readFileSync(flag("--policy"), "utf8")) : {};
 if (flag("--budget")) policy.actions_per_period = Number(flag("--budget"));
@@ -28,6 +31,19 @@ const out = (s) => process.stdout.write(s + "\n");
 
 if (sub === "help" || sub === "--help" || sub === "-h") {
   out(readFileSync(new URL(import.meta.url), "utf8").split("\n").filter((l) => l.startsWith("//")).map((l) => l.slice(3)).join("\n")); process.exit(0);
+}
+if (sub === "cancel") {
+  const { mkdirSync, writeFileSync } = await import("node:fs");
+  if (!opts[1]) { out("usage: xonta-gate cancel ID"); process.exit(1); }
+  mkdirSync(join(dir, "cancel"), { recursive: true }); writeFileSync(join(dir, "cancel", opts[1]), new Date().toISOString());
+  out(`cancelled ${opts[1]}`); process.exit(0);
+}
+if (sub === "send-privacy") {
+  const f = join(dir, "privacy-report.json"), url = flag("--orchestrator"), id = flag("--agent"), tok = process.env.XONTA_OWNER_TOKEN;
+  if (!existsSync(f)) { out(`no privacy report in ${dir}: add a privacy section to the policy and run the gate`); process.exit(1); }
+  if (!url || !id || !tok) { out("usage: XONTA_OWNER_TOKEN=... xonta-gate send-privacy --orchestrator https://passport.xonta.ru --agent ID"); process.exit(1); }
+  const r = await fetch(`${url.replace(/\/$/, "")}/v1/agents/${encodeURIComponent(id)}/privacy-report`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` }, body: readFileSync(f, "utf8") });
+  const j = await r.json().catch(() => ({})); out(r.ok ? `sent. ${j.summary?.verdict}: ${j.summary?.why}` : `failed ${r.status}: ${j.error || ""}`); process.exit(r.ok ? 0 : 2);
 }
 if (sub === "verify") {
   const f = join(dir, "audit.jsonl"), k = join(dir, "gate-key.pub.pem");
@@ -46,6 +62,8 @@ if (sub === "report") {
   out(`actions allowed: ${calls.filter((r) => r.decision === "allowed" && r.action).length}`);
   out(`hidden commands seen in outputs: ${calls.filter((r) => r.hidden_command).length}`);
   out(`tool description changes during a session: ${rows.filter((r) => r.event === "tools_changed").length}`);
+  const pr = calls.filter((r) => r.kind === "privacy");
+  if (pr.length) out(`privacy: ${pr.length} sends stopped (${pr.filter((r) => r.verdict === "deny").length} denied), by category ${JSON.stringify(pr.reduce((m, r) => ((m[r.category] = (m[r.category] || 0) + 1), m), {}))}, canaries ${pr.filter((r) => r.canary).length}, declared lower than the data ${pr.filter((r) => r.mismatch).length}`);
   out(`calls per tool: ${JSON.stringify(by("tool"))}`);
   process.exit(0);
 }

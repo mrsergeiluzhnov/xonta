@@ -22,6 +22,8 @@ import { homedir } from "node:os";
 import { analyzeTools, toolsFingerprint } from "./scan.js";
 import { hasInjection } from "./guardian.js";
 import { jcs, sha256hex } from "./crypto.js";
+import { createHmac } from "node:crypto";
+import { createPrivacy } from "./gate-privacy.js";
 
 // Слова в имени инструмента, по которым вызов считается действием. Список проверен на официальных MCP-серверах
 // (stand/gate-survey.js): add, fork, reply, comment, react, toggle добавлены после пропусков add_observations,
@@ -46,10 +48,13 @@ export function openAudit(dir) {
   if (!existsSync(keyFile)) { const { privateKey } = generateKeyPairSync("ed25519"); writeFileSync(keyFile, privateKey.export({ type: "pkcs8", format: "pem" })); try { chmodSync(keyFile, 0o600); } catch {} }
   const priv = createPrivateKey(readFileSync(keyFile)), pub = createPublicKey(priv).export({ type: "spki", format: "pem" });
   writeFileSync(join(dir, "gate-key.pub.pem"), pub);
+  // 0.18: отпечатки содержимого в журнале — с секретом Gate (HMAC), а не голый sha256: короткие аргументы нельзя подобрать по словарю
+  const macKey = createHmac("sha256", "xonta-gate-audit").update(readFileSync(keyFile)).digest();
+  const mac = (x) => createHmac("sha256", macKey).update(String(x)).digest("hex");
   let prev = "0".repeat(64), seq = 0;
   if (existsSync(file)) { const lines = readFileSync(file, "utf8").trim().split("\n").filter(Boolean); if (lines.length) { const last = JSON.parse(lines.at(-1)); prev = last.hash; seq = last.seq; } }
   return {
-    file, pub,
+    file, pub, mac, macKey,
     write(entry) {
       const body = { seq: ++seq, ts: new Date().toISOString(), ...entry, prev };
       const hash = sha256hex(jcs(body)), sig = sign(null, Buffer.from(hash, "hex"), priv).toString("base64");
@@ -137,6 +142,8 @@ async function connectUpstream({ url = null, command = null, args = [], env = {}
 // ---------- the gate ----------
 export async function startGate({ upstream, policy = {}, dir = join(homedir(), ".xonta-gate"), serve = "stdio", port = 4950, name = "xonta-gate" } = {}) {
   const pol = createPolicy(policy), audit = openAudit(dir), up = await connectUpstream(upstream);
+  const priv = policy.privacy ? createPrivacy(policy.privacy, { secret: audit.macKey.toString("hex") }) : null;
+  const held = new Map(); let heldSeq = 0;
   const refresh = async () => {
     const { tools } = await up.listTools(undefined, { timeout: 300000 });
     const r = pol.setTools(tools);
@@ -152,18 +159,38 @@ export async function startGate({ upstream, policy = {}, dir = join(homedir(), "
     const server = new Server({ name, version: "0.1.0" }, { capabilities: { tools: {} } });
     server.setRequestHandler(ListToolsRequestSchema, async () => { const r = await refresh(); return { tools: r.visible }; });
     server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
-      const tool = params.name, args_sha = sha256hex(jcs(params.arguments || {}));
+      const tool = params.name, args = priv ? priv.strip(params.arguments || {}) : params.arguments || {}, args_sha = audit.mac(jcs(args));
       const d = pol.decide(tool);
       if (!d.allow) {
         audit.write({ event: "call", tool, args_sha, decision: "refused", kind: d.kind, reason: d.reason, action: !!d.action });
         return { content: [{ type: "text", text: `Xonta Gate refused this call: ${d.reason}.` }], isError: true };
       }
+      // 0.18: приватность — кто просит, какие данные, куда. Агенту только «нужен человек», причина — владельцу
+      if (priv) {
+        const p = priv.check(tool, params);
+        if (p.kind !== "other") try { writeFileSync(join(dir, "privacy-report.json"), JSON.stringify({ at: new Date().toISOString(), privacy: priv.report() })); } catch {}
+        if (p.verdict !== "allow") {
+          audit.write({ event: "call", tool, args_sha, decision: "refused", kind: "privacy", verdict: p.verdict, level: p.level_name, audience: p.audience, category: p.category, mismatch: p.mismatch || undefined, canary: p.canary || undefined, reasons: p.reasons, frozen_after: priv.frozen ? true : undefined });
+          log(`privacy: ${tool} ${p.verdict === "deny" ? "DENIED" : "needs a human"}: ${(p.reasons || []).join("; ")}${priv.frozen ? `. Privacy frozen: ${priv.frozen.why}` : ""}`);
+          return { content: [{ type: "text", text: p.verdict === "deny" ? "Xonta Gate refused this call. It can't be sent." : "Xonta Gate: this needs a human. The owner has been told." }], isError: true };
+        }
+        // необратимое с задержкой: владелец может отменить (xonta-gate cancel ID), тревога за это время тоже отменяет
+        if (p.delay_seconds) {
+          const id = `h${++heldSeq}-${Date.now().toString(36)}`; held.set(id, { tool, until: Date.now() + p.delay_seconds * 1000 });
+          log(`held ${id}: ${tool} to ${p.audience}, goes in ${p.delay_seconds}s unless cancelled: xonta-gate cancel ${id}`);
+          audit.write({ event: "held", id, tool, args_sha, seconds: p.delay_seconds, level: p.level_name, audience: p.audience });
+          const cancelFile = join(dir, "cancel", id);
+          while (Date.now() < held.get(id).until && !existsSync(cancelFile) && !pol.state.frozen && !priv.frozen) await new Promise((r) => setTimeout(r, 250));
+          held.delete(id);
+          if (existsSync(cancelFile) || pol.state.frozen || priv.frozen) { audit.write({ event: "call", tool, args_sha, decision: "refused", kind: "cancelled", id }); return { content: [{ type: "text", text: "Xonta Gate: this was cancelled before it went out." }], isError: true }; }
+        }
+      }
       pol.record(tool, d); pol.begin(tool);
       try {
-        const out = await up.callTool({ name: tool, arguments: params.arguments || {} }, undefined, { timeout: Number(process.env.MCP_TOOL_TIMEOUT_MS || 600000) });
+        const out = await up.callTool({ name: tool, arguments: args }, undefined, { timeout: Number(process.env.MCP_TOOL_TIMEOUT_MS || 600000) });
         const text = (out.content || []).map((c) => c.text || "").join("");
         const inj = pol.sawOutput(text);
-        audit.write({ event: "call", tool, args_sha, decision: "allowed", action: !!d.action, out_sha: sha256hex(text), out_bytes: text.length, tool_error: !!out.isError, hidden_command: inj || undefined, frozen_after: inj && pol.state.frozen ? true : undefined });
+        audit.write({ event: "call", tool, args_sha, decision: "allowed", action: !!d.action, out_sha: audit.mac(text), out_bytes: text.length, tool_error: !!out.isError, hidden_command: inj || undefined, frozen_after: inj && pol.state.frozen ? true : undefined });
         if (inj) log(`hidden command in output of ${tool}${pol.state.frozen ? ", actions are now frozen" : ""}`);
         return out;
       } catch (e) {
@@ -174,7 +201,7 @@ export async function startGate({ upstream, policy = {}, dir = join(homedir(), "
     return server;
   };
 
-  if (serve === "stdio") { await makeServer().connect(new StdioServerTransport()); log("serving over stdio"); return { pol, audit, up }; }
+  if (serve === "stdio") { await makeServer().connect(new StdioServerTransport()); log("serving over stdio"); return { pol, audit, up, priv }; }
   const { default: express } = await import("express");
   const app = express(); app.use(express.json({ limit: "4mb" }));
   app.post("/mcp", async (req, res) => {
@@ -182,7 +209,7 @@ export async function startGate({ upstream, policy = {}, dir = join(homedir(), "
     res.on("close", () => { transport.close(); server.close(); });
     await server.connect(transport); await transport.handleRequest(req, res, req.body);
   });
-  app.get("/gate/status", (_req, res) => res.json(pol.summary()));
+  app.get("/gate/status", (_req, res) => res.json({ ...pol.summary(), privacy: priv ? priv.report() : null, held: [...held.keys()] }));
   const srv = app.listen(port, "127.0.0.1", () => log(`serving MCP at http://127.0.0.1:${port}/mcp, status at /gate/status`));
-  return { pol, audit, up, close: () => srv.close() };
+  return { pol, audit, up, priv, close: () => srv.close() };
 }

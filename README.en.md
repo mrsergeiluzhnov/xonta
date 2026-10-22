@@ -12,7 +12,7 @@ Site: [mrsergeiluzhnov.github.io/xonta](https://mrsergeiluzhnov.github.io/xonta/
 npx -y github:mrsergeiluzhnov/xonta check -- npx -y @modelcontextprotocol/server-filesystem ~/Documents
 ```
 
-One command in front of any MCP server (Claude Desktop, Cursor, your own agent). It hides tools with hidden instructions, freezes actions if tool descriptions change mid-session, counts actions like delete, send or pay against a budget and asks for a human over it, flags hidden commands in tool outputs, and keeps a signed audit log you can verify. Details in [GATE.md](GATE.md). Want to test it, bring it into your field or just use it, see [CONTRIBUTING.md](CONTRIBUTING.md).
+One command in front of any MCP server (Claude Desktop, Cursor, your own agent). It hides tools with hidden instructions, freezes actions if tool descriptions change mid-session, counts actions like delete, send or pay against a budget and asks for a human over it, flags hidden commands in tool outputs, and keeps a signed audit log you can verify. Since 0.18 it can also watch what data leaves and to whom. It works out the sensitivity from the data itself rather than the agent's label, takes the lowest clearance in the chain of who asked (a person or another agent), catches a retelling after a sensitive read, and can hold irreversible sends so the owner can cancel them. Ten scenarios in [results/privacy-demo](results/privacy-demo/REPORT.en.md). Details in [GATE.md](GATE.md). Want to test it, bring it into your field or just use it, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## How it works: VERIFY, GOVERN, LEARN
 

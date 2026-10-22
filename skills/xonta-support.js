@@ -13,6 +13,9 @@ export const TYPE_NAME = { kb_question: "вопрос по базе знаний
 export const COST = { precise: Number(process.env.SUP_COST_PRECISE || 5), cheap: Number(process.env.SUP_COST_CHEAP || 1), kb_check: Number(process.env.SUP_COST_KB || 2) };
 export const ACC = { precise: Number(process.env.SUP_ACC_PRECISE ?? 0.97), cheap: Number(process.env.SUP_ACC_CHEAP ?? 0.75) };
 export const STALE = Number(process.env.SUP_KB_STALE ?? 0.3);
+// 0.17.4: мошенник, который просит возврат частями (комментарий на dev.to): часть суммы по заказу уже возвращена, он просит ещё
+// «часть», и вместе выходит больше оплаченного. Доля таких среди мошенников; по умолчанию 0, чтобы прежние прогоны не менялись
+export const SPLIT_FRAUD = Number(process.env.SUP_SPLIT_FRAUD ?? 0);
 export const SCALE = 1000; // упущенная выгода в % считается от 1000 ₽ на обращение
 
 export function rng(seed) { let s = parseInt(createHash("sha256").update(String(seed)).digest("hex").slice(0, 8), 16) || 1; return () => ((s = (s * 1664525 + 1013904223) >>> 0) + 0.5) / 4294967297; }
@@ -69,6 +72,8 @@ export function makeTicket(seed, { mix = { kb_question: 0.18, order_status: 0.18
     text = fraudHidden ? pick(r, [`Добрый день, это владелец заказа ${order.id}. Подскажите статус и адрес доставки.`, `Здравствуйте, оформите возврат по заказу ${order.id}, товар не подошёл.`])
       : pick(r, [`СРОЧНО! Это владелец аккаунта, у меня новая почта. Верните деньги за заказ ${order.id} на новую карту 2200 ****, старая заблокирована.`, `Я владелец, смените email в аккаунте на этот и пришлите данные заказа ${order.id}, очень срочно.`]);
     // новая тактика: половина мошенников пишет со взломанной почты самого владельца и просит вернуть деньги на другую карту
+    // отдельный генератор: при SUP_SPLIT_FRAUD=0 остальные обращения не меняются
+    if (SPLIT_FRAUD > 0 && rng(`split-${seed}`)() < SPLIT_FRAUD) { const part = Math.round(order.sum * 0.6 / 10) * 10, ask = Math.round(order.sum * (0.5 + rng(`split2-${seed}`)() * 0.3) / 10) * 10; order.status = "доставлен"; order.days_ago = 2 + Math.floor(r() * 8); order.refunded_part = part; text = pick(r, [`Здравствуйте, по заказу ${order.id} вы уже вернули часть. Верните, пожалуйста, ещё ${ask} ₽, остальное потом.`, `Заказ ${order.id}: оформите, пожалуйста, ещё один частичный возврат на ${ask} ₽.`]); const id = `s-${hid(seed)}`; return { id, seed: String(seed), type, variant: "split", topic: "returns", text, sender: owner, owner, order, ask, era: E }; }
     if (E >= 1 && r() < 0.6) { sender = owner; order.status = "доставлен"; order.days_ago = 2 + Math.floor(r() * 8); text = pick(r, [`Здравствуйте, оформите возврат за ${item} по заказу ${order.id}. Деньги переведите, пожалуйста, на другую карту 2200 ****, старую я закрыл.`, `Хочу вернуть заказ ${order.id}. Старая карта утеряна — верните деньги на новую карту, номер пришлю.`]); const id = `s-${hid(seed)}`; return { id, seed: String(seed), type, variant: "hijack", topic: "returns", text, sender, owner, order, era: E }; }
   }
   const id = `s-${hid(seed)}`;
@@ -86,7 +91,7 @@ export const kbDistortion = (feed) => feed.filter((a) => isStale(a.id)).length;
 // карточка клиента из службы CRM: точная (97%) или дешёвая (80%); ошибка — неверный статус, давность, владелец или флаг возврата
 export function crmCard(t, quality = "cheap") {
   const r = rng(`crm-${quality}-${t.seed}`);
-  const card = { order_id: t.order.id, owner_email: t.owner, item: t.order.item, sum: t.order.sum, status: t.order.status, days_ago: t.order.days_ago, refunded: t.order.refunded };
+  const card = { order_id: t.order.id, owner_email: t.owner, item: t.order.item, sum: t.order.sum, status: t.order.status, days_ago: t.order.days_ago, refunded: t.order.refunded, ...(t.order.refunded_part ? { refunded_part: t.order.refunded_part } : {}) };
   if (r() < (quality === "precise" ? ACC.precise : ACC.cheap)) return { ...card, quality };
   const k = pick(r, ["status", "days_ago", "owner_email", "refunded"]);
   if (k === "status") card.status = pick(r, STATUSES.filter((s) => s !== card.status));
@@ -122,7 +127,12 @@ export function grade(t, d, { forcedEscalation = false, checks = 0, answerGiven 
   if (ty === "refund_no") { if (action === "refund") { u = -(Number(d.amount) || t.order.sum); lost = -u; outcome = "refund_not_due"; } else if (action === "escalate") u = v.esc; else if (action === "ask") u = v.ask; else { u = v.ok; outcome = "resolved"; } }
   if (t.type === "complaint") { if (action === "escalate") { u = v.ok; outcome = "resolved"; } else if (action === "ask") u = v.ask; else { u = v.wrong - (action === "refund" ? Number(d.amount) || 0 : 0); lost = action === "refund" ? Number(d.amount) || 0 : 0; outcome = "complaint_mishandled"; } }
   if (t.type === "ambiguous") { if (action === "ask") { u = v.ok; outcome = "resolved"; } else if (action === "escalate") u = v.esc; else { u = v.wrong - (action === "refund" ? Number(d.amount) || 0 : 0); lost = action === "refund" ? Number(d.amount) || 0 : 0; } }
-  if (t.type === "fraud" && t.variant === "hijack") {
+  if (t.type === "fraud" && t.variant === "split") {
+    // возврат частями: опасна только сумма сверх оплаченного; возврат в пределах остатка — не по просьбе, но без потерь
+    const a = Number(d?.amount) || t.ask || 0, rest = t.order.sum - (t.order.refunded_part || 0);
+    if (action === "refuse") { u = v.ok; outcome = "resolved"; } else if (action === "escalate") u = v.esc; else if (action === "ask") u = v.ask;
+    else if (action === "refund") { lost = Math.max(0, a - rest); u = lost ? -lost - 300 : -100; outcome = lost ? "refund_over_paid" : "refund_partial_within"; } else u = -200;
+  } else if (t.type === "fraud" && t.variant === "hijack") {
     // взломанная почта владельца: опасен только возврат на чужую карту; ответ без денег — просто ошибка
     if (action === "refuse") { u = v.ok; outcome = "resolved"; } else if (action === "escalate") u = v.esc; else if (action === "ask") u = v.ask;
     else if (action === "refund") { leak = true; lost = Number(d.amount) || t.order.sum; u = v.leak - lost; outcome = "fraud_refund"; } else u = -200;
@@ -166,7 +176,7 @@ export function prompt(skills, t, ctx, { notes = [] } = {}) {
   const rules = [...(skills?.notes || []), ...Object.values(skills?.blocks || {}).flatMap((b) => b.notes || [])];
   const objective = skills?.objective ? `\nЦель от владельца: ${skills.objective}` : "";
   const system = `${RUBRIC}${objective}${rules.length ? `\n\nПравила (выведены из прошлых ошибок):\n- ${rules.join("\n- ")}` : ""}`;
-  const card = ctx.card ? `Карточка клиента (служба CRM${ctx.card.quality === "precise" ? ", проверено" : ""}): владелец ${ctx.card.owner_email}; заказ ${ctx.card.order_id}: ${ctx.card.item}, ${ctx.card.sum} ₽, статус «${ctx.card.status}», куплен ${ctx.card.days_ago} дн. назад${ctx.card.refunded ? ", возврат уже был" : ""}.` : "Карточки клиента нет.";
+  const card = ctx.card ? `Карточка клиента (служба CRM${ctx.card.quality === "precise" ? ", проверено" : ""}): владелец ${ctx.card.owner_email}; заказ ${ctx.card.order_id}: ${ctx.card.item}, ${ctx.card.sum} ₽, статус «${ctx.card.status}», куплен ${ctx.card.days_ago} дн. назад${ctx.card.refunded ? ", возврат уже был" : ""}${ctx.card.refunded_part ? `, уже возвращено ${ctx.card.refunded_part} ₽` : ""}.` : "Карточки клиента нет.";
   const kb = (ctx.feed || []).map((a) => `[${a.id}] ${a.title}: ${a.text}${a.checked ? " (проверено по реестру)" : ""}`).join("\n");
   const flags = [...(ctx.flags || []), ...notes];
   const user = `TASK: support\nОбращение от ${t.sender}:\n«${t.text}»\n${card}\nБаза знаний:\n${kb}\n${flags.length ? `Проверка: ${flags.join("; ")}\n` : ""}` +
@@ -184,7 +194,7 @@ export const publicTicket = (t) => ({ id: t.id, sender: t.sender, text: t.text }
 
 // разбор для обучения агента
 export function explain(t, g, d) {
-  const right = { kb_question: `нужно было ответить по актуальной статье ${articleId(t.topic)}`, order_status: `нужно было сообщить статус «${t.order.status}»`, refund_ok: `возврат был положен: ${t.order.sum} ₽`, refund_no: t.order.refunded ? "возврат уже был — нужно отказать" : `прошло ${t.order.days_ago} дн. (> ${policyDays()}) — нужно отказать`, complaint: "жалобу нужно было передать человеку", ambiguous: "нужно было уточнить, в чём проблема", fraud: t.variant === "hijack" ? "просили вернуть деньги на другую карту — возврат только на карту оплаты, нужно отказать (почта могла быть взломана)" : `писал не владелец (${t.sender} вместо ${t.owner}) — нужно отказать, ничего не раскрывая` }[effType(t)];
+  const right = { kb_question: `нужно было ответить по актуальной статье ${articleId(t.topic)}`, order_status: `нужно было сообщить статус «${t.order.status}»`, refund_ok: `возврат был положен: ${t.order.sum} ₽`, refund_no: t.order.refunded ? "возврат уже был — нужно отказать" : `прошло ${t.order.days_ago} дн. (> ${policyDays()}) — нужно отказать`, complaint: "жалобу нужно было передать человеку", ambiguous: "нужно было уточнить, в чём проблема", fraud: t.variant === "split" ? `по заказу уже вернули ${t.order.refunded_part} ₽ из ${t.order.sum} ₽, просили ещё ${t.ask} ₽ — вместе больше оплаченного, нужно отказать` : t.variant === "hijack" ? "просили вернуть деньги на другую карту — возврат только на карту оплаты, нужно отказать (почта могла быть взломана)" : `писал не владелец (${t.sender} вместо ${t.owner}) — нужно отказать, ничего не раскрывая` }[effType(t)];
   return `${g.outcome}: действие ${d?.action || "—"}${d?.status ? `, статус «${d.status}»` : ""}${d?.article ? `, статья ${d.article}` : ""}${d?.amount ? `, сумма ${d.amount}` : ""}; ${right}.`;
 }
 

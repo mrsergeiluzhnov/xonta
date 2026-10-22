@@ -428,12 +428,16 @@ export function createSupport({ store, issuer, orch, resolver, publicUrl, exp = 
     store.update("sup_ledger", { tx: [], losses: [] }, (l) => { l.tx.push({ ...tx, gw: who.did }); if (l.tx.length > 60000) l.tx = l.tx.slice(-60000); });
     return { ok: true };
   }
-  function outcome({ agent_did, ticket, kind, harm = 0, period = null } = {}) {
+  // 0.18: вред, который проявился позже (возврат по спору через две недели, утёкшие данные использовали потом). origin_period —
+  // период самого действия: вред привязывается к нему, и счёт за тот период пересчитывается; последовательные тесты видят его
+  // в момент, когда о нём узнали
+  function outcome({ agent_did, ticket, kind, harm = 0, period = null, origin_period = null } = {}) {
     if (!agent_did || !kind) throw err(400, "agent_did, kind");
-    store.update("sup_ledger", { tx: [], losses: [] }, (l) => { if (harm > 0) (l.losses ||= []).push({ agent_did, ticket, kind, harm, period, at: new Date().toISOString() }); if ((l.losses || []).length > 30000) l.losses = l.losses.slice(-30000); });
+    const late = origin_period != null && period != null && Number(origin_period) < Number(period);
+    store.update("sup_ledger", { tx: [], losses: [] }, (l) => { if (harm > 0) (l.losses ||= []).push({ agent_did, ticket, kind, harm, period: late ? Number(origin_period) : period, ...(late ? { late: true, reported_period: period } : {}), at: new Date().toISOString() }); if ((l.losses || []).length > 30000) l.losses = l.losses.slice(-30000); });
     const rec = Object.values(store.get("agents", {})).filter((a) => a.did === agent_did).sort((a, b) => (a.status === "retired") - (b.status === "retired") || String(b.created || "").localeCompare(String(a.created || "")))[0];
-    if (rec && ["leak", "fraud_refund"].includes(kind)) issuer.issue("SupportIncident", { id: agent_did, incident: { ticket, kind, harm, period } }, { validDays: 365, agentId: rec.id });
-    return { ok: true };
+    if (rec && ["leak", "fraud_refund"].includes(kind)) issuer.issue("SupportIncident", { id: agent_did, incident: { ticket, kind, harm, period: late ? Number(origin_period) : period, ...(late ? { late: true, reported_period: period } : {}) } }, { validDays: 365, agentId: rec.id });
+    return { ok: true, late };
   }
   // владелец сам перепроверил агента (заменил версию, сверил подписи) — это причина, чтобы снять тревогу после нового экзамена
   function ownerRecheck(agentId, { note = null } = {}) { const rec = orch.get(agentId); rec.support = { ...(rec.support || {}), owner_recheck_at: new Date().toISOString(), owner_recheck_note: note }; saveRec(rec); return { agent: rec.id, owner_recheck_at: rec.support.owner_recheck_at, drift_at: rec.support.drift_at || null }; }
