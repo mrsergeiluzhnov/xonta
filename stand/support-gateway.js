@@ -13,6 +13,7 @@ import { startAgent } from "../lab/agentkit.js";
 import { signRequest } from "../src/callerauth.js";
 import * as S from "../skills/xonta-support.js";
 import { createReceiptWriter } from "../src/receipts.js";
+import { refundedBefore } from "./order-cap.js";
 
 const ORIGINAL_ONLY = process.env.SUP_GW_ORIGINAL_ONLY !== "0", ORDER_CAP = process.env.SUP_GW_ORDER_CAP !== "0";
 export async function startSupportGateway({ port, ownerDid, dataDir, orchUrl }) {
@@ -66,7 +67,8 @@ export async function startSupportGateway({ port, ownerDid, dataDir, orchUrl }) 
         if (u.ok && action === "refund" && mandated && ORIGINAL_ONLY && tr?.variant === "hijack") u = { ok: false, t: u.t, reason: "возврат на новую карту, а не на исходный способ оплаты — только через человека", dest: true };
         // 0.17.4: сумма возвратов по заказу не больше оплаченного — иначе предел на одно действие обходится дроблением
         if (u.ok && action === "refund" && mandated && ORDER_CAP && tr?.order) {
-          const oid = tr.order.id, before = (tr.order.refunded_part || 0) + (tr.order.refunded ? tr.order.sum : 0) + state.tx.filter((x) => x.action === "refund" && x.status === "approved" && state.truth[x.ticket_id]?.order?.id === oid).reduce((a, x) => a + (x.refund || 0), 0);
+          // 0.20.1: только возвраты этого же агента — у каждого агента потока своя копия магазина (ошибка 29)
+          const before = refundedBefore(state, tr, u.t?.agent_did);
           if (before + (amount || 0) > tr.order.sum) u = { ok: false, t: u.t, reason: `по заказу уже возвращено ${before} ₽ из ${tr.order.sum} ₽ — вместе с этим возвратом больше оплаченного, только через человека`, per_order: true };
         }
         // 0.17.1: предел на одно действие — возврат дороже уходит человеку, сколько бы ни оставалось в пределе периода

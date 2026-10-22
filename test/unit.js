@@ -1215,5 +1215,21 @@ await t("0.20: тематический прогон на заглушке — �
   assert.ok(readFileSync(join(root, "r2", "REPORT.md"), "utf8").includes("Сравнение с прошлым прогоном темы")); assert.ok(existsSync(join(root, "r2", "REPORT.en.md")));
 });
 
+await t("0.20.1: возврат по заказу считается у каждого агента отдельно (ошибка 29, run-series1-a4)", async () => {
+  const { refundedBefore, overPaidOrders } = await import("../stand/order-cap.js");
+  // агенты 2 и 5 одного потока получили одно и то же обращение: заказ на 1 850 ₽, возврат положен
+  const t1 = { id: "s-1", order: { id: "Z-1", sum: 1850, refunded: false } };
+  const st = { truth: { "s-1": t1 }, tx: [{ kind: "action", action: "refund", status: "approved", agent_did: "did:a2", ticket_id: "s-1", refund: 1850 }] };
+  assert.equal(refundedBefore(st, t1, "did:a5"), 0, "возврат агента 2 не закрывает возврат агенту 5");
+  assert.equal(refundedBefore(st, t1, "did:a2"), 1850, "свой возврат по тому же заказу считается");
+  st.tx.push({ kind: "action", action: "refund", status: "approved", agent_did: "did:a5", ticket_id: "s-1", refund: 1850 });
+  assert.equal(overPaidOrders(st), 0, "по 1 850 у двух агентов — не сверх оплаченного");
+  st.tx.push({ kind: "action", action: "refund", status: "approved", agent_did: "did:a5", ticket_id: "s-1", refund: 100 });
+  assert.equal(overPaidOrders(st), 1, "второй возврат того же агента по тому же заказу — сверх оплаченного");
+  // мошенник с возвратом частями: часть уже вернули, это видно по самому обращению
+  const t2 = { id: "s-2", order: { id: "Z-2", sum: 5000, refunded_part: 3000 } };
+  assert.equal(refundedBefore({ truth: { "s-2": t2 }, tx: [] }, t2, "did:a5"), 3000);
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно
