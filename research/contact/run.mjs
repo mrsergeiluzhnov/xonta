@@ -120,7 +120,15 @@ async function report() {
   console.log(ru.join('\n'));
 }
 
+async function smoke() {
+  const T = truth(), row = T.rows.find((r) => r.ticker === (E.SMOKE || 'ADBE')) || T.rows[0];
+  for (const [k, url] of [['A', E.AGENT_A_URL], ['B', E.AGENT_B_URL]]) {
+    const res = await callAgent(url, { company: row.company, site: row.site, phase: 'smoke' }), sc = score(res, row);
+    log(`${k} ${row.company}: ${sc.correct ? 'CORRECT' : sc.wrong_accept ? 'accepted but WRONG' : sc.reason}, pages ${(res.pages || []).length}, candidates ${res.candidates_n ?? 0}, tokens ${sc.tokens}, ${Math.round(sc.ms / 1000)} s${res.model_error ? `, model error ${res.model_error}` : ''}`);
+  }
+}
+
 const cmd = process.argv[2];
-if (cmd === 'setup') await setup(); else if (cmd === 'explore') await explore(); else if (cmd === 'transfer') await transfer(); else if (cmd === 'report') await report();
+if (cmd === 'smoke') await smoke(); else if (cmd === 'setup') await setup(); else if (cmd === 'explore') await explore(); else if (cmd === 'transfer') await transfer(); else if (cmd === 'report') await report();
 else if (cmd === 'all') { await setup(); await explore(); await transfer(); await report(); }
-else if (cmd) { console.log('usage: node run.mjs setup|explore|transfer|report|all'); process.exit(1); }
+else if (cmd) { console.log('usage: node run.mjs smoke|setup|explore|transfer|report|all'); process.exit(1); }
