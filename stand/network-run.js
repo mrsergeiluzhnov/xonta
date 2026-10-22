@@ -338,6 +338,10 @@ async function sweep(A, r) {
   log(`${A.tag}  подбор команды у ${ON(A.o)}: ${res.body.rows.map((x) => `${x.name} ${x.regret_pct}%`).join("; ")} → ${TEAM_NAME[res.body.best]}${res.body.tie_break ? " (при равенстве — дешевле)" : ""}; записан в книгу ${ON(A.o)}`);
   saveRun();
 }
+// 0.20.2: рецепты из книги выдают оркестраторы, которые помнят опыт. Оркестратор 3 раньше всегда начинал с пустой книги,
+// поэтому рецептов ему не давали вовсе; в серии «память» (NET_FRESH="") он книгу хранит, и в run-memory-1 это правило
+// не дало ему ни одного рецепта — совет «проверяющие» он снова нашёл только к раунду 2–4, как с пустой книгой.
+function recipesFor(o) { return o !== "Z" || !P.fresh.includes("Z"); }
 async function recipes(A, r) {
   const rc = await api(A.o, "POST", `/v1/agents/${A.id}/support-recipes`, { round: r }, { signer: A.owner });
   if (!rc.ok) { log(`${A.tag}  рецепты: ${rc.body.error}`); return; }
@@ -531,7 +535,7 @@ async function round(r) {
   if (r % P.exam_every === 0) {
     for (const A of agents.filter(Boolean)) await exam(A, r);
     // рецепты — по одному: следующий, когда исход предыдущего измерен
-    for (const A of agents.filter((x) => x && x.st.policy === "orch" && x.o !== "Z")) await recipes(A, r);
+    for (const A of agents.filter((x) => x && x.st.policy === "orch" && recipesFor(x.o))) await recipes(A, r);
     await staleCheck(r);
   }
   await guardianRound(r);
@@ -586,9 +590,9 @@ try {
       run.referrals.push({ agent: A.i + 1, offered: ref.refer ? ref.to.url : null, choice: "B", why: "агент остаётся у оркестратора 2 и просит его запросить опыт оркестратора 1 и обучиться" });
       log(`${A.tag}  оркестратор 2: ${ref.refer ? `«по мошенникам опыт сильнее у оркестратора 1: ${ref.to.techniques.slice(0, 3).join(", ")}…»` : "направления нет"} — агент: «нет, я работаю с тобой; запроси опыт оркестратора 1 и обучись»`);
     }
-    for (const A of agents.filter(Boolean)) await exam(A, 0, { measureOnly: A.st.policy === "fixed" || A.o !== "Z" });
+    for (const A of agents.filter(Boolean)) await exam(A, 0, { measureOnly: A.st.policy === "fixed" || recipesFor(A.o) });
     await learnB(learners[0]);
-    for (const A of agents.filter((x) => x.st.policy === "orch" && x.o !== "Z")) await recipes(A, 0);
+    for (const A of agents.filter((x) => x.st.policy === "orch" && recipesFor(x.o))) await recipes(A, 0);
     for (const A of agents.filter((x) => x.st.policy === "orch" && !x.st.actions_token)) await setActions(A, 3, 9000, "стартовый лимит");
     run.started_limits = true; saveRun();
   }

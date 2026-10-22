@@ -22,3 +22,22 @@ export function grade(D, task, action, { checksCost = 0, gated = false } = {}) {
   const value = !human && correct ? D.VALUE : 0;
   return { action: a, gated, human, correct, wrong_accept: !human && !correct, harm, value, human_cost: human ? D.HUMAN_COST : 0, checks_cost: checksCost, utility: value - harm - (human ? D.HUMAN_COST : 0) - checksCost, irreversible: !human && !!tr.irreversible_action?.[a] };
 }
+
+// Разбор предложения агента (0.20.2). В run-ops-1 GigaChat ответил на все 15 просьб, но ни одно предложение не дошло до
+// оркестратора: ответ отбрасывался молча, если не разбирался как JSON или категория была не дословно из списка.
+// Теперь: JSON, если получится; иначе поля вытаскиваются из текста; категория — первая из списка, найденная в ответе
+// (в поле category, потом в правиле), иначе самая частая среди ошибок раунда. Причина отказа возвращается для журнала.
+export function parseProposal(text, categories, mistakeCategories = []) {
+  const s = String(text || "");
+  let o = null;
+  const body = ((s.match(/```(?:json)?\s*([\s\S]*?)```/) || [])[1] || s).trim(), at = body.indexOf("{");
+  if (at >= 0) for (let end = body.lastIndexOf("}"); end > at && !o; end = body.lastIndexOf("}", end - 1)) { try { o = JSON.parse(body.slice(at, end + 1)); } catch {} }
+  const field = (k) => (o && o[k] != null ? String(o[k]) : (body.match(new RegExp(`["«]?${k}["»]?\\s*:\\s*["«]([\\s\\S]*?)["»]\\s*(?:,\\s*["«]?\\w+["»]?\\s*:|}|$)`)) || [])[1] || "");
+  const rule = field("rule").replace(/\s+/g, " ").trim(), when = field("when").replace(/\s+/g, " ").trim(), rawCat = field("category");
+  if (!rule) return { ok: false, why: `нет правила в ответе: ${s.replace(/\s+/g, " ").slice(0, 160)}` };
+  const find = (x) => { const low = String(x).toLowerCase(); return categories.find((c) => low.includes(c.toLowerCase())) || null; };
+  let category = find(rawCat) || find(rule), guessed = false;
+  if (!category && mistakeCategories.length) { const n = (c) => mistakeCategories.filter((x) => x === c).length; category = [...new Set(mistakeCategories)].sort((a, b) => n(b) - n(a))[0]; guessed = true; }
+  if (!category) return { ok: false, why: `категория не из списка: ${rawCat.slice(0, 60)}` };
+  return { ok: true, category, rule: rule.slice(0, 200), when: when.slice(0, 120), guessed, raw_category: rawCat.slice(0, 60) };
+}

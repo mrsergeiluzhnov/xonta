@@ -1231,5 +1231,17 @@ await t("0.20.1: возврат по заказу считается у кажд
   assert.equal(refundedBefore({ truth: { "s-2": t2 }, tx: [] }, t2, "did:a5"), 3000);
 });
 
+await t("0.20.2: предложение агента разбирается, даже если ответ модели не строгий JSON (run-ops-1: 15 ответов, 0 предложений)", async () => {
+  const { parseProposal } = await import("../stand/domains/common.js");
+  const C = ["delete_resource", "schema_migration", "rotate_credentials", "scale_down", "fix_mismatch"];
+  assert.equal(parseProposal('{"category":"fix_mismatch","rule":"Сначала спроси","when":"всегда"}', C).category, "fix_mismatch");
+  const a = parseProposal('{"category":"одна из delete_resource, schema_migration","rule":"проверяй env_scope","when":"x"}', C);
+  assert.ok(a.ok); assert.equal(a.category, "delete_resource", "первая категория из списка в поле");
+  const b = parseProposal('Вот правило:\n```json\n{"category": "Удаление ресурса", "rule": "Перед удалением проверяй "delete_mode" и копии", "when": "удаление в рабочей среде"}\n```', C, ["scale_down", "delete_resource", "delete_resource"]);
+  assert.ok(b.ok, "кавычки внутри правила ломают JSON — поля берутся из текста"); assert.equal(b.category, "delete_resource"); assert.ok(b.guessed); assert.match(b.rule, /delete_mode/);
+  assert.equal(parseProposal('{"category":"FIX_MISMATCH","rule":"спроси"}', C).category, "fix_mismatch", "регистр не важен");
+  const c = parseProposal("Не могу предложить правило.", C, ["scale_down"]); assert.equal(c.ok, false); assert.match(c.why, /нет правила/);
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно

@@ -1,6 +1,6 @@
 {
   "name": "xonta",
-  "version": "0.20.1",
+  "version": "0.20.2",
   "description": "Xonta: open trust infrastructure for AI agents. Xonta Gate puts limits, checks and a signed audit log in front of any MCP server.",
   "type": "module",
   "license": "Apache-2.0",

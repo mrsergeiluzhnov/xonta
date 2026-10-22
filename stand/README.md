@@ -427,3 +427,21 @@ Fix after run-series1-c3 (EN). Orchestrators 1 and 2 keep receipts between runs,
 Проверка: юнит-тест; пересчёт по журналу шлюза a4 — все 18 отказов прошли бы, сверх оплаченного по мандату 0 заказов; короткий прогон на тестовой модели — один отказ по сумме заказа, верный; `npm run reproduce` — 13 из 13.
 
 Fix after run-series1-a4 (EN). In the stand, agents in one stream get the same tickets with the same order numbers, each working its own copy of the shop. The gateway added up refunds per order across all of them, so in a4 the first agent in line blocked the rest: 18 refunds that were due went to a person, and spending checks dropped from 25 to 10 (bug 29). Now only the same agent's refunds count towards an order. Partial-refund fraud is still caught, since the part already refunded is on the ticket. The reproduce check counts the same way.
+
+## Правка после run-memory-1 (0.20.2)
+
+**Оркестратор 3 с книгой теперь выдаёт рецепты.** Стенд запрашивал рецепты из книги только у оркестраторов 1 и 2: книга оркестратора 3 раньше стиралась перед каждым прогоном. В серии «память» (`NET_FRESH=""`) книгу оставили, а исключение — нет, поэтому в run-memory-1 оркестратор 3 с доказанным приёмом «проверяющие» (P 0,99) шёл тем же путём, что с пустой книгой (ошибка 30). Теперь, если книга оркестратора 3 не стирается, он выдаёт рецепты, как остальные, и на экзамене раунда 0 не даёт своих советов. С пустой книгой (по умолчанию) ничего не меняется.
+
+Проверка: короткий прогон на тестовой модели с копией настоящих книг после run-memory-1 и `NET_FRESH=""` — рецепт «проверяющие» агентам 1–3 в раунде 0, лимиты 3 → 6 → 12 к раунду 4, как у учеников оркестратора 2, ложных тревог нет; `npm run reproduce`.
+
+Fix after run-memory-1 (EN). The stand only asked orchestrators 1 and 2 for recipes, because orchestrator 3's book used to be wiped before every run. The memory series keeps that book (`NET_FRESH=""`) but the exception stayed, so in run-memory-1 orchestrator 3 had "checkers" proven at P 0.99 and still went down the same path as with an empty book (bug 30). If orchestrator 3 keeps its book, it now hands out recipes like the others and holds its own advice at the round 0 exam. With an empty book (the default) nothing changes.
+
+## Правка после run-ops-1 (0.20.2)
+
+**Предложения агентов в тематическом прогоне больше не теряются.** В run-ops-1 модель ответила на все 15 просьб предложить правило, но в книгу не попало ни одно: ответ молча отбрасывался, если он не разбирался как строгий JSON или категория была написана не дословно из списка. Из-за этого книга темы после первого прогона пустая, и следующему прогону нечего было бы переносить. Теперь поля берутся и из нестрогого ответа, категория ищется в ответе по списку, а если её нет — берётся самая частая категория среди ошибок раунда. Каждый неразобранный ответ пишется в журнал и в отчёт с причиной.
+
+Ещё в отчёт темы добавлена таблица необратимых действий: сколько раз агент пытался выполнить необратимое, сколько остановил мандат, сколько прошло и с каким вредом. В run.json теперь лежит каждое решение (раунд, агент, задание, действие, верное действие, остановлено ли мандатом, вред). В run-ops-1 этих данных не было, поэтому посчитать остановленные мандатом опасные операции по нему нельзя.
+
+Проверка: юнит-тест на нестрогие ответы (кавычки внутри правила, категория словами, список вместо одной категории); короткий прогон на тестовой модели с копией книги темы после run-ops-1 — 15 предложений из 15 дошли до оркестратора, один рецепт доказан, четыре без эффекта.
+
+Fix after run-ops-1 (EN). In run-ops-1 the model answered all 15 requests to propose a rule, and none of them reached the recipe book: an answer was dropped without a word if it wasn't strict JSON or the category didn't match the list exactly. Fields are now read from loose answers too, the category is looked up in the answer, and if it's missing the most common category among the round's mistakes is used. Every answer that still can't be read goes to the log and the report with the reason. The theme report also gets a table of irreversible actions (tried, stopped by the mandate, went through, harm), and run.json now keeps every decision. Checked with a unit test on loose answers and a short mock run on a copy of the theme book after run-ops-1: 15 of 15 proposals reached the orchestrator.
