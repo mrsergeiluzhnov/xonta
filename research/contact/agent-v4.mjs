@@ -44,20 +44,34 @@ const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash
 export function decode(s) { return String(s).replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d))).replace(/&([a-z]+);/gi, (m, n) => ENT[n.toLowerCase()] ?? m); }
 const norm = (href) => { const u = new URL(href); u.hash = ''; return u.href; };
 
-// robots.txt: только правила для всех роботов (User-agent: *), Disallow по префиксу
+// robots.txt: правила для всех роботов (User-agent: *). Шаблоны с * и $, Allow и Disallow; решает самое длинное совпавшее
+// правило, при равенстве Allow. Пустой Disallow ничего не запрещает
 const robotsCache = new Map();
-async function allowed(u, headers) {
-  const origin = u.origin;
-  if (!robotsCache.has(origin)) {
-    let rules = [];
-    try {
-      const r = await fetch(origin + '/robots.txt', { headers, redirect: 'follow', signal: AbortSignal.timeout(8000) });
-      if (r.ok) { let on = false; for (const line of (await r.text()).split('\n')) { const [k, ...v] = line.split(':'); const key = k.trim().toLowerCase(), val = v.join(':').trim(); if (key === 'user-agent') on = val === '*'; else if (on && key === 'disallow' && val) rules.push(val); } }
-    } catch {}
-    robotsCache.set(origin, rules);
+export function parseRobots(txt) {
+  const rules = []; let group = [], inRules = false;
+  for (const raw of String(txt).split('\n')) {
+    const line = raw.replace(/#.*$/, '').trim(); if (!line) continue;
+    const k = line.slice(0, line.indexOf(':')).trim().toLowerCase(), v = line.slice(line.indexOf(':') + 1).trim();
+    if (k === 'user-agent') { if (inRules) { group = []; inRules = false; } group.push(v.toLowerCase()); }
+    else if (k === 'allow' || k === 'disallow') { inRules = true; if (group.includes('*') && v) rules.push({ allow: k === 'allow', pat: v }); }
   }
-  const path = u.pathname + u.search;
-  return !robotsCache.get(origin).some((p) => p === '/' ? true : path.startsWith(p.replace(/\*.*$/, '')));
+  return rules;
+}
+export function robotsAllows(rules, path) {
+  let best = null;
+  for (const r of rules) {
+    const re = new RegExp('^' + r.pat.replace(/[.+?^{}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\\\$$/, '$'));
+    if (re.test(path) && (!best || r.pat.length > best.pat.length || (r.pat.length === best.pat.length && r.allow))) best = r;
+  }
+  return !best || best.allow;
+}
+async function allowed(u, headers) {
+  if (!robotsCache.has(u.origin)) {
+    let rules = [];
+    try { const r = await fetch(u.origin + '/robots.txt', { headers, redirect: 'follow', signal: AbortSignal.timeout(8000) }); if (r.ok) rules = parseRobots(await r.text()); } catch {}
+    robotsCache.set(u.origin, rules);
+  }
+  return robotsAllows(robotsCache.get(u.origin), u.pathname + u.search);
 }
 
 async function page(url, { lang = null, redirects = 0 } = {}) {
