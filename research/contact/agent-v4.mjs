@@ -103,7 +103,12 @@ async function auth() {
   if (!r.ok) throw Error(`OAuth HTTP ${r.status}`);
   const j = await r.json(); token = j.access_token; tokenUntil = Date.now() + 25 * 60000; return token;
 }
+// 429 и сбои сети у GigaChat — временные: до трёх повторов с паузой. В первом прогоне без этого 9 из 254 запросов
+// агента B и 21 из 288 у агента A упали, и это исказило сравнение
 async function model(messages) {
+  for (let i = 0; ; i++) { try { return await modelOnce(messages); } catch (e) { if (i >= 3 || !/HTTP (429|5\d\d)|fetch failed|aborted|timeout|OAuth/i.test(e.message)) throw e; await new Promise((s) => setTimeout(s, [2000, 6000, 15000][i])); if (/OAuth|401/.test(e.message)) token = null; } }
+}
+async function modelOnce(messages) {
   const t = await auth();
   const r = await fetch(process.env.GIGACHAT_CHAT_URL || 'https://gigachat.devices.sberbank.ru/api/v1/chat/completions', { method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: process.env.GIGACHAT_MODEL || 'GigaChat', temperature: 0, messages }), signal: AbortSignal.timeout(60000) });
   if (!r.ok) throw Error(`GigaChat HTTP ${r.status}: ${(await r.text()).slice(0, 150)}`);

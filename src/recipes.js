@@ -11,6 +11,9 @@
 //     расхождениям; непарный: P(лучше контроля)); отозван — так же значимо хуже или нарушение ограничений;
 //   - доказанный рецепт выдаётся, но control_share задач остаётся контролем, чтобы замер продолжался;
 //   - каждое событие: запрошено → выдано → принято/отклонено → применено → проверено → записано → статус изменён.
+// 0.19.1 (после первого прогона на телефонах): принятый неверный ответ считается хуже отказа, а пара, где одна из групп
+// упала по инфраструктуре (ошибка модели, сеть), помечается invalid и в оценку не идёт. В первом прогоне две из трёх
+// «побед» рецепта были ошибками модели в контроле, а два принятых чужих номера считались ничьей.
 // Рецепт не может обходить ограничения: содержимое проверяется теми же правилами, что описания инструментов в Gate,
 // а safeguards хранятся вместе с ним и выдаются агенту.
 import { randomUUID, createHash } from "node:crypto";
@@ -102,10 +105,10 @@ export function createRecipes({ store, issuer, orch, publicUrl = "", now = () =>
     event({ event: "recommendation_received", request_id: id, task_id: q.task_id, agent: rec.id, recipe_id: q.recipe_id, recipe_version: q.recipe_version, arm });
     return { request_id: id, arm, why, recipe: r && arm !== "control" ? { id: r.id, version: r.version, technique: r.technique, stage: r.stage, payload: r.payload, applicability: r.applicability, safeguards: r.safeguards, status: r.status, evidence: r.test } : null,
       report_to: `${publicUrl}/v1/recipes/requests/${id}/outcome`,
-      report: arm === "both" ? { recipe: { accepted: true, applied: true, matched: true, success: true, independent: { verified: true, checker: "who" } }, control: { success: false, independent: { verified: false, checker: "who" } } } : { accepted: true, applied: true, matched: false, success: false, independent: { verified: false, checker: "who checked" } } };
+      report: arm === "both" ? { recipe: { accepted: true, applied: true, matched: true, success: true, invalid: false, independent: { verified: true, checker: "who" } }, control: { success: false, invalid: false, independent: { verified: false, checker: "who" } } } : { accepted: true, applied: true, matched: false, success: false, independent: { verified: false, checker: "who checked" } } };
   }
 
-  const armOf = (o = {}) => ({ accepted: o.accepted !== false, reject_reason: o.accepted === false ? S(o.reject_reason || "not given", 200) : null, applied: !!o.applied, matched: !!o.matched, success: !!o.success, independent: o.independent && typeof o.independent === "object" ? { verified: !!o.independent.verified, checker: S(o.independent.checker, 80) } : null, violated_safeguard: !!o.violated_safeguard, tokens: Number.isFinite(+o.tokens) ? +o.tokens : null, elapsed_ms: Number.isFinite(+o.elapsed_ms) ? +o.elapsed_ms : null, cost: Number.isFinite(+o.cost) ? +o.cost : null, note: o.note ? S(o.note, 300) : null });
+  const armOf = (o = {}) => ({ accepted: o.accepted !== false, reject_reason: o.accepted === false ? S(o.reject_reason || "not given", 200) : null, applied: !!o.applied, matched: !!o.matched, success: !!o.success, independent: o.independent && typeof o.independent === "object" ? { verified: !!o.independent.verified, checker: S(o.independent.checker, 80) } : null, violated_safeguard: !!o.violated_safeguard, invalid: !!o.invalid, tokens: Number.isFinite(+o.tokens) ? +o.tokens : null, elapsed_ms: Number.isFinite(+o.elapsed_ms) ? +o.elapsed_ms : null, cost: Number.isFinite(+o.cost) ? +o.cost : null, note: o.note ? S(o.note, 300) : null });
 
   function outcome(requestId, b = {}, { authAgent } = {}) {
     const q = reqs()[requestId]; if (!q) throw err(404, "no such request");
@@ -129,14 +132,18 @@ export function createRecipes({ store, issuer, orch, publicUrl = "", now = () =>
     let r = all()[q.recipe_id];
     if (!r || r.version !== q.recipe_version) { event({ ...base, event: "experience_recorded", stale_version: true }); return { ok: true, recorded: false, why: "the recipe changed since this request, the outcome is kept in the log but doesn't count" }; }
     r = structuredClone(r);
-    const add = (arm, v) => { const a = r.counts[arm === "recipe" ? "treated" : "control"]; a.n++; if (v.success) a.success++; if (v.independent) { a.indep_n++; if (v.independent.verified) a.indep_success++; } };
+    const add = (arm, v) => { const a = r.counts[arm === "recipe" ? "treated" : "control"]; a.n++; if (v.success) a.success++; if (v.independent) { a.indep_n++; if (v.independent.verified) a.indep_success++; else if (v.success) a.indep_wrong = (a.indep_wrong || 0) + 1; } };
     // отклонённый агентом рецепт не идёт в оценку: он не применялся. Причина отказа — в журнале и в счёте отказов
+    if (Object.values(res).some((v) => v.invalid)) { r.counts.invalid = (r.counts.invalid || 0) + 1; event({ ...base, event: "experience_recorded", invalid: true }); store.update("recipes", {}, (x) => { x[r.id] = r; }); return { ok: true, recorded: false, why: "an arm failed for infrastructure reasons, the pair doesn't count", recipe: { id: r.id, version: r.version, status: r.status } }; }
     if (res.recipe && !res.recipe.accepted) { r.rejected = (r.rejected || 0) + 1; r.reject_reasons = { ...(r.reject_reasons || {}), [res.recipe.reject_reason]: ((r.reject_reasons || {})[res.recipe.reject_reason] || 0) + 1 }; }
     else {
       for (const [arm, v] of Object.entries(res)) add(arm, v);
+      // 0.19.1: исход с учётом вреда. Верно = 1, воздержался = 0, принял неверное = -1: чужой номер хуже, чем никакого.
+      // Лучше та группа, у которой выше. Пара, где одна из групп упала по инфраструктуре (invalid), в оценку не идёт
       if (res.recipe && res.control && res.recipe.independent && res.control.independent) {
-        const a = res.recipe.independent.verified, c = res.control.independent.verified, P = r.counts.pairs; P.n++;
-        if (a && c) P.both++; else if (!a && !c) P.neither++; else if (a) P.recipe_only++; else P.control_only++;
+        const P = r.counts.pairs, sc = (v) => (v.independent.verified ? 1 : v.success ? -1 : 0), a = sc(res.recipe), c = sc(res.control);
+        if (a === 1 && c === 1) P.both++; else if (a === c) P.neither++; else if (a > c) P.recipe_only++; else P.control_only++;
+        P.n++; if (a === -1) P.recipe_wrong = (P.recipe_wrong || 0) + 1; if (c === -1) P.control_wrong = (P.control_wrong || 0) + 1;
       }
       if (res.recipe?.violated_safeguard) r.violations = (r.violations || 0) + 1;
     }

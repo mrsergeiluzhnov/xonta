@@ -1110,7 +1110,7 @@ await t("0.19: живые рецепты — группы назначает о�
   assert.throws(() => R.outcome(q0.request_id, { recipe: {}, control: {} }, { authAgent: "A" }), /another agent/);
   // парный режим с эталоном: 9 задач лучше с рецептом, 0 хуже, 3 одинаково
   for (let i = 0; i < 12; i++) { const q = R.request("B", { domain: "contact_search", category: "us_public", stage: "pages", task_id: `p${i}`, paired: true }); assert.equal(q.arm, "both"); assert.equal(q.recipe.id, r.id);
-    const out = R.outcome(q.request_id, { recipe: { applied: true, matched: i < 9, success: i < 10, independent: { verified: i < 9 || i === 11, checker: "sec_edgar" } }, control: { success: false, independent: { verified: i === 11, checker: "sec_edgar" } } }); assert.ok(out.recorded); }
+    const out = R.outcome(q.request_id, { recipe: { applied: true, matched: i < 9, success: i < 9 || i === 11, independent: { verified: i < 9 || i === 11, checker: "sec_edgar" } }, control: { success: false, independent: { verified: i === 11, checker: "sec_edgar" } } }); assert.ok(out.recorded); }
   const g = R.get(r.id); assert.equal(g.status, "proven", g.status_why); assert.equal(g.test.recipe_only, 9); assert.equal(g.test.control_only, 0); assert.ok(g.evaluation_vc, "подписанная оценка");
   assert.throws(() => R.outcome(R.events({ recipe: r.id }).find((e) => e.event === "task_completed").request_id, {}), /already/);
   // доказанный рецепт: часть задач остаётся контролем
@@ -1132,6 +1132,30 @@ await t("0.19: живые рецепты — группы назначает о�
   // журнал различает «получено», «применено», «проверено»
   const kinds = new Set(R.events({ recipe: r.id }).map((e) => e.event));
   for (const k of ["recommendation_requested", "recommendation_received", "recommendation_accepted", "recommendation_applied", "task_completed", "result_evaluated", "experience_recorded", "recipe_updated"]) assert.ok(kinds.has(k), k);
+  delete process.env.RECIPE_MIN_N;
+});
+
+await t("0.19.1: чужой номер хуже отказа, пара со сбоем инфраструктуры не в счёт — случай первого прогона на телефонах", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createRecipes } = await import("../src/recipes.js");
+  const store = openStore(mkdtempSync(join(tmpdir(), "rcp2-")));
+  store.update("agents", {}, (a) => { a.A = { id: "A", status: "active" }; a.B = { id: "B", status: "active" }; });
+  process.env.RECIPE_MIN_N = "10";
+  const R = createRecipes({ store, issuer: null, orch: { get: (id) => store.get("agents", {})[id] } });
+  const r = R.create("A", { domain: "contact_search", category: "us_public", stage: "context", technique: "labels:hq-wide", payload: { action: "hq_labels" } });
+  const ind = (v) => ({ verified: v, checker: "sec_edgar" });
+  const pair = (rec, ctl) => { const q = R.request("B", { domain: "contact_search", category: "us_public", task_id: String(Math.random()), paired: true }); return R.outcome(q.request_id, { recipe: rec, control: ctl }); };
+  // как в прогоне: 1 раз рецепт дал верный там, где контроль воздержался; 2 раза принял чужой номер там, где контроль воздержался
+  pair({ success: true, independent: ind(true) }, { success: false, independent: ind(false) });
+  for (let i = 0; i < 2; i++) pair({ success: true, independent: ind(false) }, { success: false, independent: ind(false) });
+  for (let i = 0; i < 4; i++) pair({ success: true, independent: ind(true) }, { success: true, independent: ind(true) });
+  for (let i = 0; i < 8; i++) pair({ success: false, independent: ind(false) }, { success: false, independent: ind(false) });
+  // сбой модели в контроле, а рецепт «верно» — раньше это шло в победы рецепта
+  for (let i = 0; i < 2; i++) assert.equal(pair({ success: true, independent: ind(true) }, { success: false, invalid: true, independent: ind(false) }).recorded, false);
+  const g = R.get(r.id);
+  assert.equal(g.counts.pairs.recipe_only, 1); assert.equal(g.counts.pairs.control_only, 2, "чужой номер — хуже, чем отказ");
+  assert.equal(g.counts.pairs.recipe_wrong, 2); assert.equal(g.counts.invalid, 2);
+  assert.notEqual(g.status, "proven"); assert.equal(g.status, "no_effect", g.status_why);
   delete process.env.RECIPE_MIN_N;
 });
 

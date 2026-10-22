@@ -1,0 +1,120 @@
+{
+ "at": "2026-10-22T13:47:38.805Z",
+ "list_sha256": "7cd6865c350b9491ecce481717316310599fdb3b98aa7cdd7f4c9a303bf764a4",
+ "companies": 199,
+ "train": 72,
+ "holdout": 127,
+ "explore_baseline": {
+  "n": 72,
+  "blocked": 22,
+  "no_pages": 7,
+  "no_candidates": 14,
+  "truth_among_candidates": 9,
+  "rejected_after_choice": 15,
+  "accepted": 6,
+  "correct": 5,
+  "wrong_accept": 1,
+  "tokens": 19009
+ },
+ "explore_summary": [
+  {
+   "technique": "locale:en-us",
+   "stage": "pages",
+   "n": 72,
+   "wins": 2,
+   "losses": 0,
+   "proposed": false
+  },
+  {
+   "technique": "pages:investor-and-offices",
+   "stage": "pages",
+   "n": 72,
+   "wins": 2,
+   "losses": 1,
+   "proposed": false
+  },
+  {
+   "technique": "labels:hq-wide",
+   "stage": "context",
+   "n": 72,
+   "wins": 5,
+   "losses": 1,
+   "proposed": true,
+   "recipe_id": "rcp_3ea00c0e37",
+   "status": "hypothesis"
+  }
+ ],
+ "transfer_control": {
+  "n": 127,
+  "blocked": 37,
+  "no_pages": 10,
+  "no_candidates": 30,
+  "truth_among_candidates": 19,
+  "rejected_after_choice": 41,
+  "accepted": 4,
+  "correct": 4,
+  "wrong_accept": 0,
+  "tokens": 54646
+ },
+ "transfer_paired_control": {
+  "n": 127,
+  "blocked": 37,
+  "no_pages": 10,
+  "no_candidates": 30,
+  "truth_among_candidates": 19,
+  "rejected_after_choice": 41,
+  "accepted": 4,
+  "correct": 4,
+  "wrong_accept": 0,
+  "tokens": 54646
+ },
+ "transfer_paired_recipe": {
+  "n": 127,
+  "blocked": 36,
+  "no_pages": 9,
+  "no_candidates": 33,
+  "truth_among_candidates": 19,
+  "rejected_after_choice": 35,
+  "accepted": 10,
+  "correct": 7,
+  "wrong_accept": 3,
+  "tokens": 50674
+ },
+ "per_recipe": {
+  "labels:hq-wide": {
+   "pairs": 127,
+   "both": 4,
+   "neither": 120,
+   "recipe_only": 3,
+   "control_only": 0,
+   "applied": 127,
+   "matched": 4,
+   "tok_r": 50674,
+   "tok_c": 54646
+  }
+ },
+ "recipes": [
+  {
+   "id": "rcp_3ea00c0e37",
+   "technique": "labels:hq-wide",
+   "version": 1,
+   "status": "no_effect",
+   "why": "paired, 3 better vs 0 worse of 127, not significant",
+   "test": {
+    "measured_treated": 127,
+    "measured_control": 127,
+    "pairs": 127,
+    "method": "paired_exact",
+    "p_better": 0.125,
+    "p_worse": 1,
+    "prob_better": null,
+    "discordant": 3,
+    "recipe_only": 3,
+    "control_only": 0,
+    "enough": true
+   },
+   "issued": 127,
+   "evaluation_vc": "urn:uuid:8ae68d86-183d-49e9-aa8e-7eddbdf2b265"
+  }
+ ]
+}
