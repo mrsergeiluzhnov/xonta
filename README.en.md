@@ -100,6 +100,10 @@ A short run of the same sandbox on a mock model, no keys and no network, about 1
 
 `npm run mcp-survey` takes remote servers from the open MCP registry, connects once to each and asks for the tool list. Tools are never called. It only counts what can be measured objectively: is the server reachable, does it require auth, can it prove who it is (a DID document on its domain), do tool descriptions show signs of hidden instructions. A repeat survey shows whose descriptions changed without a version bump. The summary contains numbers only, no server names, and there is no safe/unsafe rating.
 
+## Theme runs (0.20)
+
+Two new stand themes from 2026 incidents, dangerous infrastructure operations (an agent deleting a production database) and invoice payments (changed bank details, a hijacked supplier mailbox). Three agents with different approaches, children born on the orchestrator's advice, rules the agents propose from their own mistakes, and a recipe book that carries over from run to run of a theme. Every next run of a theme uses the same old tasks plus new ones, and the world changes by era, so it shows what stuck and what stopped working. `NET_MODE=domain NET_DOMAIN=ops|procurement`, code in `stand/domain-run.js`.
+
 ## Check coverage (0.19.3)
 
 A swapped agent used to be caught by its check spend dropping, and spend can be gamed with cheap checks. The orchestrator now also looks at which checks ran on each ticket. An agent that keeps spend normal and skips the precise customer lookup is caught after 5 tickets, without this after 20 and only mildly. On the logs of 9 past runs none of 465 decisions changed. [results/check-coverage](results/check-coverage/README.en.md).

@@ -1202,5 +1202,18 @@ await t("0.19.3: подделка расхода — деньги в норме,
   work("g", 9, 20, { gaming: true }); assert.equal(sup.review("g", { round: 9 }).team_back, false, "дешёвые проверки на прежнюю сумму без точной — команда не вернулась");
 });
 
+await t("0.20: тематический прогон на заглушке — экзамены, предложения агентов в книгу, потомки, память между прогонами темы", async () => {
+  const { mkdtempSync, readFileSync, existsSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path"), { execFileSync } = await import("node:child_process");
+  const root = mkdtempSync(join(tmpdir(), "dom-")), script = new URL("../stand/domain-run.js", import.meta.url).pathname;
+  const env = { ...process.env, LLM_PROVIDER: "mock", ORCH_ROOT: join(root, "orch"), NET_DOMAIN: "procurement", NET_DOMAIN_ROUNDS: "3", NET_DOMAIN_TASKS: "10", NET_DOMAIN_EXAM: "12", NET_DOMAIN_PORT: "4880" };
+  execFileSync(process.execPath, [script], { env: { ...env, STAND_DIR: join(root, "r1"), NET_RUN_ID: "t-1" }, stdio: "ignore", timeout: 300000 });
+  execFileSync(process.execPath, [script], { env: { ...env, STAND_DIR: join(root, "r2"), NET_RUN_ID: "t-2" }, stdio: "ignore", timeout: 300000 });
+  const meta = JSON.parse(readFileSync(join(root, "orch", "domain-procurement-meta", "meta.json"), "utf8"));
+  assert.equal(meta.runs.filter((r) => r.done).length, 2); assert.equal(meta.runs[1].era, 1, "второй прогон темы — следующая эпоха");
+  const r2 = JSON.parse(readFileSync(join(root, "r2", "run.json"), "utf8"));
+  assert.ok(r2.recipes_before.length > 0, "книга рецептов перешла из первого прогона"); assert.ok(r2.proposals.length > 0, "агенты предлагают правила");
+  assert.ok(readFileSync(join(root, "r2", "REPORT.md"), "utf8").includes("Сравнение с прошлым прогоном темы")); assert.ok(existsSync(join(root, "r2", "REPORT.en.md")));
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно
