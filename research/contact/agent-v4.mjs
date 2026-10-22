@@ -226,12 +226,12 @@ async function research({ company, site, strategy = null, phase = 'v4' }) {
   const cls = String(d.classification || 'unknown').toLowerCase();
   let reason = null;
   if (!sel) reason = 'model_selected_none';
-  else if (cls !== 'corporate') reason = 'not_corporate';
+  else if (!/corporate|headquarter|\bhq\b|head office|main|switchboard/.test(cls) || /support|sales|fax|regional|branch|investor|media/.test(cls)) reason = 'not_corporate';
   else { const h = heuristic(sel); if (h !== 'unknown') reason = 'evidence_indicates_' + h; else if (!corporateEvidence(sel, hq)) reason = 'corporate_context_missing'; }
   if (hq && sel && corporateEvidence(sel, hq) !== corporateEvidence(sel, null)) effects.push('label rule changed the decision');
   const ok = reason === null;
   return { ...base, stage_reached: ok ? 'accepted' : 'context', verified: ok, phone: ok ? sel.phone : null, digits: ok ? sel.digits : null, source: ok ? sel.source : null, quote: ok ? sel.context : null,
-    candidate_phone: sel?.phone || null, candidate_digits: sel?.digits || null, candidate_quote: sel?.context?.slice(0, 300) || null, classification: cls, rejection_reason: reason, model_reason: d.reason ? String(d.reason).slice(0, 200) : null,
+    candidate_phone: sel?.phone || null, candidate_digits: sel?.digits || null, candidate_quote: sel?.context?.slice(0, 300) || null, classification: cls, rejection_reason: reason, model_reason: d.reason ? String(d.reason).slice(0, 200) : null, model_classification: cls,
     candidates_n: ex.length, all_candidate_digits: ex.slice(0, 30).map((x) => x.digits), model_calls: 1, tokens: answer.usage?.total_tokens ?? null, matched: effects.length > 0, effects, elapsed_ms: Date.now() - started };
 }
 

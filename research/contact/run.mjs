@@ -124,7 +124,7 @@ async function smoke() {
   const T = truth(), row = T.rows.find((r) => r.ticker === (E.SMOKE || 'ADBE')) || T.rows[0];
   for (const [k, url] of [['A', E.AGENT_A_URL], ['B', E.AGENT_B_URL]]) {
     const res = await callAgent(url, { company: row.company, site: row.site, phase: 'smoke' }), sc = score(res, row);
-    log(`${k} ${row.company}: ${sc.correct ? 'CORRECT' : sc.wrong_accept ? 'accepted but WRONG' : sc.reason}, pages ${(res.pages || []).length}, candidates ${res.candidates_n ?? 0}, tokens ${sc.tokens}, ${Math.round(sc.ms / 1000)} s${res.model_error ? `, model error ${res.model_error}` : ''}${(res.errors || []).length ? `; errors ${res.errors.slice(0, 3).map((e) => `${e.url} ${e.error}`).join('; ')}` : ''}${res.candidate_phone ? `; chose ${res.candidate_phone}, truth ${row.truth_phone}` : ''}`);
+    log(`${k} ${row.company}: ${sc.correct ? 'CORRECT' : sc.wrong_accept ? 'accepted but WRONG' : sc.reason}, pages ${(res.pages || []).length}, candidates ${res.candidates_n ?? 0}, tokens ${sc.tokens}, ${Math.round(sc.ms / 1000)} s${res.model_error ? `, model error ${res.model_error}` : ''}${(res.errors || []).length ? `; errors ${res.errors.slice(0, 3).map((e) => `${e.url} ${e.error}`).join('; ')}` : ''}${res.candidate_phone ? `; chose ${res.candidate_phone} as "${res.classification}", truth ${row.truth_phone}` : ''}`);
   }
 }
 
