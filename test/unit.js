@@ -799,10 +799,12 @@ await t("0.16: справочник оркестраторов — визитк�
     const k2 = (await call(A, "POST", `/v1/agents/${rb.id}/children`, { name: "kid-bad", mcp_url: kidBad.mcp, specialization: "late", field: fa.id }, rb.owner_token)).body;
     await ownerCall(owner, `${kidGood.url}/owner/challenge`, { token: k1.body.domain_challenge.content }); await call(A, "POST", `/v1/agents/${k1.body.id}/domain-check`, {}, rb.owner_token);
     await ownerCall(owner, `${kidBad.url}/owner/challenge`, { token: k2.domain_challenge.content }); await call(A, "POST", `/v1/agents/${k2.id}/domain-check`, {}, k2.owner_token);
-    for (const k of [k1.body, k2]) { const e = await call(A, "POST", `/v1/agents/${k.id}/field-exam`, { field: fa.id, category: "late", tasks: 10, seed: "y" }, rb.owner_token); assert.equal(e.status, 200, JSON.stringify(e.body)); assert.equal(e.body.metrics.cases, 10); }
+    for (const k of [k1.body, k2]) { const e = await call(A, "POST", `/v1/agents/${k.id}/field-exam`, { field: fa.id, category: "late", tasks: 10, seed: "y" }, rb.owner_token); assert.equal(e.status, 200, JSON.stringify(e.body)); assert.equal(e.body.metrics.cases, 10);
+      // 0.22.1: экзамен по категории ниже половины — самостоятельных действий нет (run-red-1: специалист с 8,3% получал публикации до 30 000 ₽)
+      if (k === k2) { assert.ok(e.body.metrics.accuracy < 50); assert.equal(e.body.mandate.credentialSubject.actions_per_period, 0); assert.equal(e.body.mandate.credentialSubject.irreversible_per_period, 0); } }
     adv = (await call(A, "GET", `/v1/agents/${rb.id}/descendant-advice`, null, rb.owner_token)).body;
     assert.equal(adv.keep.length, 1, JSON.stringify(adv)); assert.equal(adv.keep[0].child, k1.body.id);
-    assert.equal(adv.remove.length, 1); assert.equal(adv.remove[0].child, k2.id); assert.match(adv.remove[0].why, /no better than the parent/);
+    assert.equal(adv.remove.length, 1); assert.equal(adv.remove[0].child, k2.id); assert.match(adv.remove[0].why, /another agent does better than this child/, "0.22.1: плохой потомок сравнивается с лучшим соседом, а не только с родителем"); assert.equal(adv.remove[0].best_other_agent, rg.id);
     assert.equal(adv.spawn.length, 0, "потомок по «late» уже есть — рожать ещё не советуем");
     // обход справочника обновляет визитку B (набор там появился после записи)
     const sc = await call(A, "POST", "/v1/admin/directory/scan", {}, "adm"); assert.equal(sc.body.listed, 1, JSON.stringify(sc.body));
@@ -1130,14 +1132,14 @@ await t("0.19: живые рецепты — группы назначает о�
   for (let i = 0; i < 12; i++) { const q = R.request("B", { domain: "contact_search", category: "us_public", stage: "pages", task_id: `p${i}`, paired: true }); assert.equal(q.arm, "both"); assert.equal(q.recipe.id, r.id);
     const out = R.outcome(q.request_id, { recipe: { applied: true, matched: i < 9, success: i < 9 || i === 11, independent: { verified: i < 9 || i === 11, checker: "sec_edgar" } }, control: { success: false, independent: { verified: i === 11, checker: "sec_edgar" } } }); assert.ok(out.recorded); }
   const g = R.get(r.id); assert.equal(g.status, "proven", g.status_why); assert.equal(g.test.recipe_only, 9); assert.equal(g.test.control_only, 0); assert.ok(g.evaluation_vc, "подписанная оценка");
-  assert.throws(() => R.outcome(R.events({ recipe: r.id }).find((e) => e.event === "task_completed").request_id, {}), /already/);
+  assert.throws(() => R.outcome(R.events({ recipe: r.id }).rows.find((e) => e.event === "task_completed").request_id, {}), /already/);
   // доказанный рецепт: часть задач остаётся контролем
   const arms = Array.from({ length: 60 }, (_, i) => R.request("B", { domain: "contact_search", category: "us_public", stage: "pages", task_id: `c${i}` }).arm);
   assert.ok(arms.includes("control") && arms.filter((a) => a === "recipe").length > 30, "контроль остаётся, но рецепт чаще");
   // отказ агента от рецепта в оценку не идёт, причина сохраняется
   const qr = R.request("B", { domain: "contact_search", category: "us_public", stage: "pages", task_id: "rej", paired: true });
   R.outcome(qr.request_id, { recipe: { accepted: false, reject_reason: "site has no locale paths" }, control: { success: false, independent: { verified: false, checker: "x" } } });
-  assert.equal(R.get(r.id).counts.pairs.n, 12); assert.ok(R.events({ recipe: r.id }).some((e) => e.event === "recommendation_rejected" && e.reason === "site has no locale paths"));
+  assert.equal(R.get(r.id).counts.pairs.n, 12); assert.ok(R.events({ recipe: r.id }).rows.some((e) => e.event === "recommendation_rejected" && e.reason === "site has no locale paths"));
   // новая версия — счёт с нуля; ответ по старой версии не считается
   const old = R.request("B", { domain: "contact_search", category: "us_public", stage: "pages", task_id: "old", paired: true });
   const r2 = R.create("A", { domain: "contact_search", category: "us_public", stage: "pages", technique: "locale:en-us", payload: { action: "prefer_locale", locale: "en-US", also: "/us/en/" } });
@@ -1148,7 +1150,7 @@ await t("0.19: живые рецепты — группы назначает о�
   for (let i = 0; i < 12; i++) { const q = R.request("B", { domain: "contact_search", category: "eu", task_id: `b${i}`, paired: true }); R.outcome(q.request_id, { recipe: { applied: true, independent: { verified: false, checker: "wikidata" } }, control: { independent: { verified: i < 9, checker: "wikidata" } } }); }
   assert.equal(R.get(bad.id).status, "revoked"); assert.equal(R.request("B", { domain: "contact_search", category: "eu", task_id: "after" }).recipe, null);
   // журнал различает «получено», «применено», «проверено»
-  const kinds = new Set(R.events({ recipe: r.id }).map((e) => e.event));
+  const kinds = new Set(R.events({ recipe: r.id }).rows.map((e) => e.event));
   for (const k of ["recommendation_requested", "recommendation_received", "recommendation_accepted", "recommendation_applied", "task_completed", "result_evaluated", "experience_recorded", "recipe_updated"]) assert.ok(kinds.has(k), k);
   delete process.env.RECIPE_MIN_N;
 });
@@ -1286,6 +1288,29 @@ await t("0.22: приём оценивается по цене ошибки и �
   const h = adv.descendants("a");
   assert.equal(h.spawn.length, 1, JSON.stringify(h)); assert.equal(h.spawn[0].basis, "harm"); assert.equal(h.spawn[0].best_agent, "b"); assert.equal(h.route_to_human.length, 0);
   peers.write.b.harm = 27; assert.equal(adv.descendants("a").spawn.length, 0, "вред меньше всего на 10% — не повод");
+});
+
+await t("0.22.1: версия правил подсчёта в вердикте и архив пар по старым правилам; журнал говорит, полон ли он (комментарий к статье); плохой потомок без права действовать сам", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createRecipes, SCORING } = await import("../src/recipes.js");
+  const store = openStore(mkdtempSync(join(tmpdir(), "score-")));
+  store.put("agents", { a: { id: "a", did: "did:a" }, b: { id: "b", did: "did:b" } });
+  const R = createRecipes({ store, issuer: null, orch: { get: (id) => store.get("agents")[id] }, rand: () => 0.1 });
+  const r = R.create("a", { domain: "d", category: "c", technique: "t", payload: { do: "x" } });
+  assert.equal(r.scoring, SCORING); assert.equal(r.counts.scoring, SCORING);
+  // рецепт, записанный до 0.19.1 и без штампа: пары по старым правилам
+  store.update("recipes", {}, (x) => { const y = x[r.id]; delete y.counts.scoring; delete y.counts_since; y.created = "2026-10-21T10:00:00Z"; y.counts.pairs = { n: 14, both: 2, neither: 2, recipe_only: 9, control_only: 1 }; y.status = "proven"; y.status_why = "old"; });
+  assert.equal(R.get(r.id).scoring, "0.19", "без штампа версия восстанавливается по дате");
+  const q = R.request("b", { domain: "d", category: "c", task_id: "t1", paired: true });
+  const got = R.get(r.id); assert.equal(got.scoring, SCORING); assert.equal(got.counts.pairs.n, 0, "старые пары не складываются с новыми"); assert.equal(got.status, "hypothesis");
+  assert.equal(got.archived_counts.length, 1); assert.equal(got.archived_counts[0].scoring, "0.19"); assert.equal(got.archived_counts[0].status, "proven"); assert.equal(got.archived_counts[0].pairs, 14);
+  R.outcome(q.request_id, { recipe: { accepted: true, applied: true, success: true, independent: { verified: true, checker: "x" } }, control: { success: false, independent: { verified: false, checker: "x" } } });
+  const a = R.audit(r.id); assert.equal(a.counters.pairs, 1); assert.equal(a.ledger.pairs, 1); assert.equal(a.complete, true, JSON.stringify(a));
+  // счётчик есть, а строки в журнале нет — сверка это видит
+  store.update("recipe_requests", {}, (x) => { delete x[q.request_id]; });
+  const b = R.audit(r.id); assert.equal(b.complete, false); assert.equal(b.missing_from_ledger.pairs, 1);
+  const ev = R.events({ recipe: r.id, limit: 2 }); assert.equal(ev.returned, 2); assert.ok(ev.total > 2); assert.equal(ev.complete, false); assert.equal(ev.next_offset, 2);
+  assert.ok(R.events({ recipe: r.id }).rows.some((e) => e.event === "recipe_rescored" && e.from === "0.19"));
 });
 
 console.log(`\nALL PASSED (${passed})`);

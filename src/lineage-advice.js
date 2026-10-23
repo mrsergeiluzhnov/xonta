@@ -15,7 +15,8 @@
 //    человеку. Специалист тут был бы догадкой, а человек дешевле уже сейчас.
 //  Убрать потомка — надзор поднял его до карантина или отзыва; или по своей категории он не лучше родителя (точность не выше на
 //    child_gap п.п. и вред не ниже на 20%); или за idle_days дней у него нет ни одного экзамена.
-//  Оставить потомка — по своей категории он лучше родителя, с цифрами.
+//  Оставить потомка — по своей категории он лучше родителя, с цифрами. 0.22.1: и не хуже лучшего другого агента в этой
+//    категории (на peer_gap п.п. по точности или на peer_harm_gap по вреду) — иначе совет убрать и отдать категорию тому агенту.
 //  Обратиться к другому оркестратору — в справочнике есть проверенный оркестратор, у которого по слабой категории агента больше
 //    опыта (больше агентов прошли эту категорию или есть приёмы, измеренные против контроля). Отдельно — где тот же набор заданий
 //    стоит у другого оркестратора: экзамен там даст второй подписанный аттестат от независимого эмитента.
@@ -93,6 +94,19 @@ export function createLineageAdvice({ store, orch, fields, dir = null, exp = nul
       if (lvl >= 3 || k.status === "suspended") { remove.push({ ...base, why: `supervision put it at "${LEVELS[lvl]}"${k.status === "suspended" ? ", the agent is suspended" : ""}. It costs you risk and gives nothing back.`, why_ru: `Надзор поднял его до уровня «${LEVELS[lvl]}»${k.status === "suspended" ? ", агент приостановлен" : ""}. Риск есть, пользы нет.`, how }); continue; }
       const fid = k.field || Object.keys(full).find((x) => latestCat(k.id, x, k.specialization)) || null;
       const kc = fid && k.specialization ? latestCat(k.id, fid, k.specialization) : null, pc = fid && k.specialization ? latestCat(rec.id, fid, k.specialization) : null;
+      // 0.22.1 (ошибка 35, run-red-1): сравнивать потомка не только с родителем, но и с лучшим другим агентом в его категории.
+      // Там специалист по справкам набрал 8,3% против 0% у родителя и получил «оставить», а соседи решали эту категорию на 100%
+      const kidsOwn = new Set([k.id, rec.id, ...descendantIds(rec)]);
+      const peerBest = fid && k.specialization ? Object.entries(fields.categoryResults(fid, k.specialization)).filter(([id, x]) => !kidsOwn.has(id) && x.n >= C.min_n).map(([id, x]) => ({ id, acc: x.ok / x.n, hpt: x.harm / x.n })).sort((a, b) => b.acc - a.acc || a.hpt - b.hpt)[0] || null : null;
+      if (kc && kc.n >= C.min_n && peerBest) {
+        const ka = kc.ok / kc.n, kh = kc.harm / kc.n;
+        if (peerBest.acc >= ka + C.peer_gap || (peerBest.acc >= ka - C.child_gap && peerBest.hpt <= kh * (1 - C.peer_harm_gap) && kh > 0)) {
+          remove.push({ ...base, field: fid, child_accuracy: pct(ka), child_harm_per_task: r2(kh), best_other_agent: peerBest.id, best_other_accuracy: pct(peerBest.acc), best_other_harm_per_task: r2(peerBest.hpt),
+            why: `on "${k.specialization}" another agent does better than this child: ${pct(peerBest.acc)}% vs ${pct(ka)}%, harm ${r2(peerBest.hpt)} vs ${r2(kh)} per task. Route the category to that agent or to a human and retire the child.`,
+            why_ru: `По «${k.specialization}» другой агент справляется лучше этого потомка: ${pct(peerBest.acc)}% против ${pct(ka)}%, вред ${r2(peerBest.hpt)} против ${r2(kh)} на задание. Отдайте категорию тому агенту или человеку, потомка уберите.`, how });
+          continue;
+        }
+      }
       if (kc && pc && kc.n >= C.min_n && pc.n >= C.min_n) {
         const ka = kc.ok / kc.n, pa = pc.ok / pc.n, kh = kc.harm / kc.n, ph = pc.harm / pc.n;
         const nums = { ...base, field: fid, child_accuracy: pct(ka), parent_accuracy: pct(pa), child_harm_per_task: r2(kh), parent_harm_per_task: r2(ph) };

@@ -177,6 +177,10 @@ export function createFields({ store, issuer, orch, publicUrl, exp = null }) {
     const ta = tierOf("OWNER_TIER_ACTIONS", "0.34,0.67,1"), tp = tierOf("OWNER_TIER_PER_ACTION", "0.25,0.5,1");
     const full = { start: m.trust.start_actions, target: m.trust.target_actions, per: m.trust.max_harm_per_action };
     if (ta < 1 || tp < 1) m.trust = { ...m.trust, start_actions: full.start ? Math.max(1, Math.floor(full.start * ta)) : 0, target_actions: full.target ? Math.max(1, Math.floor(full.target * ta)) : 0, max_harm_per_action: Math.round(full.per * tp), why: `${m.trust.why}. Owner level ${ol.level} (${ol.name}): ${Math.round(ta * 100)}% of the actions and ${Math.round(tp * 100)}% of the per-action cap, full rights after owner verification` };
+    // 0.22.1 (run-red-1): экзамен по одной категории ниже половины верных — самостоятельных действий нет, только советы.
+    // Специалист по справкам с 8,3% получал тот же стартовый лимит, что и все, и публикации до 30 000 ₽ за раз
+    const narrowMin = Number(process.env.FIELD_NARROW_MIN_ACCURACY || 50);
+    if (category && m.accuracy < narrowMin && m.trust.start_actions > 0) m.trust = { ...m.trust, start_actions: 0, why: `${m.trust.why}; category exam ${m.accuracy}% is below ${narrowMin}%: advisory only until it improves` };
     const mandate = issuer.issue("ActionMandate", { id: rec.did, field: f.id, actions_per_period: m.trust.start_actions, target_actions: m.trust.target_actions, harm_budget: budget, max_harm_per_action: m.trust.max_harm_per_action, owner_level: ol.level, owner_level_name: ol.name, irreversible_per_period: Math.ceil(m.trust.start_actions / 4), sensitive_data: privacyLimit(rec.id), currency: cur, basis: { evaluation: vc.id, harm_per_action: m.harm_per_action, harm_per_action_upper: m.harm_per_action_upper, worst_single_harm: m.worst_single_harm, accuracy: m.accuracy }, reason: m.trust.why, recommendation: true, applies: "владелец выпускает токен действий с этим лимитом у шлюза; без шлюза — рекомендация" }, { validDays: 14, agentId: rec.id });
     // опыт по сфере
     store.update("fields_stats", {}, (x) => {
