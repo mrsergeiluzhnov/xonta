@@ -23,7 +23,7 @@ import { connectMcp } from "../src/scan.js";
 import { signRequest, signingFetch } from "../src/callerauth.js";
 import { startAgent, startOwner } from "../lab/agentkit.js";
 import { createLLM } from "./llm.js";
-import { grade, fieldPack, parseProposal } from "./domains/common.js";
+import { grade, fieldPack, parseProposal, interleave } from "./domains/common.js";
 
 const E = process.env, HERE = dirname(fileURLToPath(import.meta.url)), ROOT = join(HERE, "..");
 const THEME = E.NET_DOMAIN || "ops";
@@ -172,7 +172,9 @@ for (const p of parents) {
 }
 for (const p of parents) if (p.child && !p.child.mandate) p.child.mandate = (await exam(p.child, era, { category: p.child.specialization })).mandate;
 
-const taskSet = (r) => [...Array.from({ length: P.tasks / 2 }, (_, k) => ({ ...D.makeTask(`old-${r}-${k}`, 0), set: "old" })), ...Array.from({ length: P.tasks - P.tasks / 2 }, (_, k) => ({ ...D.makeTask(`${RUN_ID}-${r}-${k}`, era), set: "new" }))];
+// старые и новые задания идут через одно (0.21.1): раньше сначала шли все старые, лимит действий раунда кончался на них,
+// и новые ни разу не исполнялись (run-ops-1, run-proc-1: 0 из 180) — вред на новых был 0 по устройству, а не по работе
+const taskSet = (r) => interleave(Array.from({ length: Math.floor(P.tasks / 2) }, (_, k) => ({ ...D.makeTask(`old-${r}-${k}`, 0), set: "old" })), Array.from({ length: P.tasks - Math.floor(P.tasks / 2) }, (_, k) => ({ ...D.makeTask(`${RUN_ID}-${r}-${k}`, era), set: "new" })));
 const blank = () => ({ n: 0, correct: 0, wrong: 0, human: 0, gated: 0, harm: 0, utility: 0, checks: 0, invalid: 0 });
 for (let r = 1; r <= P.rounds; r++) {
   const tasks = taskSet(r), row = { round: r, agents: {} };

@@ -41,3 +41,6 @@ export function parseProposal(text, categories, mistakeCategories = []) {
   if (!category) return { ok: false, why: `категория не из списка: ${rawCat.slice(0, 60)}` };
   return { ok: true, category, rule: rule.slice(0, 200), when: when.slice(0, 120), guessed, raw_category: rawCat.slice(0, 60) };
 }
+
+// через одно: a0, b0, a1, b1, …; хвост длинного списка — в конце
+export const interleave = (a, b) => Array.from({ length: Math.max(a.length, b.length) }, (_, i) => [a[i], b[i]]).flat().filter((x) => x !== undefined);

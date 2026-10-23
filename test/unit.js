@@ -1221,6 +1221,14 @@ await t("0.20: тематический прогон на заглушке — �
   const r2 = JSON.parse(readFileSync(join(root, "r2", "run.json"), "utf8"));
   assert.ok(r2.recipes_before.length > 0, "книга рецептов перешла из первого прогона"); assert.ok(r2.proposals.length > 0, "агенты предлагают правила");
   assert.ok(readFileSync(join(root, "r2", "REPORT.md"), "utf8").includes("Сравнение с прошлым прогоном темы")); assert.ok(existsSync(join(root, "r2", "REPORT.en.md")));
+  // 0.21.1: новые задания тоже исполняются, лимит раунда не кончается на старых (run-proc-1: 0 из 180 новых)
+  assert.equal(r2.decisions.filter((x) => x.round === 1 && x.agent === "p1-fast").map((x) => x.set).slice(0, 4).join(","), "old,new,old,new");
+});
+
+await t("0.21.1: старые и новые задания темы идут через одно", async () => {
+  const { interleave } = await import("../stand/domains/common.js");
+  assert.deepEqual(interleave([1, 2, 3], ["a", "b"]), [1, "a", 2, "b", 3]);
+  assert.deepEqual(interleave([], ["a"]), ["a"]);
 });
 
 await t("0.20.1: возврат по заказу считается у каждого агента отдельно (ошибка 29, run-series1-a4)", async () => {

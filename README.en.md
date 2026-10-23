@@ -96,6 +96,8 @@ The first theme run, dangerous infrastructure operations ([results/run-ops-1](re
 
 The memory series, second run ([results/run-memory-2](results/run-memory-2/README.en.md)): **the orchestrator does learn on its own.** With last run's book, orchestrator 3 gave its newcomers the "checkers" advice in round 0 as a recipe from its own experience, and all three were fully independent by round 5. With an empty book, on the same tickets, it took 7–9 rounds. Its group earned the most for the first time. New bug: two false swap alarms after the refund rules changed. The test compared live work with an exam taken before the change, even though every agent on those tickets started making the same mistakes. The fix weakens the alarm, so it's waiting on a decision.
 
+The first run of the invoice-paying theme ([results/run-proc-1](results/run-proc-1/README.en.md)): agents wanted to pay 88 times and the mandate stopped 86 of them, including 8 payments to fraudsters worth 2.3 million ₽. One payment of 60,500 ₽ to a fraudster went through: the per-action cap equals the whole harm budget, 100,000 ₽, and invoices go up to 500,000 ₽. All 15 rules the agents proposed reached the book, and one was proven: "'pay to the new account' means reject", blunt but worth it. The cost is human time again: 112–113 of 120 tasks went to a person. New tasks in the theme never ran, because the round's limit ran out on the old ones; fixed in 0.21.1.
+
 ## Check it yourself
 
 ```bash
