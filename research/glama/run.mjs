@@ -70,7 +70,9 @@ const llm = createLLM({ provider: E.LLM_PROVIDER || "mock", model: P.model, role
 const SYSTEM = (rules = []) => `Ты аудитор инструментов MCP. По названию, описанию и параметрам инструмента определи, что он делает с внешним миром:\n- read_only — только читает, ничего не меняет;\n- changes_reversible — меняет, но это можно отменить или исправить (создать черновик, обновить поле, архивировать);\n- changes_irreversible — меняет так, что не отменить (удалить, отправить сообщение, заплатить, опубликовать);\n- ${HUMAN} — по описанию понять нельзя.\nТакже скажи, понятно ли из описания, что инструмент делает и чем грозит (clear), и что в описании настораживает (concerns, коротко, можно пусто). Пометок издателя ты не видишь.${rules.length ? `\nПравила, которые надо соблюдать:\n- ${rules.join("\n- ")}` : ""}\nОтвечай только JSON: {"label":"...","clear":true|false,"concerns":["..."],"reason":"коротко"}`;
 async function audit(t, rules = []) {
   const r = await llm.json(SYSTEM(rules), `STEP:audit\n${JSON.stringify(taskOf(t))}`).catch((e) => ({ error: e.message }));
-  const label = [...LABELS, HUMAN].includes(String(r?.label)) ? String(r.label) : null;
+  // модель иногда пишет ярлык по-своему («только читает», "read-only", "irreversible") — приводим к списку, остальное — сбой
+  const norm = (x) => { const v = String(x || "").toLowerCase().trim(); if ([...LABELS, HUMAN].includes(v)) return v; if (/unsure|не понять|неясн|непонят|unknown/.test(v)) return HUMAN; if (/irrevers|необрат|без возможности|нельзя отменить/.test(v)) return "changes_irreversible"; if (/revers|обрат|можно отменить/.test(v)) return "changes_reversible"; if (/read|чита/.test(v)) return "read_only"; return null; };
+  const label = norm(r?.label);
   return { label: label || HUMAN, invalid: !label, clear: r?.clear === true, concerns: (Array.isArray(r?.concerns) ? r.concerns : []).map((x) => String(x).slice(0, 120)).slice(0, 4), reason: String(r?.reason || r?.error || "").slice(0, 160) };
 }
 
@@ -141,7 +143,9 @@ if (field) {
 // ---------- выборка строк для аудита ----------
 // все с пометками издателя (для них есть эталон и на них меряются правила) плюс равномерная выборка остальных по отпечатку
 const rest = tools.filter((t) => !t.pub).sort((a, b) => fp(`${RUN_ID}|${a.id}`).localeCompare(fp(`${RUN_ID}|${b.id}`)));
-const sample = [...annotated.slice(0, Math.ceil(P.rows / 2)), ...rest].slice(0, Math.min(P.rows, tools.length)).sort((a, b) => fp(a.id + run.index).localeCompare(fp(b.id + run.index)));
+const annSorted = annotated.slice().sort((a, b) => fp(`${RUN_ID}|${a.id}`).localeCompare(fp(`${RUN_ID}|${b.id}`)));
+const half = Math.max(Math.ceil(P.rows / 2), P.rows - rest.length); // если без пометок мало (только удалённые серверы) — добираем строками с пометками
+const sample = [...annSorted.slice(0, half), ...rest].slice(0, Math.min(P.rows, tools.length)).sort((a, b) => fp(a.id + run.index).localeCompare(fp(b.id + run.index)));
 
 // ---------- массовая задача: аудит с независимой перепроверкой ----------
 const job = await api("POST", `/v1/agents/${auditor.id}/jobs`, { name: "Аудит инструментов каталога Glama", total_rows: sample.length, success: { description: "инструмент описан так, что агенту понятно, что он делает и чем грозит, и ничего не требует внимания" }, floor: 0.2, verification: "agent", max_batch: P.batch, window: P.batch }, { signer: ownerA });
@@ -239,7 +243,7 @@ ${credit.ru}
 - серверов ${S.servers}, инструментов ${S.tools}${S.scanned?.server_cards ? ` (открыто карточек серверов ${S.scanned.server_cards.opened}, инструменты есть у ${S.scanned.server_cards.with_tools}${S.scanned.server_cards.skipped ? ", эта часть пропущена: в API у них инструментов нет" : ""}; удалённых в списке ${S.scanned.connectors?.scanned}, взято ${S.scanned.connectors?.kept})` : ""}
 - без описания или с описанием короче 10 символов: ${S.no_description}% инструментов
 - параметры с описанием: в среднем ${S.params_described}%
-- у удалённых серверов издатель пометил, читает инструмент или меняет: ${S.annotated ?? "—"}% инструментов
+- у удалённых серверов издатель пометил, читает инструмент или меняет: ${S.annotated ?? "—"}% инструментов (если 100% - возможно, Glama подставляет значения по умолчанию там, где издатель ничего не указал; это проверяется отдельно)
 - по названию (сканер Xonta): только читают ${S.scanner_kind.read_only}%, меняют обратимо ${S.scanner_kind.changes_reversible}%, необратимо ${S.scanner_kind.changes_irreversible}%
 
 ## Требуют внимания
