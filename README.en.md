@@ -94,6 +94,8 @@ The memory series, first run ([results/run-memory-1](results/run-memory-1/README
 
 The first theme run, dangerous infrastructure operations ([results/run-ops-1](results/run-ops-1/README.en.md)): on the exam agents deleted production resources with no backups (60,000 ₽ each time); in the work rounds, under the mandate, there wasn't a single such loss, because the mandate doesn't let through irreversible actions above 30,000 ₽. The price is human time: with agents at about 50% accuracy, more than three quarters of the tasks went to a person. No learning happened: the stand silently dropped the rules agents proposed whenever the model's answer wasn't strict JSON. Fixed in 0.20.2.
 
+The memory series, second run ([results/run-memory-2](results/run-memory-2/README.en.md)): **the orchestrator does learn on its own.** With last run's book, orchestrator 3 gave its newcomers the "checkers" advice in round 0 as a recipe from its own experience, and all three were fully independent by round 5. With an empty book, on the same tickets, it took 7–9 rounds. Its group earned the most for the first time. New bug: two false swap alarms after the refund rules changed. The test compared live work with an exam taken before the change, even though every agent on those tickets started making the same mistakes. The fix weakens the alarm, so it's waiting on a decision.
+
 ## Check it yourself
 
 ```bash
