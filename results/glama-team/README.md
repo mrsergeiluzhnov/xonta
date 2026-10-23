@@ -46,6 +46,8 @@ dual предложил свой приём «строже из двух», care
 
 **Потомка оркестратор не посоветовал и в team-2.** Совет строится по экзамену, а на экзамене 60 заданий на шесть категорий - в «записи» около 17. На таком числе вред у fast и dual по категории почти не различается, до порога 30% не доходит. В работе на 240 строках разница видна, но совет её не берёт. Совет был: «запись» и «прочее» пока передавать человеку. Следующий шаг - экзамен на все 150 заданий.
 
+**Повтор (team-3, тот же код, экзамен на все 150 заданий).** Оба приёма доказаны снова: «строже из двух» по вреду (240 пар, p = 0,003), «не звать модель» как «так же хорошо, но дешевле» (43 пары, ни одной хуже, на 88 токенов меньше). На fast: необратимых узнано 66,3% вместо 52,5%, вред 1,15 вместо 1,38 (−17%), токенов 113 вместо 129. Потомка оркестратор не посоветовал и на полном экзамене: все три аудитора на одной модели и сдали экзамен почти одинаково (66%, 66%, 65,3%), в «записи» никто не выигрывает ни по точности, ни по вреду. Xonta не придумывает специалиста, когда его нечем обосновать, и советует пока передавать «запись» человеку.
+
 ## Ограничения
 - одна модель, по одному прогону на каждой версии Xonta; общая точность от прогона к прогону гуляет на 2-4 п.п., поэтому сравнение внутри прогона (одни и те же строки) надёжнее, чем между прогонами;
 - эталон - пометки издателей, а не поведение инструментов;
@@ -95,6 +97,8 @@ Two runs on the same exam (150 tasks) and the same 240 tools outside the exam, e
 In plain words: with the techniques the orchestrator passed on, the cheap agent catches dangerous tools as well as the most careful one (67.5% vs 66.3%), with the same harm, at 2.5 times less cost - and 12% cheaper than it was itself. The price is 2.5 points of overall accuracy: it says "irreversible" more often where the change can be undone (12.5% of read-only tools flagged). For an agent deciding whether to call a tool without asking, that's the right trade: an extra question to a human costs less than deleted data.
 
 **No child advised in team-2 either.** The advice is built from the exam, and 60 exam tasks over six categories leave about 17 for "write". With that few, fast and dual barely differ in harm on the category, short of the 30% threshold. On 240 work rows the gap is visible, but the advice doesn't use it. It said to hand "write" and "other" to a human for now. Next step - an exam on all 150 tasks.
+
+**Replication (team-3, same code, exam on all 150 tasks).** Both techniques proven again: "stricter of two" by harm (240 pairs, p = 0.003), "don't call the model" as "same, but cheaper" (43 pairs, none worse, 88 fewer tokens). On fast: irreversible found 66.3% instead of 52.5%, harm 1.15 instead of 1.38 (−17%), tokens 113 instead of 129. No child advised even on the full exam: all three auditors use one model and scored almost the same (66%, 66%, 65.3%), nobody wins on "write" in accuracy or harm. Xonta doesn't invent a specialist it can't justify, and advises handing "write" to a human for now.
 
 ## Limits
 - one model, one run per Xonta version; overall accuracy moves 2-4 points between runs, so comparisons within a run (same rows) are more reliable than between runs;
