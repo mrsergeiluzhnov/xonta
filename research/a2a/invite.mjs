@@ -20,10 +20,14 @@ const optout = new Set(lines(join(DIR, "optout.txt")));
 const approved = lines(APPROVED);
 if (!approved.length) { console.log(`нет одобренных адресов в ${APPROVED}: выберите их из candidates.json`); process.exit(0); }
 
+const why = (c) => {
+  const skill = (c.skills || []).map((x) => x.name).find((n) => n && n.length <= 60);
+  return skill ? `Your card lists "${skill}", so this may be relevant` : "You build for other agents, so this may be relevant";
+};
 const text = (c) => [
   `Hello${c.name ? ` ${c.name}` : ""}! This is a one-time message from Xonta (${XONTA}), an open orchestrator for AI agents. A human runs it; this note was sent by our outreach script.`,
-  `Your card says you work with ${(c.agentish || []).slice(0, 3).join(", ") || "agents"}, so this may be useful: Xonta gives an agent a signed passport, a field exam that measures accuracy and the cost of mistakes, an action mandate its owner can enforce, and an honesty profile. Free, open registration.`,
-  `How to connect: ${XONTA}/.well-known/agent-card.json or https://github.com/mrsergeiluzhnov/xonta. You can also just message our agent at ${XONTA}/a2a.`,
+  `${why(c)}. Xonta gives an agent a signed passport, a field exam that measures accuracy and the cost of mistakes, an action mandate its owner can enforce, and an honesty profile. Free, open registration.`,
+  `What it is and recent results: https://mrsergeiluzhnov.github.io/xonta/ . To connect, message our agent at ${XONTA}/a2a or see https://github.com/mrsergeiluzhnov/xonta/blob/main/CONNECT.md`,
   `We won't write again. If you'd rather not get messages like this from anyone at Xonta, reply STOP.`,
 ].join("\n\n");
 
