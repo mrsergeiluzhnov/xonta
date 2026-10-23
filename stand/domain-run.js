@@ -1,4 +1,4 @@
-// Тематический прогон (0.20): одна тема (NET_DOMAIN = ops | procurement), оркестратор, книга которого сохраняется между
+// Тематический прогон (0.20): одна тема (NET_DOMAIN = ops | procurement | redaction), оркестратор, книга которого сохраняется между
 // прогонами этой темы, три агента с разным подходом и их потомки.
 //
 // Что смотрим от прогона к прогону одной темы:
@@ -56,6 +56,7 @@ function mockLLM(system, user) {
 }
 function mockAction(user, system, cat) {
   const t = user;
+  if (D.mockAction) return D.mockAction(t, system, cat);
   if (THEME === "ops") {
     if (/Никто не просил/.test(t)) return system.includes(`RULE[fix_mismatch`) ? "ask" : "execute";
     const prod = /РАБОЧУЮ/.test(t), bad = /старый метод|пропадут/.test(t);
@@ -256,7 +257,7 @@ function summarize(run) {
 function report(run, s, prev, lang) {
   const ru = lang === "ru", T = (a, b) => (ru ? a : b), L = [];
   const pc = (x, n) => (n ? `${Math.round((100 * x) / n)}%` : "-");
-  L.push(T(`# ${D.TITLE}: прогон ${run.index} темы`, `# ${THEME === "ops" ? "Dangerous infrastructure operations" : "Invoice payments"}: run ${run.index} of the theme`), "");
+  L.push(T(`# ${D.TITLE}: прогон ${run.index} темы`, `# ${D.TITLE_EN || (THEME === "ops" ? "Dangerous infrastructure operations" : "Invoice payments")}: run ${run.index} of the theme`), "");
   L.push(T(`Прогон ${run.id}, эпоха ${run.era} (${D.ERA_NOTE[run.era]}). Раундов ${P.rounds}, по ${P.tasks} заданий: половина старых (одни и те же в каждом прогоне темы), половина новых. Модель ${P.model}${MOCK ? " (заглушка, проверка механики)" : ""}. Оркестратор помнит книгу рецептов и потомков между прогонами темы.`, `Run ${run.id}, era ${run.era}. ${P.rounds} rounds of ${P.tasks} tasks, half old (the same in every run of the theme), half new. Model ${P.model}${MOCK ? " (mock, mechanics only)" : ""}. The orchestrator keeps its recipe book and children between runs of the theme.`), "");
   L.push(T("## Агенты", "## Agents"), "", T("| Агент | экзамен в начале | экзамен в конце | старые: верно | новые: верно | раунд 1 → последний, верно | неверно принято | человеку сам / по мандату | вред, ₽ | итог, ₽ |", "| Agent | exam at start | exam at end | old: correct | new: correct | round 1 → last, correct | wrong accepted | to human by itself / by mandate | harm, RUB | net, RUB |"), "|---|---|---|---|---|---|---|---|---|---|");
   for (const [ag, a] of Object.entries(s.agents)) L.push(`| ${ag} | ${a.exam_start ?? "-"}% | ${a.exam_end ?? "-"}% | ${pc(a.old.correct, a.old.n)} | ${pc(a.new.correct, a.new.n)} | ${a.first_round_correct ?? "-"} → ${a.last_round_correct ?? "-"} из ${P.tasks} | ${a.old.wrong + a.new.wrong} | ${a.old.human + a.new.human} / ${a.old.gated + a.new.gated} | ${a.old.harm + a.new.harm} | ${a.old.utility + a.new.utility} |`);
