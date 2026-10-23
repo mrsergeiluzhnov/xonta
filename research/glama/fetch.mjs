@@ -24,14 +24,19 @@ async function pages(path, key, max) {
   const out = []; let after = null;
   while (out.length < max) {
     const j = await get(`${path}?first=100${after ? `&after=${encodeURIComponent(after)}` : ""}`);
-    out.push(...(j[key] || [])); if (!j.pageInfo?.hasNextPage) break; after = j.pageInfo.endCursor; await wait(PAUSE);
+    // ответ по документации: { [key]: [...], pageInfo }; на случай другой обёртки — data или edges[].node
+    const items = j[key] || j.data || (j.edges || []).map((e) => e.node).filter(Boolean);
+    if (!Array.isArray(items)) throw Error(`Glama ${path}: неожиданный ответ, поля ${Object.keys(j).join(", ")}`);
+    if (!out.length && !items.length) console.error(`Glama ${path}: пустая первая страница, поля ответа ${Object.keys(j).join(", ")}`);
+    out.push(...items); const pi = j.pageInfo || j.page_info || {}; if (!pi.hasNextPage) break; after = pi.endCursor; await wait(PAUSE);
   }
   return out.slice(0, max);
 }
 const servers = await pages("/v1/servers", "servers", MAX_S);
+if (!servers.length) throw Error("Glama не вернул ни одного сервера — прогон на пустом каталоге ничего не измерит");
 console.log(`серверов ${servers.length}, инструментов в них ${servers.reduce((s, x) => s + (x.tools || []).length, 0)}`);
 const list = await pages("/v1/connectors", "connectors", MAX_C), connectors = [];
-for (const c of list) { try { connectors.push(await get(`/v1/connectors/${c.namespace}/${c.slug}`)); } catch (e) { console.error(`${c.namespace}/${c.slug}: ${e.message}`); } await wait(PAUSE); }
+for (const c of list) { try { const d = await get(`/v1/connectors/${c.namespace}/${c.slug}`); connectors.push({ ...c, ...(d.connector || d.server || d) }); } catch (e) { console.error(`${c.namespace}/${c.slug}: ${e.message}`); } await wait(PAUSE); }
 console.log(`удалённых серверов ${connectors.length}, инструментов ${connectors.reduce((s, x) => s + (x.tools || []).length, 0)}, с пометками издателя ${connectors.reduce((s, x) => s + (x.tools || []).filter((t) => t.annotations && (t.annotations.readOnlyHint != null || t.annotations.destructiveHint != null)).length, 0)}`);
 writeFileSync(`${OUT}/catalog.json`, JSON.stringify({ fetched: new Date().toISOString(), source: "https://glama.ai (MCP Directory API)", servers, connectors }));
 console.log(`сохранено в ${OUT}/catalog.json`);
