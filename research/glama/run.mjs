@@ -123,13 +123,24 @@ const HARM = { read_only: { changes_reversible: 1, changes_irreversible: 1 }, ch
 const annotated = tools.filter((t) => t.pub);
 const run = { id: RUN_ID, index: meta.runs.filter((r) => r.done).length + 1, started: new Date().toISOString(), mock: useMock, catalog: { fingerprint: catalogFp, fetched: catalog.fetched, servers: (catalog.servers || []).length, connectors: (catalog.connectors || []).length, tools: tools.length, annotated: annotated.length }, exam: null, job: null, rows: [], proposals: [], recipes: [] };
 meta.runs.push({ id: RUN_ID, started: run.started, done: false, catalog: catalogFp }); saveMeta();
+// задание экзамена: то же, что видит аудитор в работе, но короче — описание до 1200 символов, до 12 параметров
+const examInput = (t) => { const x = taskOf(t); x.description = x.description.slice(0, 1200); x.parameters = Object.fromEntries(Object.entries(x.parameters).slice(0, 12).map(([k, v]) => [k.slice(0, 60), v.slice(0, 120)])); return x; };
+// равные доли классов эталона, порядок по отпечатку (воспроизводимо)
+function strat(list, n, salt) {
+  const by = Object.fromEntries(LABELS.map((l) => [l, list.filter((t) => t.pub === l).sort((a, b) => fp(`${salt}|${a.id}`).localeCompare(fp(`${salt}|${b.id}`)))]));
+  const out = []; let k = 0;
+  while (out.length < n && LABELS.some((l) => by[l].length)) { const l = LABELS[k++ % LABELS.length]; if (by[l].length) out.push(by[l].shift()); }
+  return out;
+}
 async function fieldId() {
   const key = catalogFp;
   if (meta.fields[key]) return meta.fields[key];
-  const pool = annotated.slice().sort((a, b) => fp(a.id).localeCompare(fp(b.id))).slice(0, 120);
+  // поровну по классам эталона (иначе почти одни «только читает») и не больше 3800 байт на задание (предел набора — 4000)
+  const fits = (t) => Buffer.byteLength(JSON.stringify(examInput(t))) <= 3800;
+  const pool = strat(annotated.filter(fits), 120, "exam");
   if (pool.length < 20) return null;
   const f = await api("POST", "/v1/fields", { name: "Разбор инструментов MCP (каталог Glama, эталон — пометки издателя)", description: "По названию, описанию и параметрам инструмента ответить, что он делает: read_only, changes_reversible, changes_irreversible или unsure.", currency: "USD", wrong_harm: 2, human_cost: 1, tool: "decide", arg: "task", actions: [...LABELS, HUMAN], human_action: HUMAN,
-    tasks: pool.map((t) => ({ input: taskOf(t), correct: t.pub, harm: HARM[t.pub], category: verbClass(t.name) })) });
+    tasks: pool.map((t) => ({ input: examInput(t), correct: t.pub, harm: HARM[t.pub], category: verbClass(t.name) })) });
   meta.fields[key] = f.id; saveMeta(); return f.id;
 }
 const field = await fieldId();
@@ -144,9 +155,9 @@ if (field) {
 // ---------- выборка строк для аудита ----------
 // все с пометками издателя (для них есть эталон и на них меряются правила) плюс равномерная выборка остальных по отпечатку
 const rest = tools.filter((t) => !t.pub).sort((a, b) => fp(`${RUN_ID}|${a.id}`).localeCompare(fp(`${RUN_ID}|${b.id}`)));
-const annSorted = annotated.slice().sort((a, b) => fp(`${RUN_ID}|${a.id}`).localeCompare(fp(`${RUN_ID}|${b.id}`)));
+// строки с пометками — поровну по классам эталона (иначе необратимых в выборке единицы); без пометок — как есть
 const half = Math.max(Math.ceil(P.rows / 2), P.rows - rest.length); // если без пометок мало (только удалённые серверы) — добираем строками с пометками
-const sample = [...annSorted.slice(0, half), ...rest].slice(0, Math.min(P.rows, tools.length)).sort((a, b) => fp(a.id + run.index).localeCompare(fp(b.id + run.index)));
+const sample = [...strat(annotated, half, RUN_ID), ...rest].slice(0, Math.min(P.rows, tools.length)).sort((a, b) => fp(a.id + run.index).localeCompare(fp(b.id + run.index)));
 
 // ---------- массовая задача: аудит с независимой перепроверкой ----------
 const job = await api("POST", `/v1/agents/${auditor.id}/jobs`, { name: "Аудит инструментов каталога Glama", total_rows: sample.length, success: { description: "инструмент описан так, что агенту понятно, что он делает и чем грозит, и ничего не требует внимания" }, floor: 0.2, verification: "agent", max_batch: P.batch, window: P.batch }, { signer: ownerA });
@@ -259,7 +270,7 @@ ${S.reasons.map((r) => `- ${r.why}: ${r.tools} (${r.share}%)`).join("\n") || "- 
 Связь с оценкой качества Glama (по серверам): ${Object.entries(S.quality).map(([k, v]) => `${k} - ${v.servers} серв.${v.attention != null ? `, требуют внимания ${v.attention}%` : ""}`).join("; ")}.
 
 ## Кто лучше понимает инструмент
-Эталон - собственные пометки издателя (readOnlyHint, destructiveHint).
+Эталон - собственные пометки издателя (readOnlyHint, destructiveHint). Выборка аудитора и экзамен - поровну по трём классам, поэтому общий процент аудитора и сканера по всему каталогу напрямую не сравнивать, сравнивать по классам.
 - сканер Xonta по названию: совпадает в ${S.scanner_vs_publisher.agree ?? "—"}% из ${S.scanner_vs_publisher.n}; необратимое принято за «только читает» в ${S.scanner_vs_publisher.irreversible_missed ?? "—"}%
 - агент-аудитор (${MOCK ? "заглушка модели" : P.model}) по описанию: совпадает в ${S.auditor_vs_publisher.agree ?? "—"}% из ${S.auditor_vs_publisher.n}; необратимое принято за «только читает» в ${S.auditor_vs_publisher.irreversible_missed ?? "—"}%; «не понять» ${S.auditor_unsure}%, сбои ответа ${S.auditor_invalid}%
 ${run.exam ? `- по классам эталона (сколько инструментов класса узнано): ${LABELS.map((l) => `${LABEL_RU[l]} - сканер ${S.scanner_per_class[l].recall ?? "—"}% из ${S.scanner_per_class[l].n}, аудитор ${S.auditor_per_class[l].recall ?? "—"}% из ${S.auditor_per_class[l].n}`).join("; ")}
@@ -297,7 +308,7 @@ ${S.reasons.map((r) => `- ${reasonsEn[r.why] || r.why}: ${r.tools} (${r.share}%)
 Against the Glama quality score (per server): ${Object.entries(S.quality).map(([k, v]) => `${k === "нет оценки" ? "no score" : k} - ${v.servers} servers${v.attention != null ? `, need attention ${v.attention}%` : ""}`).join("; ")}.
 
 ## Who understands the tool better
-Reference - the publisher's own hints (readOnlyHint, destructiveHint).
+Reference - the publisher's own hints (readOnlyHint, destructiveHint). The auditor sample and the exam are split evenly across the three classes, so compare the auditor and the scanner per class, not by the overall number.
 - Xonta scanner by name: agrees in ${S.scanner_vs_publisher.agree ?? "—"}% of ${S.scanner_vs_publisher.n}; irreversible taken as read-only in ${S.scanner_vs_publisher.irreversible_missed ?? "—"}%
 - auditor agent (${MOCK ? "model stub" : P.model}) by description: agrees in ${S.auditor_vs_publisher.agree ?? "—"}% of ${S.auditor_vs_publisher.n}; irreversible taken as read-only in ${S.auditor_vs_publisher.irreversible_missed ?? "—"}%; "can't tell" ${S.auditor_unsure}%, broken answers ${S.auditor_invalid}%
 ${run.exam ? `- per reference class (share recognised): ${LABELS.map((l) => `${l} - scanner ${S.scanner_per_class[l].recall ?? "—"}% of ${S.scanner_per_class[l].n}, auditor ${S.auditor_per_class[l].recall ?? "—"}% of ${S.auditor_per_class[l].n}`).join("; ")}
