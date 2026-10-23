@@ -120,7 +120,7 @@ A short run of the same sandbox on a mock model, no keys and no network, about 1
 
 ## Theme runs (0.20)
 
-Two new stand themes from 2026 incidents, dangerous infrastructure operations (an agent deleting a production database) and invoice payments (changed bank details, a hijacked supplier mailbox). Three agents with different approaches, children born on the orchestrator's advice, rules the agents propose from their own mistakes, and a recipe book that carries over from run to run of a theme. Every next run of a theme uses the same old tasks plus new ones, and the world changes by era, so it shows what stuck and what stopped working. `NET_MODE=domain NET_DOMAIN=ops|procurement|redaction` (the third theme is redacting personal data before publication), code in `stand/domain-run.js`.
+Two new stand themes from 2026 incidents, dangerous infrastructure operations (an agent deleting a production database) and invoice payments (changed bank details, a hijacked supplier mailbox). Three agents with different approaches, children born on the orchestrator's advice, rules the agents propose from their own mistakes, and a recipe book that carries over from run to run of a theme. Every next run of a theme uses the same old tasks plus new ones, and the world changes by era, so it shows what stuck and what stopped working. `NET_MODE=domain NET_DOMAIN=ops|procurement|redaction|access` (the third theme is redacting personal data before publication, the fourth is granting access, based on the July Hugging Face incident where agents got in with real keys), code in `stand/domain-run.js`.
 
 ## Check coverage (0.19.3)
 
