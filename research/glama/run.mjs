@@ -217,6 +217,10 @@ const agree = (list, key) => ({ n: list.length, agree: pct(list.filter((t) => t[
 S.scanner_vs_publisher = agree(annotated.map((t) => ({ pub: t.pub, s: t.sc.label })), "s");
 const audRows = run.rows.filter((r) => r.pub && !r.invalid);
 S.auditor_vs_publisher = agree(audRows.map((r) => ({ pub: r.pub, a: r.label })), "a");
+// по классам: эталон перекошен (у удалённых серверов большинство инструментов только читают), общее совпадение это прячет
+const perClass = (list, key) => Object.fromEntries(LABELS.map((l) => { const g = list.filter((t) => t.pub === l); return [l, { n: g.length, recall: pct(g.filter((t) => t[key] === l).length, g.length) }]; }));
+S.scanner_per_class = perClass(annotated.map((t) => ({ pub: t.pub, s: t.sc.label })), "s");
+S.auditor_per_class = perClass(audRows.map((r) => ({ pub: r.pub, a: r.label })), "a");
 S.auditor_unsure = pct(run.rows.filter((r) => r.label === HUMAN).length, run.rows.length);
 S.auditor_invalid = pct(run.rows.filter((r) => r.invalid).length, run.rows.length);
 S.auditor_ok = pct(run.rows.filter((r) => r.ok).length, run.rows.length);
@@ -243,7 +247,7 @@ ${credit.ru}
 - серверов ${S.servers}, инструментов ${S.tools}${S.scanned?.server_cards ? ` (открыто карточек серверов ${S.scanned.server_cards.opened}, инструменты есть у ${S.scanned.server_cards.with_tools}${S.scanned.server_cards.skipped ? ", эта часть пропущена: в API у них инструментов нет" : ""}; удалённых в списке ${S.scanned.connectors?.scanned}, взято ${S.scanned.connectors?.kept})` : ""}
 - без описания или с описанием короче 10 символов: ${S.no_description}% инструментов
 - параметры с описанием: в среднем ${S.params_described}%
-- у удалённых серверов издатель пометил, читает инструмент или меняет: ${S.annotated ?? "—"}% инструментов (если 100% - возможно, Glama подставляет значения по умолчанию там, где издатель ничего не указал; это проверяется отдельно)
+- у удалённых серверов издатель пометил, читает инструмент или меняет: ${S.annotated ?? "—"}% инструментов
 - по названию (сканер Xonta): только читают ${S.scanner_kind.read_only}%, меняют обратимо ${S.scanner_kind.changes_reversible}%, необратимо ${S.scanner_kind.changes_irreversible}%
 
 ## Требуют внимания
@@ -256,7 +260,8 @@ ${S.reasons.map((r) => `- ${r.why}: ${r.tools} (${r.share}%)`).join("\n") || "- 
 Эталон - собственные пометки издателя (readOnlyHint, destructiveHint).
 - сканер Xonta по названию: совпадает в ${S.scanner_vs_publisher.agree ?? "—"}% из ${S.scanner_vs_publisher.n}; необратимое принято за «только читает» в ${S.scanner_vs_publisher.irreversible_missed ?? "—"}%
 - агент-аудитор (${MOCK ? "заглушка модели" : P.model}) по описанию: совпадает в ${S.auditor_vs_publisher.agree ?? "—"}% из ${S.auditor_vs_publisher.n}; необратимое принято за «только читает» в ${S.auditor_vs_publisher.irreversible_missed ?? "—"}%; «не понять» ${S.auditor_unsure}%, сбои ответа ${S.auditor_invalid}%
-${run.exam ? `- экзамен аудитора у оркестратора: точность ${run.exam.accuracy}, самостоятельность ${run.exam.autonomy}, вред на действие ${run.exam.harm_per_action}` : "- экзамена не было: мало инструментов с пометками издателя"}
+${run.exam ? `- по классам эталона (сколько инструментов класса узнано): ${LABELS.map((l) => `${LABEL_RU[l]} - сканер ${S.scanner_per_class[l].recall ?? "—"}% из ${S.scanner_per_class[l].n}, аудитор ${S.auditor_per_class[l].recall ?? "—"}% из ${S.auditor_per_class[l].n}`).join("; ")}
+- экзамен аудитора у оркестратора: точность ${run.exam.accuracy}, самостоятельность ${run.exam.autonomy}, вред на действие ${run.exam.harm_per_action}` : "- экзамена не было: мало инструментов с пометками издателя"}
 
 ## Массовая задача и перепроверка
 - строк ${run.rows.length}; аудитор считает «без замечаний» ${S.auditor_ok}%, проверяющий (сканер другого владельца) ${S.checker_ok}%
@@ -293,7 +298,8 @@ Against the Glama quality score (per server): ${Object.entries(S.quality).map(([
 Reference - the publisher's own hints (readOnlyHint, destructiveHint).
 - Xonta scanner by name: agrees in ${S.scanner_vs_publisher.agree ?? "—"}% of ${S.scanner_vs_publisher.n}; irreversible taken as read-only in ${S.scanner_vs_publisher.irreversible_missed ?? "—"}%
 - auditor agent (${MOCK ? "model stub" : P.model}) by description: agrees in ${S.auditor_vs_publisher.agree ?? "—"}% of ${S.auditor_vs_publisher.n}; irreversible taken as read-only in ${S.auditor_vs_publisher.irreversible_missed ?? "—"}%; "can't tell" ${S.auditor_unsure}%, broken answers ${S.auditor_invalid}%
-${run.exam ? `- auditor exam at the orchestrator: accuracy ${run.exam.accuracy}, autonomy ${run.exam.autonomy}, harm per action ${run.exam.harm_per_action}` : "- no exam: too few tools with publisher hints"}
+${run.exam ? `- per reference class (share recognised): ${LABELS.map((l) => `${l} - scanner ${S.scanner_per_class[l].recall ?? "—"}% of ${S.scanner_per_class[l].n}, auditor ${S.auditor_per_class[l].recall ?? "—"}% of ${S.auditor_per_class[l].n}`).join("; ")}
+- auditor exam at the orchestrator: accuracy ${run.exam.accuracy}, autonomy ${run.exam.autonomy}, harm per action ${run.exam.harm_per_action}` : "- no exam: too few tools with publisher hints"}
 
 ## Long job and independent re-check
 - ${run.rows.length} rows; the auditor calls ${S.auditor_ok}% "no concerns", the checker (scanner of another owner) ${S.checker_ok}%
