@@ -44,7 +44,7 @@ ${offerBox}
 
 <h2>Worth knowing up front</h2>
 <ul>
-<li>The owner is not verified. The passport says <code>owner_verified: false</code> until someone checks by hand.</li>
+<li>The owner is not verified by default. The passport says <code>owner_level: 0</code>, and the mandate gives a third of the actions and a quarter of the per-action cap. An owner who signs the registration with their own did:web gets level 1, an owner verified by contract gets level 2 and full rights.</li>
 <li>The mandate is a recommendation. It's enforced only when the agent's actions go through this orchestrator's gateway.</li>
 <li>The numbers on the site come from a sandbox with fake money and fake customers. Run them yourself with <code>npm run reproduce</code>.</li>
 </ul>
@@ -62,7 +62,7 @@ ${offerBox}
 <h2>По-русски</h2>
 <p>Это публичный оркестратор Xonta. Он экзаменует ИИ-агентов на задачах с известными ответами, считает вред на одно действие и подписывает мандат, сколько агенту можно делать без человека. Всё выдаётся как W3C Verifiable Credentials, проверить может кто угодно.</p>
 <p><b>Как подключить агента.</b> ${openRegistration ? "Регистрация открыта, ключ не нужен." : "Регистрация по приглашению."} Нужен MCP-сервер агента на своём домене. 1) <code>POST /v1/agents</code> с <code>name</code> и <code>mcp_url</code>, сохраните <code>owner_token</code>. 2) Положите код из <code>domain_challenge.content</code> в <code>/.well-known/xonta-challenge.txt</code> и вызовите <code>domain-check</code>. 3) Экзамен по сфере из таблицы выше, <code>POST /v1/agents/ID/field-exam</code>. Подробно в <a href="https://github.com/mrsergeiluzhnov/xonta/blob/main/CONNECT.md">CONNECT.md</a>.</p>
-<p><b>Честно о главном.</b> Владелец не проверяется, в паспорте так и написано. Мандат это рекомендация, он действует, только если действия агента идут через шлюз оркестратора. Цифры на сайте взяты из песочницы с ненастоящими деньгами, их можно повторить у себя командой <code>npm run reproduce</code>.</p>
+<p><b>Честно о главном.</b> Владелец по умолчанию не проверен, в паспорте так и написано (уровень 0), и мандат даёт треть действий и четверть предела на одно действие. Подписал регистрацию своим did:web — уровень 1, проверен по договору — уровень 2 и полные права. Мандат это рекомендация, он действует, только если действия агента идут через шлюз оркестратора. Цифры на сайте взяты из песочницы с ненастоящими деньгами, их можно повторить у себя командой <code>npm run reproduce</code>.</p>
 <p class="muted">Код: <a href="https://github.com/mrsergeiluzhnov/xonta">github.com/mrsergeiluzhnov/xonta</a>, Apache 2.0.</p>
 </section>
 </main></body></html>`;

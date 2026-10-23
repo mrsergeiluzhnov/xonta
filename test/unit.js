@@ -729,6 +729,14 @@ await t("0.15: открытая регистрация и свой экзаме�
       for (const sd of ["s2", "s3"]) assert.equal((await call("POST", `/v1/agents/${id}/field-exam`, { field: fld.body.id, tasks: 30, seed: sd }, owner_token)).status, 200);
       const st = (await call("GET", `/v1/fields/${fld.body.id}`)).body.stats; assert.equal(st.exams, 3); assert.equal(st.agents, 1); assert.ok(st.hardest.length > 0 && st.hardest[0].error_rate === 100, "самые трудные задания видны");
       const pp = (await call("GET", `/v1/agents/${id}/passport`)).body; assert.equal(pp.passport.owner_verified, false, "владелец не проверен — так и написано");
+      // 0.21: уровень владельца в паспорте и в мандате; после проверки по договору — полные права
+      assert.equal(pp.passport.owner_level, 0); assert.equal(ex.body.mandate.credentialSubject.owner_level, 0);
+      const full = ex.body.metrics.trust.budget;
+      assert.ok(ex.body.mandate.credentialSubject.max_harm_per_action <= Math.round(full * 0.25) + 1, "непроверенный владелец — четверть предела на одно действие");
+      assert.equal((await call("POST", `/v1/admin/agents/${id}/owner-verified`, { kind: "company", country: "RU" }, "adm")).status, 200);
+      const ex2 = await call("POST", `/v1/agents/${id}/field-exam`, { field: fld.body.id, tasks: 30, seed: "s1" }, owner_token);
+      assert.equal(ex2.body.mandate.credentialSubject.owner_level, 2); assert.equal((await call("GET", `/v1/agents/${id}/passport`)).body.passport.owner_level, 2);
+      assert.ok(ex2.body.mandate.credentialSubject.max_harm_per_action > ex.body.mandate.credentialSubject.max_harm_per_action, "после проверки владельца предел на одно действие выше");
       // лимит регистраций с одного адреса
       for (let i = 0; i < 2; i++) await call("POST", "/v1/agents", { name: `x${i}`, mcp_url: `http://localhost:${4980 + i}/mcp` });
       assert.equal((await call("POST", "/v1/agents", { name: "x9", mcp_url: "http://localhost:4989/mcp" })).status, 429, "больше 3 в сутки с адреса — нельзя");

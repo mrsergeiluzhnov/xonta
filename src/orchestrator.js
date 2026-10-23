@@ -220,6 +220,7 @@ export function createOrchestrator({ store, issuer, notify, signals, publicUrl, 
         issuer: issuer.did,
         // 0.15: при открытой регистрации владельца никто не проверял — так и пишем, а не молчим
         owner_verified: credsOf(rec, "AgentOwnerVerified").some((c) => !issuer.statusOf(c).revocation),
+        owner_level: ownerLevel(rec.id).level, owner_level_name: ownerLevel(rec.id).name,
       },
       profile: rec.last_evaluation ? {
         expert: rec.last_evaluation.categories.filter((c) => c.score >= 80).map((c) => c.category),
@@ -244,5 +245,15 @@ export function createOrchestrator({ store, issuer, notify, signals, publicUrl, 
     return { signal: sid, action, note: action === "accept" ? "Оркестратор ничего не применяет сам: план передан владельцу." : undefined };
   }
 
-  return { register, didDoc, domainCheck, scan, test, reputation, ownerVerified, setAgentStatus, passport, listSignals, actOnSignal, checkOwner, get, tester };
+  // 0.21: уровень проверки владельца. 0 — не проверен (открытая регистрация), 1 — владелец подписал регистрацию своим did:web
+  // (управляет доменом и ключом), 2 — проверен вручную по договору (действующий AgentOwnerVerified). У потомков — уровень корня.
+  // Каждая новая личность у непроверенного владельца получает меньше прав, поэтому плодить личности становится невыгодно.
+  function ownerLevel(id) {
+    let rec = get(id); const ag = store.get("agents", {});
+    while (rec.parent && ag[rec.parent]) rec = ag[rec.parent];
+    if (credsOf(rec, "AgentOwnerVerified").some((c) => !issuer.statusOf(c).revocation)) return { level: 2, name: "verified", why: "владелец проверен по договору" };
+    if (rec.owner_did) return { level: 1, name: "self_identified", why: `регистрация подписана DID владельца ${rec.owner_did}` };
+    return { level: 0, name: "unverified", why: "владелец не проверен" };
+  }
+  return { register, didDoc, domainCheck, scan, test, reputation, ownerVerified, ownerLevel, setAgentStatus, passport, listSignals, actOnSignal, checkOwner, get, tester };
 }
