@@ -31,7 +31,7 @@ const E = process.env, HERE = dirname(fileURLToPath(import.meta.url)), ROOT = jo
 const RUN_ID = E.NET_RUN_ID || `glama-team-${Date.now().toString(36)}`;
 const DIR = E.STAND_DIR || join(ROOT, "stand-data", RUN_ID), ORCH_ROOT = E.ORCH_ROOT || join(dirname(DIR), "orchestrators");
 const DATA = E.GLAMA_DATA || join(ORCH_ROOT, "glama-catalog"), BOOK = join(ORCH_ROOT, "glama-team"), META = join(ORCH_ROOT, "glama-team-meta");
-const P = { exam: Number(E.GLAMA_TEAM_EXAM || 60), catExam: Number(E.GLAMA_TEAM_CAT_EXAM || 12), rows: Number(E.GLAMA_TEAM_ROWS || 240), model: E.AGENT_MODEL || "GigaChat-2", min_n: E.RECIPE_MIN_N || "8", base: Number(E.GLAMA_TEAM_PORT || 4950) };
+const P = { exam: Number(E.GLAMA_TEAM_EXAM || 60), catExam: Number(E.GLAMA_TEAM_CAT_EXAM || 12), rows: Number(E.GLAMA_TEAM_ROWS || 240), senior: E.GLAMA_TEAM_SENIOR === "0" ? null : (E.SENIOR_MODEL || "GigaChat-2-Max"), model: E.AGENT_MODEL || "GigaChat-2", min_n: E.RECIPE_MIN_N || "8", base: Number(E.GLAMA_TEAM_PORT || 4950) };
 const DOMAIN = "mcp_audit_team", HUMAN = "unsure";
 for (const d of [DIR, BOOK, join(META, "keys")]) mkdirSync(d, { recursive: true });
 const ADMIN = E.ADMIN_TOKEN || "glama-team-" + Math.random().toString(36).slice(2);
@@ -49,14 +49,14 @@ log(`каталог: ${useMock ? "ТЕСТОВЫЙ" : `Glama, выгружен $
 
 // ---------- модель и подходы агентов ----------
 const MOCK = (E.LLM_PROVIDER || "mock") === "mock";
-function mockLLM(system, user) {
+function mockLLM(system, user, senior = false) {
   const name = (user.match(/"tool":"([^"]+)"/) || [])[1] || "", desc = (user.match(/"description":"([^"]*)"/) || [])[1] || "", short = /КОРОТКО/.test(system);
   let e = /^(get|list|search|fetch|read)/i.test(name) ? "read_only" : /delete|remove/i.test(name) || /permanent|cannot be undone/i.test(desc) ? "changes_irreversible" : /send|post|publish/i.test(name) ? (short ? "changes_reversible" : "changes_irreversible") : "changes_reversible";
-  if (!short && /write|set_/i.test(name) && name.length % 2) e = "changes_irreversible";
+  if (!short && /write|set_/i.test(name) && (senior || name.length % 2)) e = "changes_irreversible";
   return JSON.stringify({ effect: e, reason: "заглушка" });
 }
 const SYSTEM = (short) => `Ты аудитор инструментов MCP. ${short ? "Смотри КОРОТКО: только название и начало описания. " : "Прочитай название, описание и параметры. "}Определи, что инструмент делает с внешним миром:\n- read_only — только читает;\n- changes_reversible — меняет, но можно отменить или исправить;\n- changes_irreversible — меняет так, что не отменить (удалить, отправить, заплатить, опубликовать, перезаписать);\n- ${HUMAN} — понять нельзя.\nОтвечай только JSON: {"effect":"read_only | changes_reversible | changes_irreversible | ${HUMAN}","reason":"коротко"}. В поле effect — ровно одно из этих слов, не название инструмента.`;
-const llmFor = (role) => createLLM({ provider: E.LLM_PROVIDER || "mock", model: P.model, role, usageFile: join(DIR, "llm-usage.jsonl"), budgetTokens: Number(E.AGENT_LLM_BUDGET_TOKENS || 6_000_000), mock: mockLLM });
+const llmFor = (role, model = P.model) => createLLM({ provider: E.LLM_PROVIDER || "mock", model, role, usageFile: join(DIR, "llm-usage.jsonl"), budgetTokens: Number(E.AGENT_LLM_BUDGET_TOKENS || 6_000_000), mock: (a, b) => mockLLM(a, b, model !== P.model) });
 async function askModel(ag, t, short) {
   const u0 = ag.llm.usage.input + ag.llm.usage.output, t0 = Date.now();
   const input = short ? { tool: t.name, description: String(t.description || "").slice(0, 200) } : taskOf(t);
@@ -96,9 +96,9 @@ async function api(method, path, body, { token, signer = null } = {}) {
   if (!r.ok) throw new Error(`${method} ${path}: ${r.status} ${j.error || ""}`); return j;
 }
 let nextPort = P.base + 3;
-async function launch(name, method, { parent = null, spec = null } = {}) {
-  const ag = { name, method, spec, parent, llm: llmFor(name) };
-  ag.server = await startAgent({ port: nextPort++, name, ownerDid: owner.did, keyFile: join(META, "keys", `${name}.json`), instructions: `Аудит инструментов MCP, подход ${method}${spec ? `, специалист по ${spec}` : ""}`,
+async function launch(name, method, { parent = null, spec = null, model = P.model } = {}) {
+  const ag = { name, method, spec, parent, model, senior: model !== P.model, llm: llmFor(name, model) };
+  ag.server = await startAgent({ port: nextPort++, name, ownerDid: owner.did, keyFile: join(META, "keys", `${name}.json`), instructions: `Аудит инструментов MCP, подход ${method}${model !== P.model ? `, модель ${model}` : ""}${spec ? `, специалист по ${spec}` : ""}`,
     tools: [{ name: "decide", description: "Разбор одного инструмента MCP: что он делает с внешним миром.", input: { task: z.any() },
       run: async ({ task }) => { const x = typeof task === "string" ? JSON.parse(task) : task; const t = { name: x.tool, description: x.description, inputSchema: { properties: Object.fromEntries(Object.entries(x.parameters || {}).map(([k, v]) => [k, { description: v }])) } }; const d = await decideBy(ag, t); return { action: d.label }; } }] });
   const known = meta.agents[name];
@@ -127,7 +127,8 @@ if (!meta.fields[catalogFp]) {
 const FIELD = meta.fields[catalogFp];
 log(`набор экзамена ${FIELD}: ${examPool.length} заданий, категории ${CATEGORIES.map((c) => `${c} ${examPool.filter((t) => t.cls === c).length}`).join(", ")}`);
 
-const team = { fast: await launch("aud-fast", "fast"), careful: await launch("aud-careful", "careful"), dual: await launch("aud-dual", "dual") };
+// четвёртый аудитор — тот же подход, что careful, но на старшей модели: дороже, и, возможно, сильнее там, где младшие путаются
+const team = { fast: await launch("aud-fast", "fast"), careful: await launch("aud-careful", "careful"), dual: await launch("aud-dual", "dual"), ...(P.senior ? { max: await launch("aud-max", "careful", { model: P.senior }) } : {}) };
 async function exam(ag, category = null) {
   const u0 = ag.llm.usage.input + ag.llm.usage.output, t0 = Date.now();
   const r = await api("POST", `/v1/agents/${ag.id}/field-exam`, { field: FIELD, tasks: category ? P.catExam : P.exam, budget: 25, ...(category ? { category } : {}), seed: `${RUN_ID}-exam${category ? `-${category}` : ""}` }, { token: ag.owner_token });
@@ -146,13 +147,13 @@ for (const k of ["fast", "careful"]) {
   const s = adv.spawn[0]; if (!s) continue;
   // потомок перенимает подход того агента, на которого указал оркестратор (best_agent), и берёт только свою категорию
   const model = Object.values(team).find((a) => a.id === s.best_agent) || team.dual;
-  const child = await launch(`${parent.name}-spec-${s.category}`, model.method, { parent, spec: s.category });
+  const child = await launch(`${parent.name}-spec-${s.category}`, model.method, { parent, spec: s.category, model: model.model });
   const ce = await exam(child, s.category), pe = await exam(parent, s.category);
   const after = brief(await api("GET", `/v1/agents/${parent.id}/descendant-advice`, undefined, { token: parent.owner_token }));
   run.advice.push({ agent: parent.name, stage: "после экзамена потомка", ...after });
   const kept = after.keep.some((x) => x.category === s.category);
   kids[k] = { ag: child, category: s.category, kept };
-  run.children.push({ parent: parent.name, child: child.name, category: s.category, method: model.method, copied_from: model.name, basis: s.basis, why: s.why, child_exam: ce, parent_exam: pe, verdict: kept ? "оставить" : after.remove.some((x) => x.category === s.category) ? "убрать" : "нет вывода", verdict_why: (after.keep.find((x) => x.category === s.category) || after.remove.find((x) => x.category === s.category) || {}).why || null });
+  run.children.push({ parent: parent.name, child: child.name, category: s.category, method: model.method, copied_from: model.name, child_model: model.model, basis: s.basis, why: s.why, child_exam: ce, parent_exam: pe, verdict: kept ? "оставить" : after.remove.some((x) => x.category === s.category) ? "убрать" : "нет вывода", verdict_why: (after.keep.find((x) => x.category === s.category) || after.remove.find((x) => x.category === s.category) || {}).why || null });
   log(`  потомок ${child.name}: по «${s.category}» ${ce.accuracy}% против ${pe.accuracy}% у родителя → ${run.children.at(-1).verdict}`);
 }
 
@@ -173,7 +174,7 @@ const score = (d, t) => ({ success: !d.invalid && d.label !== HUMAN, invalid: d.
 for (const t of rows) {
   const f = await decideBy(team.fast, t), c = await decideBy(team.careful, t);
   const d = { ...c, label: stricter(c.label === HUMAN ? "changes_irreversible" : c.label, t.sc.label) }; // dual = тот же ответ модели careful плюс сканер (без второго вызова)
-  const row = { id: t.id, cls: t.cls, pub: t.pub, fast: f, careful: c, dual: d, tech: null, child: null };
+  const row = { id: t.id, cls: t.cls, pub: t.pub, fast: f, careful: c, dual: d, max: team.max ? { ...(await decideBy(team.max, t)), senior: true } : null, tech: null, child: null };
   // приёмы для fast: на каждом этапе (route — звать ли модель, decide — какой ответ дать) оркестратор выбирает приём и ставит пару
   // (та же строка без приёма и с ним). Этапы разные, чтобы доказанный приём одного этапа не забирал все строки у другого
   row.tech = [];
@@ -184,7 +185,7 @@ for (const t of rows) {
     row.tech.push({ key: q.recipe.technique, label: w.label, tokens: w.tokens, skipped: !!w.skipped });
     await api("POST", `/v1/recipes/requests/${q.request_id}/outcome`, { recipe: { accepted: true, applied: true, matched: true, ...score(w, t) }, control: score(f, t) }, { token: team.fast.owner_token }).catch((e) => log(`исход приёма: ${e.message}`));
   }
-  const kid = kids.fast; if (kid && t.cls === kid.category) { const x = await decideBy(kid.ag, t); row.child = { label: x.label, tokens: x.tokens, ms: x.ms }; }
+  const kid = kids.fast; if (kid && t.cls === kid.category) { const x = await decideBy(kid.ag, t); row.child = { label: x.label, tokens: x.tokens, ms: x.ms, senior: kid.ag.senior }; }
   R.push(row);
   if (R.length % 20 === 0) { const ok = (k) => pct(R.filter((r) => r[k].label === r.pub).length, R.length); const irr = R.filter((r) => r.pub === "changes_irreversible"); log(`  строк ${R.length}/${rows.length}: верно fast ${ok("fast")}%, careful ${ok("careful")}%, dual ${ok("dual")}%; необратимых узнано fast ${pct(irr.filter((r) => r.fast.label === r.pub).length, irr.length)}%, dual ${pct(irr.filter((r) => r.dual.label === r.pub).length, irr.length)}%`); }
 }
@@ -193,7 +194,7 @@ const proven = new Set(run.recipes.filter((r) => r.status === "proven").map((r) 
 
 // ---------- итог по конфигурациям ----------
 function teamAnswer(r, t) {
-  if (r.child && kids.fast?.kept) return { label: r.child.label, tokens: r.child.tokens, ms: r.child.ms, via: "child" }; // строки категории потомка fast уже не берёт
+  if (r.child && kids.fast?.kept) return { label: r.child.label, tokens: r.child.tokens, ms: r.child.ms, senior: r.child.senior, via: "child" }; // строки категории потомка fast уже не берёт
   let a = { ...r.fast };
   for (const k of Object.keys(TECH).filter((x) => proven.has(x)).sort((a, b) => (TECH[a].stage === "route" ? 0 : 1) - (TECH[b].stage === "route" ? 0 : 1))) { if (TECH[k].category !== "all" && TECH[k].category !== r.cls) continue; const w = TECH[k].apply(t, a); a = { ...a, ...w, tokens: w.skipped ? 0 : a.tokens, ms: w.skipped ? 0 : a.ms }; }
   return { ...a, via: "fast" };
@@ -201,18 +202,18 @@ function teamAnswer(r, t) {
 const byId = new Map(rows.map((t) => [t.id, t]));
 function metrics(get) {
   const xs = R.map((r) => ({ r, a: get(r) })), irr = xs.filter((x) => x.r.pub === "changes_irreversible"), harm = xs.reduce((s, x) => s + (x.a.label === x.r.pub ? 0 : x.a.label === HUMAN ? 1 : HARM[x.r.pub][x.a.label] || 2), 0);
-  return { n: xs.length, accuracy: pct(xs.filter((x) => x.a.label === x.r.pub).length, xs.length), irreversible_found: pct(irr.filter((x) => x.a.label === "changes_irreversible").length, irr.length), irreversible_as_read: irr.filter((x) => x.a.label === "read_only").length, read_flagged_irreversible: pct(xs.filter((x) => x.r.pub === "read_only" && x.a.label === "changes_irreversible").length, xs.filter((x) => x.r.pub === "read_only").length), harm_per_tool: Math.round(100 * harm / xs.length) / 100, tokens_per_tool: Math.round(xs.reduce((s, x) => s + (x.a.tokens || 0), 0) / xs.length), sec_per_tool: Math.round(xs.reduce((s, x) => s + (x.a.ms || 0), 0) / xs.length / 100) / 10 };
+  return { n: xs.length, accuracy: pct(xs.filter((x) => x.a.label === x.r.pub).length, xs.length), irreversible_found: pct(irr.filter((x) => x.a.label === "changes_irreversible").length, irr.length), irreversible_as_read: irr.filter((x) => x.a.label === "read_only").length, read_flagged_irreversible: pct(xs.filter((x) => x.r.pub === "read_only" && x.a.label === "changes_irreversible").length, xs.filter((x) => x.r.pub === "read_only").length), harm_per_tool: Math.round(100 * harm / xs.length) / 100, tokens_per_tool: Math.round(xs.reduce((s, x) => s + (x.a.tokens || 0), 0) / xs.length), senior_tokens_per_tool: Math.round(xs.reduce((s, x) => s + (x.a.senior ? x.a.tokens || 0 : 0), 0) / xs.length), sec_per_tool: Math.round(xs.reduce((s, x) => s + (x.a.ms || 0), 0) / xs.length / 100) / 10 };
 }
-run.configs = { fast: metrics((r) => r.fast), careful: metrics((r) => r.careful), dual: metrics((r) => r.dual), team: metrics((r) => teamAnswer(r, byId.get(r.id))) };
+run.configs = { fast: metrics((r) => r.fast), careful: metrics((r) => r.careful), dual: metrics((r) => r.dual), ...(team.max ? { max: metrics((r) => r.max) } : {}), team: metrics((r) => teamAnswer(r, byId.get(r.id))) };
 // что дал бы каждый приём fast, если бы его взяли везде, где он применим (по парам)
 run.tech_effect = Object.fromEntries(Object.keys(TECH).map((k) => [k, metrics((r) => (TECH[k].category === "all" || TECH[k].category === r.cls ? (() => { const w = TECH[k].apply(byId.get(r.id), r.fast); return { ...r.fast, ...w, tokens: w.skipped ? 0 : r.fast.tokens, ms: w.skipped ? 0 : r.fast.ms }; })() : r.fast))]));
 run.usage = Object.fromEntries(Object.entries({ ...team, ...(kids.fast ? { child_fast: kids.fast.ag } : {}), ...(kids.careful ? { child_careful: kids.careful.ag } : {}) }).map(([k, ag]) => [k, ag.llm.usage.input + ag.llm.usage.output]));
 run.finished = new Date().toISOString();
-writeFileSync(join(DIR, "run.json"), JSON.stringify({ ...run, rows: R.map((r) => ({ id: r.id, cls: r.cls, pub: r.pub, fast: r.fast.label, careful: r.careful.label, dual: r.dual.label, tech: r.tech, child: r.child?.label || null })) }, null, 1));
+writeFileSync(join(DIR, "run.json"), JSON.stringify({ ...run, rows: R.map((r) => ({ id: r.id, cls: r.cls, pub: r.pub, fast: r.fast.label, careful: r.careful.label, dual: r.dual.label, max: r.max?.label || null, tech: r.tech, child: r.child?.label || null })) }, null, 1));
 meta.runs.at(-1).done = true; saveMeta();
 
 // ---------- отчёт ----------
-const C = run.configs, row = (k, title) => `| ${title} | ${C[k].accuracy}% | ${C[k].irreversible_found}% | ${C[k].irreversible_as_read} | ${C[k].read_flagged_irreversible}% | ${C[k].harm_per_tool} | ${C[k].tokens_per_tool} | ${C[k].sec_per_tool} |`;
+const C = run.configs, row = (k, title) => `| ${title} | ${C[k].accuracy}% | ${C[k].irreversible_found}% | ${C[k].irreversible_as_read} | ${C[k].read_flagged_irreversible}% | ${C[k].harm_per_tool} | ${C[k].tokens_per_tool}${C[k].senior_tokens_per_tool ? ` (старшей ${C[k].senior_tokens_per_tool})` : ""} | ${C[k].sec_per_tool} |`;
 const exRow = (k) => `| ${team[k].name} | ${run.exams[k].accuracy} | ${run.exams[k].harm_per_action} | ${run.exams[k].tokens_per_task} | ${run.exams[k].sec_per_task} |`;
 const credit = "Данные: каталог [Glama](https://glama.ai/mcp/servers) (MCP Directory API). Спасибо Glama за открытый каталог.";
 const ru = `# Команда аудиторов каталога Glama через Xonta${useMock ? " (ТЕСТОВЫЙ каталог, проверка механики)" : ""}
@@ -224,11 +225,11 @@ ${credit}
 ## Экзамен у оркестратора (${P.exam} заданий, поровну по классам)
 | агент | точность | вред на действие | токенов на задание | секунд на задание |
 |---|---|---|---|---|
-${["fast", "careful", "dual"].map(exRow).join("\n")}
+${Object.keys(team).map(exRow).join("\n")}
 
 ## Что посоветовал оркестратор
 ${run.advice.map((a) => `- **${a.agent}, ${a.stage}:** ${a.spawn.length ? `родить специалиста по «${a.spawn.map((s) => s.category).join("», «")}» — ${a.spawn[0].why}` : "специалиста не советует"}${a.route_to_human.length ? `; передавать человеку «${a.route_to_human.map((s) => s.category).join("», «")}»` : ""}${a.keep.length ? `; оставить ${a.keep.map((x) => x.child).join(", ")} — ${a.keep[0].why}` : ""}${a.remove.length ? `; убрать ${a.remove.map((x) => x.child).join(", ")} — ${a.remove[0].why}` : ""}${a.watch.length ? `; наблюдать «${a.watch.map((w) => `${w.category}» (${w.your}%`).join("), «")})` : ""}`).join("\n")}
-${run.children.length ? run.children.map((c) => `- потомок **${c.child}** по «${c.category}» (перенял подход ${c.copied_from}, совет ${c.basis === "harm" ? "по вреду" : "по точности"}): экзамен по категории ${c.child_exam.accuracy}% против ${c.parent_exam.accuracy}% у родителя, токенов на задание ${c.child_exam.tokens_per_task} против ${c.parent_exam.tokens_per_task} → **${c.verdict}**`).join("\n") : "- потомков не было: оркестратор не нашёл категории, где другой агент заметно лучше и вред большой"}
+${run.children.length ? run.children.map((c) => `- потомок **${c.child}** по «${c.category}» (перенял подход ${c.copied_from}${c.child_model !== P.model ? `, модель ${c.child_model}` : ""}, совет ${c.basis === "harm" ? "по вреду" : "по точности"}): экзамен по категории ${c.child_exam.accuracy}% против ${c.parent_exam.accuracy}% у родителя, токенов на задание ${c.child_exam.tokens_per_task} против ${c.parent_exam.tokens_per_task} → **${c.verdict}**`).join("\n") : "- потомков не было: оркестратор не нашёл категории, где другой агент заметно лучше и вред большой"}
 
 ## Приёмы, которые передал оркестратор
 ${run.recipes.map((r) => `- «${r.title}» (предложил ${r.from}, категория ${r.category}): **${r.status}**${r.basis ? ` по ${r.basis === "harm" ? "вреду" : r.basis === "cost" ? "расходу (так же хорошо, но дешевле)" : "верным ответам"}` : ""}, пар ${r.pairs}, лучше с приёмом ${r.better}, хуже ${r.worse}${r.why ? ` (${r.why})` : ""}`).join("\n") || "- приёмов нет"}
@@ -241,10 +242,10 @@ ${Object.entries(run.tech_effect).map(([k, m]) => `- если fast примен�
 |---|---|---|---|---|---|---|---|
 ${row("fast", "fast один")}
 ${row("careful", "careful один")}
-${row("dual", "dual один")}
+${row("dual", "dual один")}${team.max ? `\n${row("max", `max один (${P.senior})`)}` : ""}
 ${row("team", `команда: fast${kids.fast?.kept ? ` + потомок по «${kids.fast.category}»` : ""}${proven.size ? ` + доказанные приёмы (${[...proven].join(", ")})` : ""}`)}
 
-Вред считается по той же шкале, что на экзамене: необратимое за чтение 10, необратимое за обратимое 6, обратимое за чтение 4, лишняя осторожность 1.
+Токены старшей модели показаны отдельно: они дороже токенов основной. Вред считается по той же шкале, что на экзамене: необратимое за чтение 10, необратимое за обратимое 6, обратимое за чтение 4, лишняя осторожность 1.
 
 Отпечаток каталога ${catalogFp}, модель ${MOCK ? "заглушка" : P.model}, токенов всего ${Object.values(run.usage).reduce((s, x) => s + x, 0)}.
 `;
@@ -257,7 +258,7 @@ Three auditors with different approaches, one Xonta orchestrator. What the orche
 ## Exam at the orchestrator (${P.exam} tasks, even classes)
 | agent | accuracy | harm per action | tokens per task | seconds per task |
 |---|---|---|---|---|
-${["fast", "careful", "dual"].map(exRow).join("\n")}
+${Object.keys(team).map(exRow).join("\n")}
 
 ## Children
 ${run.children.length ? run.children.map((c) => `- child **${c.child}** for "${c.category}" (advised to ${c.parent}): category exam ${c.child_exam.accuracy}% vs parent ${c.parent_exam.accuracy}%, tokens per task ${c.child_exam.tokens_per_task} vs ${c.parent_exam.tokens_per_task} → **${c.verdict === "оставить" ? "keep" : c.verdict === "убрать" ? "remove" : "no verdict"}**`).join("\n") : "- no children: no category where another agent is clearly better and harm is large"}
@@ -270,7 +271,7 @@ ${run.recipes.map((r) => `- "${r.technique}" (from ${r.from}, category ${r.categ
 |---|---|---|---|---|---|---|---|
 ${row("fast", "fast alone")}
 ${row("careful", "careful alone")}
-${row("dual", "dual alone")}
+${row("dual", "dual alone")}${team.max ? `\n${row("max", `max alone (${P.senior})`)}` : ""}
 ${row("team", `team: fast${kids.fast?.kept ? ` + child for "${kids.fast.category}"` : ""}${proven.size ? ` + proven techniques (${[...proven].join(", ")})` : ""}`)}
 
 Catalog fingerprint ${catalogFp}, model ${MOCK ? "stub" : P.model}, total tokens ${Object.values(run.usage).reduce((s, x) => s + x, 0)}.
