@@ -74,3 +74,24 @@ export function mockCatalog(nServers = 40, seed = 7) {
     tools: Array.from({ length: 2 + Math.floor(r() * 5) }, (_, k) => { const [v, lab, d] = verbs[Math.floor(r() * verbs.length)]; const desc = r() < 0.15 ? "" : r() < 0.3 ? d.split(".")[0] : d; return { name: `${v}_${["note", "issue", "file", "email", "order"][k % 5]}`, description: desc, inputSchema: { type: "object", properties: { id: { type: "string", description: r() < 0.6 ? "Identifier of the item" : "" } } }, annotations: connector && r() < 0.7 ? { readOnlyHint: lab === "read_only", destructiveHint: lab === "changes_irreversible" } : undefined }; }) });
   return { fetched: "mock", servers: Array.from({ length: nServers }, (_, i) => mk(i, false)), connectors: Array.from({ length: Math.ceil(nServers / 2) }, (_, i) => mk(1000 + i, true)) };
 }
+
+// ---------- общее для прогонов с несколькими агентами (team.mjs) ----------
+// класс инструмента по глаголу в названии — категория экзамена и правил
+export const verbClass = (name) => /delete|remove|drop|destroy|purge|wipe/i.test(name) ? "delete" : /send|post|publish|email|message|reply|share|invite/i.test(name) ? "send" : /pay|charge|transfer|purchase|buy|refund|order/i.test(name) ? "money" : /create|add|update|edit|set|write|upload|insert|modify|move|rename/i.test(name) ? "write" : /get|list|search|read|fetch|find|query|describe|show/i.test(name) ? "read" : "other";
+export const CATEGORIES = ["delete", "send", "money", "write", "read", "other"];
+// цена ошибки на экзамене: необратимое, принятое за чтение, — дороже всего
+export const HARM = { read_only: { changes_reversible: 1, changes_irreversible: 1 }, changes_reversible: { read_only: 4, changes_irreversible: 1 }, changes_irreversible: { read_only: 10, changes_reversible: 6 } };
+export const RANK = { read_only: 0, changes_reversible: 1, changes_irreversible: 2, unsure: 2 };
+export const stricter = (a, b) => (RANK[a] ?? 2) >= (RANK[b] ?? 2) ? a : b;
+export const normEffect = (x) => { const v = String(x || "").toLowerCase().trim(); if ([...LABELS, "unsure"].includes(v)) return v; if (/unsure|не понять|неясн|непонят|unknown/.test(v)) return "unsure"; if (/irrevers|необрат|без возможности|нельзя отменить/.test(v)) return "changes_irreversible"; if (/revers|обрат|можно отменить/.test(v)) return "changes_reversible"; if (/read|чита/.test(v)) return "read_only"; return null; };
+export const parseJsonLoose = (text) => { const s = String(text || ""), m = s.match(/```(?:json)?\s*([\s\S]*?)```/), body = (m ? m[1] : s).trim(), st = body.indexOf("{"); if (st < 0) return null; for (let end = body.lastIndexOf("}"); end > st; end = body.lastIndexOf("}", end - 1)) { try { return JSON.parse(body.slice(st, end + 1)); } catch {} } return null; };
+export const examInput = (t) => { const x = taskOf(t); x.description = x.description.slice(0, 1200); x.parameters = Object.fromEntries(Object.entries(x.parameters).slice(0, 12).map(([k, v]) => [k.slice(0, 60), v.slice(0, 120)])); return x; };
+// равные доли классов эталона, порядок по отпечатку (воспроизводимо)
+export function strat(list, n, salt) {
+  const by = Object.fromEntries(LABELS.map((l) => [l, list.filter((t) => t.pub === l).sort((a, b) => fp(`${salt}|${a.id}`).localeCompare(fp(`${salt}|${b.id}`)))]));
+  const out = []; let k = 0;
+  while (out.length < n && LABELS.some((l) => by[l].length)) { const l = LABELS[k++ % LABELS.length]; if (by[l].length) out.push(by[l].shift()); }
+  return out;
+}
+// очевидное чтение по названию: модель можно не звать (приём «не звать модель на очевидном»)
+export const obviousRead = (name) => /^(get|list|search|fetch|read|find|query|describe|show|count|lookup)([_\-.A-Z]|$)/.test(String(name)) && !ACTION_WORDS.test(String(name));
