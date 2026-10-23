@@ -98,7 +98,7 @@ export function parseAction(text, actions) {
   try { const j = JSON.parse(s.match(/\{[\s\S]*\}/)?.[0] || s); const a = j?.action ?? j?.decision?.action; return typeof a === "string" ? a.trim() : null; } catch { return null; }
 }
 
-export function createFields({ store, issuer, orch, publicUrl, exp = null }) {
+export function createFields({ store, issuer, orch, publicUrl, exp = null, honesty = null }) {
   const all = () => store.get("fields", {});
   const save = (f) => store.update("fields", {}, (x) => { x[f.id] = f; });
   const stats = () => store.get("fields_stats", {});
@@ -181,7 +181,11 @@ export function createFields({ store, issuer, orch, publicUrl, exp = null }) {
     // Специалист по справкам с 8,3% получал тот же стартовый лимит, что и все, и публикации до 30 000 ₽ за раз
     const narrowMin = Number(process.env.FIELD_NARROW_MIN_ACCURACY || 50);
     if (category && m.accuracy < narrowMin && m.trust.start_actions > 0) m.trust = { ...m.trust, start_actions: 0, why: `${m.trust.why}; category exam ${m.accuracy}% is below ${narrowMin}%: advisory only until it improves` };
-    const mandate = issuer.issue("ActionMandate", { id: rec.did, field: f.id, actions_per_period: m.trust.start_actions, target_actions: m.trust.target_actions, harm_budget: budget, max_harm_per_action: m.trust.max_harm_per_action, owner_level: ol.level, owner_level_name: ol.name, irreversible_per_period: Math.ceil(m.trust.start_actions / 4), sensitive_data: privacyLimit(rec.id), currency: cur, basis: { evaluation: vc.id, harm_per_action: m.harm_per_action, harm_per_action_upper: m.harm_per_action_upper, worst_single_harm: m.worst_single_harm, accuracy: m.accuracy }, reason: m.trust.why, recommendation: true, applies: "владелец выпускает токен действий с этим лимитом у шлюза; без шлюза — рекомендация" }, { validDays: 14, agentId: rec.id });
+    // 0.24: честность по внешним проверкам. Врёт в отчётах заметно — мандат вдвое меньше и без необратимых, врёт часто — без действий
+    const hc = honesty ? honesty(rec.id) : { level: "insufficient", actions_mult: 1, irreversible: null };
+    if (hc.actions_mult < 1) m.trust = { ...m.trust, start_actions: Math.floor(m.trust.start_actions * hc.actions_mult), target_actions: Math.floor(m.trust.target_actions * hc.actions_mult), why: `${m.trust.why}; honesty probes: ${hc.level} (${hc.why_ru})` };
+    const irrPer = hc.irreversible != null ? hc.irreversible : Math.ceil(m.trust.start_actions / 4);
+    const mandate = issuer.issue("ActionMandate", { id: rec.did, field: f.id, actions_per_period: m.trust.start_actions, target_actions: m.trust.target_actions, harm_budget: budget, max_harm_per_action: m.trust.max_harm_per_action, owner_level: ol.level, owner_level_name: ol.name, irreversible_per_period: irrPer, honesty: hc.level, sensitive_data: privacyLimit(rec.id), currency: cur, basis: { evaluation: vc.id, harm_per_action: m.harm_per_action, harm_per_action_upper: m.harm_per_action_upper, worst_single_harm: m.worst_single_harm, accuracy: m.accuracy }, reason: m.trust.why, recommendation: true, applies: "владелец выпускает токен действий с этим лимитом у шлюза; без шлюза — рекомендация" }, { validDays: 14, agentId: rec.id });
     // опыт по сфере
     store.update("fields_stats", {}, (x) => {
       const s = (x[f.id] ||= { exams: 0, acc_sum: 0, hpa_sum: 0, hpa_n: 0, agents: {}, tasks: {} });

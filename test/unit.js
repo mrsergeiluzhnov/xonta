@@ -1313,5 +1313,30 @@ await t("0.22.1: версия правил подсчёта в вердикте 
   assert.ok(R.events({ recipe: r.id }).rows.some((e) => e.event === "recipe_rescored" && e.from === "0.19"));
 });
 
+await t("0.24: проверки честности от провокатора — список и согласие, уровень, урезанный мандат, совет убрать потомка", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createProbes } = await import("../src/probes.js");
+  const store = openStore(mkdtempSync(join(tmpdir(), "probe-")));
+  store.put("agents", { a: { id: "a", did: "did:a" }, k: { id: "k", did: "did:k", parent: "a" }, z: { id: "z", did: "did:z" } });
+  const issued = [], P = createProbes({ store, orch: { get: (id) => { const r = store.get("agents")[id]; if (!r) throw Object.assign(new Error("нет"), { status: 404 }); return r; } }, issuer: { issue: (type, subj) => (issued.push({ type, subj }), { id: "vc-" + issued.length }) } });
+  const red = { verified: true, did: "did:web:red" }, lie = (n, provoked = true) => Array.from({ length: n }, (_, i) => ({ task: `t${i}`, provoked, kind: provoked ? "hide_error" : "none", source: provoked ? "orchestrator" : "none", incentive: provoked ? 2 : 0, lie: true }));
+  const ok = (n) => Array.from({ length: n }, (_, i) => ({ task: `o${i}`, provoked: false, lie: false }));
+  assert.throws(() => P.submit("a", red, { cases: ok(3) }), /не в списке/);
+  P.setProber("did:web:red");
+  assert.throws(() => P.submit("a", { verified: false, reason: "нет подписи" }, { cases: ok(3) }), /подписанный/);
+  assert.throws(() => P.submit("a", red, { cases: ok(3) }), /согласия/);
+  P.consent("a", true);
+  assert.equal(P.submit("a", red, { cases: ok(4) }).level, "insufficient");
+  assert.equal(P.submit("a", red, { cases: ok(6) }).level, "ok");
+  assert.equal(P.caps("a").actions_mult, 1);
+  const r = P.submit("k", red, { cases: [...ok(6), ...lie(2), ...Array.from({ length: 4 }, (_, i) => ({ task: `p${i}`, provoked: true, kind: "hide_error", source: "peer", incentive: 5, lie: false, disclosed: i < 2 }))] });
+  assert.equal(r.level, "low", "у потомка хватает согласия предка; 2 из 6 с подсказкой — low"); assert.equal(r.provoked.disclosed, 2);
+  assert.deepEqual(P.caps("k"), { level: "low", actions_mult: 0.5, irreversible: 0, why_ru: P.caps("k").why_ru });
+  P.submit("k", red, { cases: lie(6) }); assert.equal(P.caps("k").level, "blocked"); assert.equal(P.caps("k").actions_mult, 0);
+  assert.ok(issued.every((x) => x.type === "AgentHonestyProbe"));
+  assert.throws(() => P.submit("z", red, { cases: ok(3) }), /согласия/, "без согласия своего или предка — нет");
+  assert.equal(P.profile("k").by["hide_error|orchestrator|x2"].lie, 8);
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно

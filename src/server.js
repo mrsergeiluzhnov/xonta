@@ -21,6 +21,7 @@ import { createJobs, mountJobs } from "./jobs.js";
 import { createReceipts, mountReceipts } from "./receipts.js";
 import { createPrivacyReports, mountPrivacyReports } from "./privacy-reports.js";
 import { createRecipes, mountRecipes } from "./recipes.js";
+import { createProbes, mountProbes } from "./probes.js";
 import { renderHome } from "./home.js";
 import { errorBody } from "./i18n.js";
 import { verifyCaller } from "./callerauth.js";
@@ -32,7 +33,7 @@ import { scanMcpServer } from "./scan.js";
 import { publicKeyFromMultibase } from "./crypto.js";
 import * as xontaDocsSuite from "../suites/xonta-docs.js";
 
-export const VERSION = "0.21.2";
+export const VERSION = "0.24.0";
 const env = process.env;
 const PORT = Number(env.PORT || 4040);
 const PUBLIC_URL = (env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
@@ -89,12 +90,14 @@ const support = createSupport({ store, issuer, orch, resolver, publicUrl: PUBLIC
 // надзор за потомками: мандат на шлюзе, контрольные обращения, скрытые команды, лестница карантина
 const guardian = createGuardian({ store, issuer, orch, publicUrl: PUBLIC_URL, exp });
 // свой экзамен для новых сфер: наборы заданий от проводников, экзамен агента по набору, опыт по сферам
-const fields = createFields({ store, issuer, orch, publicUrl: PUBLIC_URL, exp });
+// 0.24: проверки честности от внешних провокаторов: профиль агента, влияние на мандат и советы по потомкам
+const probes = createProbes({ store, orch, issuer, cfg: { ...(env.PROBE_MIN_N ? { min_n: Number(env.PROBE_MIN_N) } : {}), ...(env.PROBE_LOW ? { low: Number(env.PROBE_LOW) } : {}), ...(env.PROBE_BLOCK ? { block: Number(env.PROBE_BLOCK) } : {}) } });
+const fields = createFields({ store, issuer, orch, publicUrl: PUBLIC_URL, exp, honesty: probes.caps });
 // 0.16: справочник оркестраторов (визитка, запись, обход соседей) и советы агенту: потомки и другие оркестраторы
 const dir = createDirectory({ store, issuer, resolver, exp, fields, publicUrl: PUBLIC_URL, version: VERSION, allowPrivate: ALLOW_PRIVATE, openRegistration: OPEN_REG,
   cfg: { hub_url: env.DIRECTORY_URL ?? (ALLOW_PRIVATE ? "off" : undefined), // в режиме разработки справочник выключен, пока не задан явно
     scan_hours: Number(env.DIRECTORY_SCAN_HOURS || 6), ...(env.DIRECTORY_ACCEPT != null ? { accept: env.DIRECTORY_ACCEPT === "1" } : {}) } });
-const adv = createLineageAdvice({ store, orch, fields, dir, exp, publicUrl: PUBLIC_URL });
+const adv = createLineageAdvice({ store, orch, fields, dir, exp, publicUrl: PUBLIC_URL, honesty: probes.caps });
 // 0.17: массовые задачи — доля успехов на ходу, прогноз, вопрос владельцу, мандат с границами, выборочная проверка
 // 0.17.2: квитанции о тратах от исполнителей, сверка с тем, что заявляет агент, лимит семьи
 const receipts = createReceipts({ store, issuer, orch, resolver, notify, publicUrl: PUBLIC_URL });
@@ -197,6 +200,7 @@ mountLineageAdvice(app, { adv, wrap, ownerAuth, limit, bearer });
 mountJobs(app, { jobs, wrap, ownerAuth, store, resolver, verifyCaller });
 mountReceipts(app, { receipts, wrap, ownerAuth, limit });
 mountPrivacyReports(app, { reports: createPrivacyReports({ store }), wrap, ownerAuth });
+mountProbes(app, { probes, wrap, ownerAuth, admin, verifyCaller, resolver });
 mountRecipes(app, { recipes: createRecipes({ store, issuer, orch, publicUrl: PUBLIC_URL }), wrap, ownerAuth, isAdmin });
 app.get("/v1/agents/:id/proposals", wrap((req) => evo.listProposals(orch.get(req.params.id).id)));
 app.get("/v1/agents/:id/merges", wrap((req) => evo.listMerges(orch.get(req.params.id).id)));

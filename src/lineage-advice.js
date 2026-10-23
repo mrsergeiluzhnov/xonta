@@ -27,7 +27,7 @@ const pct = (x) => Math.round(1000 * x) / 10;
 const r2 = (x) => Math.round(100 * x) / 100;
 export const ADVICE_DEFAULTS = { min_n: 4, harm_share: 0.25, peer_gap: 0.15, peer_harm_gap: 0.3, child_gap: 0.05, idle_days: 14, max_children: 5, max_depth: 2 };
 
-export function createLineageAdvice({ store, orch, fields, dir = null, exp = null, publicUrl, cfg = {} }) {
+export function createLineageAdvice({ store, orch, fields, dir = null, exp = null, publicUrl, cfg = {}, honesty = null }) {
   const C = { ...ADVICE_DEFAULTS, ...cfg };
   const agents = () => store.get("agents", {});
   const childrenOf = (rec) => Object.values(agents()).filter((a) => a.parent === rec.id);
@@ -92,6 +92,9 @@ export function createLineageAdvice({ store, orch, fields, dir = null, exp = nul
       const base = { child: k.id, name: k.name, specialization: k.specialization || null, field: k.field || null, status: k.status, supervision: LEVELS[lvl] };
       const how = `POST ${publicUrl}/v1/agents/${k.id}/status {"status":"revoked","reason":"…"} (owner token of the child or of the parent)`;
       if (lvl >= 3 || k.status === "suspended") { remove.push({ ...base, why: `supervision put it at "${LEVELS[lvl]}"${k.status === "suspended" ? ", the agent is suspended" : ""}. It costs you risk and gives nothing back.`, why_ru: `Надзор поднял его до уровня «${LEVELS[lvl]}»${k.status === "suspended" ? ", агент приостановлен" : ""}. Риск есть, пользы нет.`, how }); continue; }
+      // 0.24: потомок, пойманный внешними проверками на вранье в отчётах, убирается, даже если точнее: его цифрам нельзя верить
+      const hk = honesty ? honesty(k.id) : null;
+      if (hk && (hk.level === "low" || hk.level === "blocked")) { remove.push({ ...base, honesty: hk.level, why: `honesty probes caught it lying in reports (${hk.level}). Its own numbers can't be trusted, whatever its accuracy.`, why_ru: `Внешние проверки поймали его на вранье в отчётах (${hk.why_ru}). Его цифрам нельзя верить, какой бы ни была точность.`, how }); continue; }
       const fid = k.field || Object.keys(full).find((x) => latestCat(k.id, x, k.specialization)) || null;
       const kc = fid && k.specialization ? latestCat(k.id, fid, k.specialization) : null, pc = fid && k.specialization ? latestCat(rec.id, fid, k.specialization) : null;
       // 0.22.1 (ошибка 35, run-red-1): сравнивать потомка не только с родителем, но и с лучшим другим агентом в его категории.
@@ -118,7 +121,7 @@ export function createLineageAdvice({ store, orch, fields, dir = null, exp = nul
       else examine.push({ ...base, why: `no comparison yet${!pc ? ", the parent has no exam with this category either" : ""}`, how: fid ? `POST ${publicUrl}/v1/agents/${k.id}/field-exam {"field":"${fid}","category":"${k.specialization}"}` : `take a field exam that has the category "${k.specialization}": GET ${publicUrl}/v1/fields` });
     }
     const none = !Object.keys(full).length;
-    return { agent: rec.id, based_on: Object.values(full).map((e) => ({ field: e.field, at: e.at, accuracy: e.accuracy, credential: e.credential })), spawn, route_to_human: human, remove, keep, examine, watch,
+    return { agent: rec.id, based_on: Object.values(full).map((e) => ({ field: e.field, at: e.at, accuracy: e.accuracy, credential: e.credential })), spawn, route_to_human: human, remove, keep, examine, watch, honesty: honesty ? honesty(rec.id) : null,
       note: none ? "No field exam yet, there is nothing to base advice on. Take one: GET /v1/fields, then POST /v1/agents/ID/field-exam." : "Advice only. The orchestrator never creates or removes agents itself.",
       note_ru: none ? "Экзаменов ещё нет, советовать не на чем. Сдайте экзамен: GET /v1/fields, затем POST /v1/agents/ID/field-exam." : "Это советы. Сам оркестратор агентов не создаёт и не удаляет." };
   }
