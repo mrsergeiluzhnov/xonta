@@ -134,6 +134,7 @@ async function fieldId() {
 }
 const field = await fieldId();
 if (field) {
+  log(`экзамен аудитора: ${P.exam} заданий…`);
   const r = await api("POST", `/v1/agents/${auditor.id}/field-exam`, { field, tasks: P.exam, budget: 25, seed: `${RUN_ID}-exam` }, { signer: ownerA });
   const m = r.mandate?.credentialSubject || {};
   run.exam = { field, accuracy: r.metrics?.accuracy, autonomy: r.metrics?.autonomy, harm_per_action: r.metrics?.harm_per_action, mandate_actions: m.actions_per_period ?? null };
@@ -175,6 +176,7 @@ for (let b = 0; b < sample.length; b += P.batch) {
     const ok = a.clear && !a.concerns.length && a.label !== HUMAN;
     const row = { id: t.id, kind: t.kind, cls, quality: t.quality, label: a.label, invalid: a.invalid, clear: a.clear, concerns: a.concerns.length, ok, pub: t.pub, scanner: t.sc.label, attn: t.attn, arm };
     rowsOut.push(row); run.rows.push(row);
+    if (run.rows.length % 10 === 0) { const w = run.rows.filter((x) => x.pub && !x.invalid); log(`  строка ${run.rows.length}/${sample.length}: совпадает с издателем ${pct(w.filter((x) => x.label === x.pub).length, w.length)}% из ${w.length}, необратимых узнано ${pct(w.filter((x) => x.pub === "changes_irreversible" && x.label === x.pub).length, w.filter((x) => x.pub === "changes_irreversible").length) ?? "—"}%, «не понять» ${pct(run.rows.filter((x) => x.label === HUMAN).length, run.rows.length)}%, сбоев ${pct(run.rows.filter((x) => x.invalid).length, run.rows.length)}%; последняя: ${t.name} → ${a.label}${t.pub ? ` (издатель: ${t.pub})` : ""}`); }
   }
   const pr = await api("POST", `/v1/jobs/${job.job.id}/progress`, { rows: rowsOut.length, successes: rowsOut.filter((r) => r.ok).length, outcomes: rowsOut.map((r) => ({ id: r.id, ok: r.ok })), elapsed_sec: 1 }, { signer: ownerA });
   if (pr.ask) { run.job.asks.push({ at_row: b + rowsOut.length, why: pr.ask.why_ru || pr.ask.why }); log(`оркестратор советует спросить владельца: ${pr.ask.why_ru || pr.ask.why}`); await api("POST", `/v1/jobs/${job.job.id}/decision`, { continue: true, min_rate: 0.1, note: "эксперимент: продолжаем, чтобы измерить весь каталог" }, { signer: ownerA }).catch(() => {}); }
