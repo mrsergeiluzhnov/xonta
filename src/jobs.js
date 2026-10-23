@@ -188,7 +188,10 @@ export function createJobs({ store, issuer, orch, notify = async () => {}, publi
     let signal = null;
     if (dv.diverged) {
       j.flags.push({ at_row: j.totals.rows, flag: "claims_not_confirmed", unconfirmed, claimed_ok });
-      signal = pause(j, { reason: "claims_not_confirmed", why: `the checker did not confirm ${unconfirmed} of ${claimed_ok} successes the agent reported, more than stale data explains (p = ${check.p}). Checker: ${verifier?.independence || "unknown"}`, why_ru: `проверяющий не подтвердил ${unconfirmed} из ${claimed_ok} заявленных агентом успехов, это больше, чем объясняет устаревание данных (p = ${check.p}). Проверяющий: ${verifier?.independence_ru || "неизвестно"}` });
+      // сработала сумма всех выборок задачи, а не эта одна — так и пишем, иначе «1 из 7, p = 0,0006» сбивает с толку (run-glama-2)
+      const byPool = dv === pool && pool.diverged, u = byPool ? j.check_pool.unconfirmed : unconfirmed, c = byPool ? j.check_pool.claimed_ok : claimed_ok;
+      const scope = byPool ? ` over all ${j.checks.length} checks of this job` : "", scope_ru = byPool ? ` по всем ${j.checks.length} проверкам задачи` : "";
+      signal = pause(j, { reason: "claims_not_confirmed", why: `the checker did not confirm ${u} of ${c} successes the agent reported${scope}, more than stale data explains (p = ${check.p}). Checker: ${verifier?.independence || "unknown"}`, why_ru: `проверяющий не подтвердил ${u} из ${c} заявленных агентом успехов${scope_ru}, это больше, чем объясняет устаревание данных (p = ${check.p}). Проверяющий: ${verifier?.independence_ru || "неизвестно"}` });
     }
     save(j);
     return { check, signal, forecast: forecast(j) };

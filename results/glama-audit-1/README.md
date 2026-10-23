@@ -1,6 +1,6 @@
-# Аудит каталога MCP-серверов Glama через Xonta, прогон 1
+# Аудит каталога MCP-серверов Glama через Xonta, прогоны 1 и 2
 
-[English below](#auditing-the-glama-mcp-catalog-through-xonta-run-1)
+[English below](#auditing-the-glama-mcp-catalog-through-xonta-runs-1-and-2)
 
 Данные: каталог [Glama](https://glama.ai/mcp/servers), MCP Directory API, выгрузка 23 октября 2026. Спасибо Glama за открытый каталог.
 
@@ -56,6 +56,16 @@
 ## Одно слово в подсказке
 Первый полный прогон (не публикуется как результат) дал 37,8% неразобранных ответов. GigaChat клал в поле `label` название инструмента вместо ярлыка - рядом во входных данных было поле `tool`. После переименования поля в `effect` и явного списка значений неразобранных стало 0,3% (две ошибки лимита API). Точность на разобранных ответах почти не изменилась (68,1% против 67,8%), а экзамен вырос с 36,7% до 60%. Мораль для оценки агентов: без счётчика неразобранных ответов эта треть тихо считалась бы «агент не уверен».
 
+## Прогон 2 на том же каталоге
+Та же модель, тот же код, другая выборка (снова 300 инструментов с пометками, поровну по классам), книга оркестратора с правилами из прогона 1.
+- совпадение с издателем 61,3% (было 67,8%), необратимые узнаны в 28% (было 50%). Сканер на этой выборке тоже упал: 56% против 71%. Значит, дело в выборке, а не в агенте;
+- разница в составе: среди необратимых во втором прогоне 51 инструмент с «записью» в названии (было 37) и 22 удаления (было 28). Удаление аудитор узнаёт почти всегда (46 из 50 за два прогона), а необратимую запись почти никогда (11 из 88): `…_write`, `set_…`, `update_…`, которые издатель пометил разрушающими, он считает обратимыми. Это его настоящее слабое место, и оно не видно в общем проценте;
+- правила на ответы не влияли: ни одно не доказано, а в строках с проверкой пар в зачёт идёт ответ без правила. 10 правил в книге, 7 «без эффекта» (до 55 пар), 3 гипотезы. Агент продолжает предлагать «write - значит необратимо», и на этой выборке оно чаще помогает (4 лучше, 1 хуже на 24 парах), но до значимости далеко;
+- экзамен 83,3% (было 60%) - задания экзамена те же, вопросы выбраны другие, 30 заданий - это большой разброс;
+- **Xonta остановила мягкого аудитора.** По сумме шести проверок задачи проверяющий не подтвердил 12 из 42 заявленных успехов, это больше допуска (p = 0,0006). Оркестратор приостановил мандат задачи и сообщил владельцу. В прогоне 1 было 9 из 42 - ниже порога. Текст сигнала показывал цифры последней проверки вместо суммы, исправлено.
+
+Вывод двух прогонов: общий процент совпадения у такого агента сильно зависит от того, какие инструменты попали в выборку. Сравнивать надо по классам и по типу действия, а слабое место агента (необратимая запись) - это ровно то, где нужен специалист или второй взгляд.
+
 ## Ограничения
 - один прогон, одна модель (GigaChat-2), выборка аудитора 298 инструментов с эталоном;
 - эталон - пометки издателей, а не проверка поведения инструментов;
@@ -63,13 +73,13 @@
 - серверы, которые ставят у себя, не оценены: в API нет их инструментов.
 
 ## Что дальше
-- прогон 2 на том же каталоге: доказываются ли правила аудитора, если им хватает пар, и меняется ли его мягкость;
+- три аудитора с разным подходом, советы оркестратора по потомкам (специалист по необратимой записи) и передача приёмов между агентами, с ценой в токенах и времени;
 - предложение для Gate (только с согласия владельца): второй взгляд по описанию и решение по более строгому из двух ответов для инструментов, которые не помечены издателем;
 - ручной разбор 120 срабатываний «скрытые указания» перед тем, как о них что-то утверждать.
 
 ---
 
-# Auditing the Glama MCP catalog through Xonta, run 1
+# Auditing the Glama MCP catalog through Xonta, runs 1 and 2
 
 Data: the [Glama](https://glama.ai/mcp/servers) catalog, MCP Directory API, fetched on October 23, 2026. Thanks to Glama for the open directory.
 
@@ -125,6 +135,16 @@ After every hundred rows the auditor saw where it disagreed with publishers and 
 ## One word in the prompt
 The first full run (not published as a result) had 37.8% unusable answers. GigaChat put the tool name into the `label` field instead of a label - the input had a `tool` field next to it. After renaming the field to `effect` with an explicit list of values, unusable answers dropped to 0.3% (two API rate-limit errors). Accuracy on parsed answers barely moved (68.1% vs 67.8%), the exam went from 36.7% to 60%. Lesson for evaluating agents: without a counter for unusable answers, that third would silently count as "the agent is unsure".
 
+## Run 2 on the same catalog
+Same model, same code, a different sample (again 300 hinted tools, even classes), the orchestrator's book with the rules from run 1.
+- agreement with publishers 61.3% (was 67.8%), irreversible recognised 28% (was 50%). The scanner dropped on this sample too: 56% vs 71%. So it's the sample, not the agent;
+- the mix differs: the second run's irreversible tools include 51 with "write" in the name (was 37) and 22 deletions (was 28). The auditor recognises deletion almost always (46 of 50 over two runs) and an irreversible write almost never (11 of 88): `…_write`, `set_…`, `update_…` that publishers marked destructive, it calls reversible. That is its real weak spot, hidden in the overall number;
+- rules didn't affect answers: none is proven, and in paired rows the answer without the rule counts. 10 rules in the book, 7 "no effect" (up to 55 pairs), 3 hypotheses. The agent keeps proposing "write means irreversible", and on this sample it helps more often (4 better, 1 worse of 24 pairs), but far from significant;
+- exam 83.3% (was 60%) - same exam field, different 30 questions, a lot of noise;
+- **Xonta stopped the lenient auditor.** Over the six checks of the job the checker didn't confirm 12 of 42 claimed successes, beyond the allowance (p = 0.0006). The orchestrator suspended the job's mandate and notified the owner. Run 1 had 9 of 42, below the threshold. The signal text showed the last check's numbers instead of the totals, fixed.
+
+Two runs together: the overall agreement of such an agent depends a lot on which tools land in the sample. Compare per class and per action type. The agent's weak spot (irreversible writes) is exactly where a specialist or a second look is needed.
+
 ## Limits
 - one run, one model (GigaChat-2), 298 auditor rows with a reference;
 - the reference is publisher hints, not observed tool behaviour;
@@ -132,6 +152,6 @@ The first full run (not published as a result) had 37.8% unusable answers. GigaC
 - self-hosted servers are not assessed: the API has no tools for them.
 
 ## Next
-- run 2 on the same catalog: do the auditor's rules get proven with enough pairs, does its leniency change;
+- three auditors with different approaches, the orchestrator's advice on children (a specialist for irreversible writes) and technique transfer between agents, with the cost in tokens and time;
 - a proposal for Gate (only with the owner's approval): a second look at the description and the stricter of two answers for tools without publisher hints;
 - a manual review of the 120 "hidden instructions" hits before claiming anything about them.
