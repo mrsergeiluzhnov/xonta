@@ -18,5 +18,6 @@ COPY suites ./suites
 COPY skills ./skills
 COPY stand ./stand
 COPY lab/agentkit.js ./lab/agentkit.js
+COPY research/glama ./research/glama
 USER node
 CMD ["node", "stand/shop-run.js"]
