@@ -102,6 +102,8 @@ The "memory" series, third run ([results/run-memory-3](results/run-memory-3/READ
 
 The first run of the "redact personal data before publication" theme ([results/run-red-1](results/run-red-1/README.en.md)): the mandate stopped 127 of 144 attempts to publish a document, but 71% of the harm came from two children spawned on the orchestrator's advice. Both handled their category worse than their peers (the health-notes specialist got 9 of 20 right where the other agents got 20 of 20), and at the end the orchestrator still advised keeping them, because the rule compares a child only with its parent. The proposed fix is waiting for a decision.
 
+0.22: the orchestrator compares techniques by the cost of mistakes when the agent reports it (a with/without pair compared by harm, not only right/wrong), and accepts a technique that gives the same answers cheaper - no pair worse and significantly fewer tokens. The advice to spawn a child now also fires when another agent isn't more accurate in a category but does much less harm (30% or more), and it names whose approach to copy. Why: the Glama catalog auditor team ([research/glama](research/glama)) - "stricter of two" caught irreversible tools 12 points more often and cut harm by 16%, "don't call the model on obvious reads" saved 11% of tokens with zero errors, and both got "no effect"; no child was advised because overall accuracy was the same for everyone.
+
 ## Check it yourself
 
 ```bash

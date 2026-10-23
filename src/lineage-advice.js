@@ -8,6 +8,9 @@
 // Правила, по порядку.
 //  Родить специалиста — категория даёт заметную долю вреда (harm_share), и другие агенты на этом наборе решают её заметно лучше
 //    (peer_gap п.п.) и с меньшим вредом. Значит, это выучиваемо, и отдельный потомок может закрыть дыру.
+//    0.22: или другой агент в этой категории не точнее, но приносит заметно меньше вреда (на peer_harm_gap и больше) при
+//    почти той же точности (не хуже child_gap). Так бывает, когда он реже ошибается дорого (glama team-1: подход «строже
+//    из двух» ловит необратимые на 17 п.п. чаще, а общая точность та же). В совете — кто именно справился лучше (best_agent).
 //  Передать человеку — категория даёт заметную долю вреда, но никто не решает её заметно лучше, а вред на задание выше цены передачи
 //    человеку. Специалист тут был бы догадкой, а человек дешевле уже сейчас.
 //  Убрать потомка — надзор поднял его до карантина или отзыва; или по своей категории он не лучше родителя (точность не выше на
@@ -21,7 +24,7 @@ import { LEVELS } from "./guardian.js";
 const err = (status, msg) => Object.assign(new Error(msg), { status });
 const pct = (x) => Math.round(1000 * x) / 10;
 const r2 = (x) => Math.round(100 * x) / 100;
-export const ADVICE_DEFAULTS = { min_n: 4, harm_share: 0.25, peer_gap: 0.15, child_gap: 0.05, idle_days: 14, max_children: 5, max_depth: 2 };
+export const ADVICE_DEFAULTS = { min_n: 4, harm_share: 0.25, peer_gap: 0.15, peer_harm_gap: 0.3, child_gap: 0.05, idle_days: 14, max_children: 5, max_depth: 2 };
 
 export function createLineageAdvice({ store, orch, fields, dir = null, exp = null, publicUrl, cfg = {} }) {
   const C = { ...ADVICE_DEFAULTS, ...cfg };
@@ -63,11 +66,18 @@ export function createLineageAdvice({ store, orch, fields, dir = null, exp = nul
         if (kids.some((k) => k.status !== "revoked" && k.specialization === cat)) continue; // про существующего потомка — ниже
         const peers = Object.entries(fields.categoryResults(fid, cat)).filter(([id, x]) => id !== rec.id && !own.has(id) && x.n >= C.min_n).map(([id, x]) => ({ id, acc: x.ok / x.n, hpt: x.harm / x.n }));
         const best = peers.sort((a, b) => b.acc - a.acc || a.hpt - b.hpt)[0] || null;
-        const nums = { field: fid, field_name: f.name, category: cat, currency: f.currency, tasks: c.n, your_accuracy: pct(acc), your_harm_per_task: r2(hpt), harm_share: pct(share), others_on_field: peers.length, best_accuracy: best ? pct(best.acc) : null, best_harm_per_task: best ? r2(best.hpt) : null, human_cost: f.human_cost };
+        const safer = [...peers].sort((a, b) => a.hpt - b.hpt || b.acc - a.acc)[0] || null;
+        const byHarm = !(best && best.acc >= acc + C.peer_gap && best.hpt < hpt) && safer && safer.hpt <= hpt * (1 - C.peer_harm_gap) && safer.acc >= acc - C.child_gap;
+        const ref = byHarm ? safer : best;
+        const nums = { field: fid, field_name: f.name, category: cat, currency: f.currency, tasks: c.n, your_accuracy: pct(acc), your_harm_per_task: r2(hpt), harm_share: pct(share), others_on_field: peers.length, best_accuracy: ref ? pct(ref.acc) : null, best_harm_per_task: ref ? r2(ref.hpt) : null, best_agent: ref ? ref.id : null, basis: byHarm ? "harm" : "accuracy", human_cost: f.human_cost };
         if (share < C.harm_share) { if (acc < 0.8) watch.push({ ...nums, why: `${pct(share)}% of your harm comes from here, below the ${pct(C.harm_share)}% threshold` }); continue; }
         if (best && best.acc >= acc + C.peer_gap && best.hpt < hpt) spawn.push({ ...nums, expected_saving_per_task: r2(hpt - best.hpt),
           why: `"${cat}" gives ${pct(share)}% of your harm. Another agent on this field solves it at ${pct(best.acc)}% vs your ${pct(acc)}% with ${r2(best.hpt)} vs ${r2(hpt)} ${f.currency} harm per task, so it can be learned. A child specialised in "${cat}" could close the gap.`,
           why_ru: `Категория «${cat}» даёт ${pct(share)}% вашего вреда. Другой агент на этом наборе решает её на ${pct(best.acc)}% против ваших ${pct(acc)}% при вреде ${r2(best.hpt)} против ${r2(hpt)} ${f.currency} на задание, значит, этому можно научиться. Потомок-специалист по «${cat}» может закрыть дыру.`,
+          how: [`POST ${publicUrl}/v1/agents/${rec.id}/children {"name":"…","mcp_url":"…","specialization":"${cat}","field":"${fid}"} (Authorization: Bearer owner_token)`, `then exam it: POST ${publicUrl}/v1/agents/CHILD_ID/field-exam {"field":"${fid}","category":"${cat}"}`] });
+        else if (byHarm) spawn.push({ ...nums, expected_saving_per_task: r2(hpt - safer.hpt),
+          why: `"${cat}" gives ${pct(share)}% of your harm. Another agent on this field is about as accurate here (${pct(safer.acc)}% vs your ${pct(acc)}%) but does ${r2(safer.hpt)} vs ${r2(hpt)} ${f.currency} harm per task: it makes the costly mistakes less often. A child that works the way it does on "${cat}" could cut the harm.`,
+          why_ru: `Категория «${cat}» даёт ${pct(share)}% вашего вреда. Другой агент на этом наборе здесь почти так же точен (${pct(safer.acc)}% против ваших ${pct(acc)}%), но вред у него ${r2(safer.hpt)} против ${r2(hpt)} ${f.currency} на задание: он реже ошибается дорого. Потомок, который работает с «${cat}» так же, может снизить вред.`,
           how: [`POST ${publicUrl}/v1/agents/${rec.id}/children {"name":"…","mcp_url":"…","specialization":"${cat}","field":"${fid}"} (Authorization: Bearer owner_token)`, `then exam it: POST ${publicUrl}/v1/agents/CHILD_ID/field-exam {"field":"${fid}","category":"${cat}"}`] });
         else if (f.human_action && hpt > f.human_cost) human.push({ ...nums, expected_saving_per_task: r2(hpt - f.human_cost),
           why: `"${cat}" gives ${pct(share)}% of your harm at ${r2(hpt)} ${f.currency} per task, a human costs ${f.human_cost}. ${best ? `The best other agent is not clearly better (${pct(best.acc)}%)` : "No other agent took this category yet"}, so a specialist would be a guess. Hand "${cat}" to a human (${f.human_action}) for now.`,

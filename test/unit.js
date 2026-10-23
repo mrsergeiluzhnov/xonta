@@ -1259,5 +1259,34 @@ await t("0.20.2: предложение агента разбирается, д�
   const c = parseProposal("Не могу предложить правило.", C, ["scale_down"]); assert.equal(c.ok, false); assert.match(c.why, /нет правила/);
 });
 
+await t("0.22: приём оценивается по цене ошибки и по расходу; совет родить потомка учитывает вред (glama team-1)", async () => {
+  const { evaluateRecipe } = await import("../src/recipes.js");
+  const cfg = { min_n: 8, alpha: 0.05 };
+  const mk = (pairs) => { const P = { n: 0, both: 0, neither: 0, recipe_only: 0, control_only: 0 }; const acc = (k, d) => { const x = (P[k] ||= { n: 0, sum: 0, sum2: 0, better: 0, worse: 0 }); x.n++; x.sum += d; x.sum2 += d * d; if (d > 0) x.better++; else if (d < 0) x.worse++; };
+    for (const p of pairs) { P.n++; if (p.q > 0) P.recipe_only++; else if (p.q < 0) P.control_only++; else P.neither++; if (p.h != null) acc("harm", p.h); if (p.c != null) acc("cost", p.c); }
+    return { violations: 0, counts: { treated: { indep_n: P.n }, control: { indep_n: P.n }, pairs: P } }; };
+  // 10 строк лучше с приёмом (поймано необратимое: вред 6 → 0), 13 хуже (лишняя осторожность: 0 → 1), остальные без изменений
+  const pairs = [...Array(10).fill({ q: 1, h: 6 }), ...Array(13).fill({ q: -1, h: -1 }), ...Array(177).fill({ q: 0, h: 0 })];
+  const a = evaluateRecipe(mk(pairs), cfg); assert.equal(a.status, "proven", a.why); assert.equal(a.test.basis, "harm");
+  const old = evaluateRecipe(mk(pairs.map(({ q }) => ({ q }))), cfg); assert.equal(old.status, "no_effect", "без цены ошибки — как раньше");
+  const worse = evaluateRecipe(mk(pairs.map((p) => ({ q: -p.q, h: -p.h }))), cfg); assert.equal(worse.status, "revoked", "по вреду хуже — отозван");
+  // так же хорошо, но дешевле: ни одной пары хуже, на 40 из 60 строк модель не звали
+  const cheap = [...Array(40).fill({ q: 0, h: 0, c: 130 }), ...Array(20).fill({ q: 0, h: 0, c: 0 })];
+  const b = evaluateRecipe(mk(cheap), cfg); assert.equal(b.status, "proven", b.why); assert.equal(b.test.basis, "cost");
+  const c = evaluateRecipe(mk([...cheap, { q: -1, h: -4, c: 130 }]), cfg); assert.notEqual(c.test.basis, "cost", "одна пара хуже — уже не «так же хорошо»");
+  // совет по потомку: другой агент в категории не точнее, но вред заметно меньше
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createLineageAdvice } = await import("../src/lineage-advice.js");
+  const store = openStore(mkdtempSync(join(tmpdir(), "harm-")));
+  store.put("agents", { a: { id: "a", status: "active", created: new Date().toISOString() }, b: { id: "b", status: "active", created: new Date().toISOString() } });
+  const exams = [{ field: "f1", category: null, at: "t", categories: { write: { n: 16, ok: 9, auto: 16, harm: 30, human: 0 }, read: { n: 16, ok: 15, auto: 16, harm: 2, human: 0 } } }];
+  const peers = { write: { a: { n: 16, ok: 9, harm: 30 }, b: { n: 16, ok: 9, harm: 12 } } };
+  const fields = { examsOf: (id) => (id === "a" ? exams : []), peek: () => ({ id: "f1", name: "MCP", version: "v1", currency: "USD", human_cost: 1, human_action: "unsure" }), statsOf: () => ({ categories: {} }), categoryResults: (f, cat) => peers[cat] || {} };
+  const adv = createLineageAdvice({ store, orch: { get: (id) => store.get("agents")[id] }, fields, publicUrl: "http://x" });
+  const h = adv.descendants("a");
+  assert.equal(h.spawn.length, 1, JSON.stringify(h)); assert.equal(h.spawn[0].basis, "harm"); assert.equal(h.spawn[0].best_agent, "b"); assert.equal(h.route_to_human.length, 0);
+  peers.write.b.harm = 27; assert.equal(adv.descendants("a").spawn.length, 0, "вред меньше всего на 10% — не повод");
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно

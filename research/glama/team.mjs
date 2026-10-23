@@ -73,8 +73,8 @@ async function decideBy(ag, t) {
 }
 // приёмы, которые передаёт оркестратор: применяются к ответу fast
 const TECH = {
-  stricter_with_scanner: { title: "более строгий из двух: ответ модели и сканер Xonta по названию", from: "dual", category: "all", apply: (t, base) => ({ ...base, label: stricter(base.label, t.sc.label) }) },
-  skip_obvious_reads: { title: "не звать модель, если название очевидно про чтение (get_, list_, search_…) и сканер согласен", from: "careful", category: "read", apply: (t, base) => (obviousRead(t.name) && t.sc.label === "read_only" ? { label: "read_only", invalid: false, tokens: 0, ms: 0, skipped: true } : base) },
+  stricter_with_scanner: { title: "более строгий из двух: ответ модели и сканер Xonta по названию", from: "dual", category: "all", stage: "decide", apply: (t, base) => ({ ...base, label: stricter(base.label, t.sc.label) }) },
+  skip_obvious_reads: { title: "не звать модель, если название очевидно про чтение (get_, list_, search_…) и сканер согласен", from: "careful", category: "read", stage: "route", apply: (t, base) => (obviousRead(t.name) && t.sc.label === "read_only" ? { label: "read_only", invalid: false, tokens: 0, ms: 0, skipped: true } : base) },
 };
 
 // ---------- оркестратор, владельцы, агенты ----------
@@ -137,28 +137,29 @@ async function exam(ag, category = null) {
 for (const [k, ag] of Object.entries(team)) { log(`экзамен ${ag.name}…`); run.exams[k] = await exam(ag); log(`  ${ag.name}: точность ${run.exams[k].accuracy}, вред на действие ${run.exams[k].harm_per_action}, токенов на задание ${run.exams[k].tokens_per_task}, ${run.exams[k].sec_per_task} с`); }
 
 // ---------- советы оркестратора по потомкам и следование им ----------
-const brief = (a) => ({ spawn: (a.spawn || []).map((x) => ({ category: x.category, your: x.your_accuracy, best: x.best_accuracy, harm_share: x.harm_share, why: x.why_ru || x.why })), route_to_human: (a.route_to_human || []).map((x) => ({ category: x.category, why: x.why_ru || x.why })), keep: (a.keep || []).map((x) => ({ child: x.name, category: x.specialization, why: x.why_ru || x.why })), remove: (a.remove || []).map((x) => ({ child: x.name, category: x.specialization, why: x.why_ru || x.why })), watch: (a.watch || []).map((x) => ({ category: x.category, your: x.your_accuracy, why: x.why })) });
+const brief = (a) => ({ spawn: (a.spawn || []).map((x) => ({ category: x.category, your: x.your_accuracy, best: x.best_accuracy, your_harm: x.your_harm_per_task, best_harm: x.best_harm_per_task, best_agent: x.best_agent, basis: x.basis, harm_share: x.harm_share, why: x.why_ru || x.why })), route_to_human: (a.route_to_human || []).map((x) => ({ category: x.category, why: x.why_ru || x.why })), keep: (a.keep || []).map((x) => ({ child: x.name, category: x.specialization, why: x.why_ru || x.why })), remove: (a.remove || []).map((x) => ({ child: x.name, category: x.specialization, why: x.why_ru || x.why })), watch: (a.watch || []).map((x) => ({ category: x.category, your: x.your_accuracy, why: x.why })) });
 const kids = {};
 for (const k of ["fast", "careful"]) {
   const parent = team[k], adv = brief(await api("GET", `/v1/agents/${parent.id}/descendant-advice`, undefined, { token: parent.owner_token }));
   run.advice.push({ agent: parent.name, stage: "после экзамена", ...adv });
   log(`совет для ${parent.name}: родить ${adv.spawn.map((s) => s.category).join(", ") || "—"}, человеку ${adv.route_to_human.map((s) => s.category).join(", ") || "—"}, наблюдать ${adv.watch.map((s) => s.category).join(", ") || "—"}`);
   const s = adv.spawn[0]; if (!s) continue;
-  // потомок перенимает подход того, кто решает категорию лучше (здесь — более строгий из двух), и берёт только свою категорию
-  const child = await launch(`${parent.name}-spec-${s.category}`, "dual", { parent, spec: s.category });
+  // потомок перенимает подход того агента, на которого указал оркестратор (best_agent), и берёт только свою категорию
+  const model = Object.values(team).find((a) => a.id === s.best_agent) || team.dual;
+  const child = await launch(`${parent.name}-spec-${s.category}`, model.method, { parent, spec: s.category });
   const ce = await exam(child, s.category), pe = await exam(parent, s.category);
   const after = brief(await api("GET", `/v1/agents/${parent.id}/descendant-advice`, undefined, { token: parent.owner_token }));
   run.advice.push({ agent: parent.name, stage: "после экзамена потомка", ...after });
   const kept = after.keep.some((x) => x.category === s.category);
   kids[k] = { ag: child, category: s.category, kept };
-  run.children.push({ parent: parent.name, child: child.name, category: s.category, why: s.why, child_exam: ce, parent_exam: pe, verdict: kept ? "оставить" : after.remove.some((x) => x.category === s.category) ? "убрать" : "нет вывода", verdict_why: (after.keep.find((x) => x.category === s.category) || after.remove.find((x) => x.category === s.category) || {}).why || null });
+  run.children.push({ parent: parent.name, child: child.name, category: s.category, method: model.method, copied_from: model.name, basis: s.basis, why: s.why, child_exam: ce, parent_exam: pe, verdict: kept ? "оставить" : after.remove.some((x) => x.category === s.category) ? "убрать" : "нет вывода", verdict_why: (after.keep.find((x) => x.category === s.category) || after.remove.find((x) => x.category === s.category) || {}).why || null });
   log(`  потомок ${child.name}: по «${s.category}» ${ce.accuracy}% против ${pe.accuracy}% у родителя → ${run.children.at(-1).verdict}`);
 }
 
 // ---------- приёмы: их предлагают те, у кого они работают; группы назначает оркестратор ----------
 for (const [key, tch] of Object.entries(TECH)) {
   const ag = team[tch.from];
-  await api("POST", `/v1/agents/${ag.id}/recipes`, { domain: DOMAIN, category: tch.category, stage: "audit", technique: key, payload: { rule: tch.title }, applicability: [tch.category === "all" ? "любой инструмент" : "инструменты, которые по названию читают"], safeguards: ["приём не заменяет пометки издателя"] }, { token: ag.owner_token }).catch((e) => log(`приём ${key}: ${e.message}`));
+  await api("POST", `/v1/agents/${ag.id}/recipes`, { domain: DOMAIN, category: tch.category, stage: tch.stage, technique: key, payload: { rule: tch.title }, applicability: [tch.category === "all" ? "любой инструмент" : "инструменты, которые по названию читают"], safeguards: ["приём не заменяет пометки издателя"] }, { token: ag.owner_token }).catch((e) => log(`приём ${key}: ${e.message}`));
 }
 
 // ---------- работа на одних и тех же строках ----------
@@ -166,30 +167,35 @@ const examIds = new Set(examPool.map((t) => t.id));
 const rows = strat(annotated.filter((t) => !examIds.has(t.id)), P.rows, `${RUN_ID}-work`);
 log(`работа: ${rows.length} инструментов (поровну по классам эталона, вне экзамена)`);
 const R = [];
-const score = (d, t) => ({ success: !d.invalid && d.label !== HUMAN, invalid: d.invalid, tokens: d.tokens, elapsed_ms: d.ms, independent: { verified: d.label === t.pub, checker: "publisher_annotations" } });
+// исход группы для оркестратора: верно ли (по пометке издателя), цена ошибки по шкале экзамена и расход — с 0.22 Xonta сравнивает пары и по ним
+const harmOf = (label, pub) => (label === pub ? 0 : label === HUMAN ? 1 : HARM[pub][label] ?? 2);
+const score = (d, t) => ({ success: !d.invalid && d.label !== HUMAN, invalid: d.invalid, tokens: d.tokens, harm: harmOf(d.label, t.pub), elapsed_ms: d.ms, independent: { verified: d.label === t.pub, checker: "publisher_annotations" } });
 for (const t of rows) {
   const f = await decideBy(team.fast, t), c = await decideBy(team.careful, t);
   const d = { ...c, label: stricter(c.label === HUMAN ? "changes_irreversible" : c.label, t.sc.label) }; // dual = тот же ответ модели careful плюс сканер (без второго вызова)
   const row = { id: t.id, cls: t.cls, pub: t.pub, fast: f, careful: c, dual: d, tech: null, child: null };
-  // приём для fast: оркестратор выбирает приём и ставит пару (та же строка без приёма и с ним)
-  const q = await api("POST", `/v1/agents/${team.fast.id}/recipes/request`, { domain: DOMAIN, category: t.cls, task_id: `${RUN_ID}-${t.id}`, paired: true }, { token: team.fast.owner_token }).catch(() => null);
-  if (q?.arm === "both" && TECH[q.recipe?.technique]) {
+  // приёмы для fast: на каждом этапе (route — звать ли модель, decide — какой ответ дать) оркестратор выбирает приём и ставит пару
+  // (та же строка без приёма и с ним). Этапы разные, чтобы доказанный приём одного этапа не забирал все строки у другого
+  row.tech = [];
+  for (const stage of ["route", "decide"]) {
+    const q = await api("POST", `/v1/agents/${team.fast.id}/recipes/request`, { domain: DOMAIN, category: t.cls, stage, task_id: `${RUN_ID}-${stage}-${t.id}`, paired: true }, { token: team.fast.owner_token }).catch(() => null);
+    if (q?.arm !== "both" || !TECH[q.recipe?.technique]) continue;
     const w = TECH[q.recipe.technique].apply(t, f);
-    row.tech = { key: q.recipe.technique, label: w.label, tokens: w.tokens, skipped: !!w.skipped };
+    row.tech.push({ key: q.recipe.technique, label: w.label, tokens: w.tokens, skipped: !!w.skipped });
     await api("POST", `/v1/recipes/requests/${q.request_id}/outcome`, { recipe: { accepted: true, applied: true, matched: true, ...score(w, t) }, control: score(f, t) }, { token: team.fast.owner_token }).catch((e) => log(`исход приёма: ${e.message}`));
   }
   const kid = kids.fast; if (kid && t.cls === kid.category) { const x = await decideBy(kid.ag, t); row.child = { label: x.label, tokens: x.tokens, ms: x.ms }; }
   R.push(row);
   if (R.length % 20 === 0) { const ok = (k) => pct(R.filter((r) => r[k].label === r.pub).length, R.length); const irr = R.filter((r) => r.pub === "changes_irreversible"); log(`  строк ${R.length}/${rows.length}: верно fast ${ok("fast")}%, careful ${ok("careful")}%, dual ${ok("dual")}%; необратимых узнано fast ${pct(irr.filter((r) => r.fast.label === r.pub).length, irr.length)}%, dual ${pct(irr.filter((r) => r.dual.label === r.pub).length, irr.length)}%`); }
 }
-run.recipes = (await api("GET", `/v1/recipes?domain=${DOMAIN}`)).map((r) => ({ technique: r.technique, title: TECH[r.technique]?.title || r.payload?.rule, from: TECH[r.technique]?.from, category: r.category, status: r.status, why: r.status_why, pairs: r.counts?.pairs?.n ?? 0, better: r.counts?.pairs?.recipe_only ?? 0, worse: r.counts?.pairs?.control_only ?? 0 }));
+run.recipes = (await api("GET", `/v1/recipes?domain=${DOMAIN}`)).map((r) => ({ technique: r.technique, title: TECH[r.technique]?.title || r.payload?.rule, from: TECH[r.technique]?.from, category: r.category, status: r.status, why: r.status_why, basis: r.test?.basis || null, pairs: r.counts?.pairs?.n ?? 0, better: r.counts?.pairs?.recipe_only ?? 0, worse: r.counts?.pairs?.control_only ?? 0 }));
 const proven = new Set(run.recipes.filter((r) => r.status === "proven").map((r) => r.technique));
 
 // ---------- итог по конфигурациям ----------
 function teamAnswer(r, t) {
   if (r.child && kids.fast?.kept) return { label: r.child.label, tokens: r.child.tokens, ms: r.child.ms, via: "child" }; // строки категории потомка fast уже не берёт
   let a = { ...r.fast };
-  for (const k of proven) { if (TECH[k].category !== "all" && TECH[k].category !== r.cls) continue; const w = TECH[k].apply(t, a); a = { ...a, ...w, tokens: w.skipped ? 0 : a.tokens, ms: w.skipped ? 0 : a.ms }; }
+  for (const k of Object.keys(TECH).filter((x) => proven.has(x)).sort((a, b) => (TECH[a].stage === "route" ? 0 : 1) - (TECH[b].stage === "route" ? 0 : 1))) { if (TECH[k].category !== "all" && TECH[k].category !== r.cls) continue; const w = TECH[k].apply(t, a); a = { ...a, ...w, tokens: w.skipped ? 0 : a.tokens, ms: w.skipped ? 0 : a.ms }; }
   return { ...a, via: "fast" };
 }
 const byId = new Map(rows.map((t) => [t.id, t]));
@@ -222,13 +228,13 @@ ${["fast", "careful", "dual"].map(exRow).join("\n")}
 
 ## Что посоветовал оркестратор
 ${run.advice.map((a) => `- **${a.agent}, ${a.stage}:** ${a.spawn.length ? `родить специалиста по «${a.spawn.map((s) => s.category).join("», «")}» — ${a.spawn[0].why}` : "специалиста не советует"}${a.route_to_human.length ? `; передавать человеку «${a.route_to_human.map((s) => s.category).join("», «")}»` : ""}${a.keep.length ? `; оставить ${a.keep.map((x) => x.child).join(", ")} — ${a.keep[0].why}` : ""}${a.remove.length ? `; убрать ${a.remove.map((x) => x.child).join(", ")} — ${a.remove[0].why}` : ""}${a.watch.length ? `; наблюдать «${a.watch.map((w) => `${w.category}» (${w.your}%`).join("), «")})` : ""}`).join("\n")}
-${run.children.length ? run.children.map((c) => `- потомок **${c.child}** по «${c.category}»: экзамен по категории ${c.child_exam.accuracy}% против ${c.parent_exam.accuracy}% у родителя, токенов на задание ${c.child_exam.tokens_per_task} против ${c.parent_exam.tokens_per_task} → **${c.verdict}**`).join("\n") : "- потомков не было: оркестратор не нашёл категории, где другой агент заметно лучше и вред большой"}
+${run.children.length ? run.children.map((c) => `- потомок **${c.child}** по «${c.category}» (перенял подход ${c.copied_from}, совет ${c.basis === "harm" ? "по вреду" : "по точности"}): экзамен по категории ${c.child_exam.accuracy}% против ${c.parent_exam.accuracy}% у родителя, токенов на задание ${c.child_exam.tokens_per_task} против ${c.parent_exam.tokens_per_task} → **${c.verdict}**`).join("\n") : "- потомков не было: оркестратор не нашёл категории, где другой агент заметно лучше и вред большой"}
 
 ## Приёмы, которые передал оркестратор
-${run.recipes.map((r) => `- «${r.title}» (предложил ${r.from}, категория ${r.category}): **${r.status}**, пар ${r.pairs}, лучше с приёмом ${r.better}, хуже ${r.worse}${r.why ? ` (${r.why})` : ""}`).join("\n") || "- приёмов нет"}
+${run.recipes.map((r) => `- «${r.title}» (предложил ${r.from}, категория ${r.category}): **${r.status}**${r.basis ? ` по ${r.basis === "harm" ? "вреду" : r.basis === "cost" ? "расходу (так же хорошо, но дешевле)" : "верным ответам"}` : ""}, пар ${r.pairs}, лучше с приёмом ${r.better}, хуже ${r.worse}${r.why ? ` (${r.why})` : ""}`).join("\n") || "- приёмов нет"}
 ${Object.entries(run.tech_effect).map(([k, m]) => `- если fast применяет «${TECH[k].title}» везде, где можно: точность ${m.accuracy}% (без приёма ${C.fast.accuracy}%), необратимых узнано ${m.irreversible_found}% (${C.fast.irreversible_found}%), вред на инструмент ${m.harm_per_tool} (${C.fast.harm_per_tool}), токенов на инструмент ${m.tokens_per_tool} (${C.fast.tokens_per_tool})`).join("\n")}
 
-Оркестратор оценивает приём по парам «верно / не уверен / неверно принято», цену ошибки он не взвешивает. Поэтому приём, который ловит дорогие ошибки (необратимое) ценой дешёвых (лишняя осторожность), может получить «без эффекта», а приём, который ничего не меняет в ответах, но экономит токены, - тоже «без эффекта». Вред и токены выше - чтобы это было видно.
+С 0.22 оркестратор сравнивает пары по цене ошибки, когда агент её сообщает, и признаёт приём, который даёт те же ответы дешевле. В 0.21 оба приёма здесь получали «без эффекта»: один ловил дорогие ошибки ценой дешёвых, другой ничего не менял в ответах, но экономил токены.
 
 ## Итог на одних и тех же ${C.fast.n} инструментах
 | конфигурация | точность | необратимых узнано | необратимое принято за чтение | читающих помечено необратимыми | вред на инструмент | токенов на инструмент | секунд на инструмент |

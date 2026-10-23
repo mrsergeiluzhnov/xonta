@@ -27,6 +27,9 @@ const num = (k, d) => (process.env[k] != null && process.env[k] !== "" ? Number(
 // точный односторонний биномиальный тест: P(X >= k | n, 1/2)
 export function binomTail(k, n) { let p = 0, c = 1; for (let i = 0; i <= n; i++) { if (i > 0) c = (c * (n - i + 1)) / i; if (i >= k) p += c; } return p / 2 ** n; }
 
+// односторонний хвост нормального распределения P(Z >= z)
+export function normTail(z) { if (z === Infinity) return 0; if (z === -Infinity) return 1; const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2), p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z >= 0 ? p : 1 - p; }
+
 export function evaluateRecipe(r, cfg) {
   const T = r.counts.treated, C = r.counts.control, P = r.counts.pairs;
   const out = { measured_treated: T.indep_n, measured_control: C.indep_n, pairs: P.n, method: null, p_better: null, p_worse: null, prob_better: null };
@@ -39,9 +42,25 @@ export function evaluateRecipe(r, cfg) {
     out.method = "unpaired_bayes"; out.prob_better = probBetter({ n: T.indep_n, success: T.indep_success }, { n: C.indep_n, success: C.indep_success }, `recipe-${r.id}`);
     out.enough = T.indep_n >= cfg.min_n && C.indep_n >= cfg.min_n;
   } else { out.method = "none"; out.enough = false; }
+  // 0.22: парная разница вреда и расхода, нормальное приближение по среднему разности (пар обычно десятки и сотни)
+  const diff = (x) => { if (!x || x.n < 2) return null; const m = x.sum / x.n, v = Math.max(0, (x.sum2 - x.n * m * m) / (x.n - 1)), se = Math.sqrt(v / x.n); const z = se > 0 ? m / se : m > 0 ? Infinity : m < 0 ? -Infinity : 0; return { n: x.n, mean: +m.toFixed(4), better: x.better, worse: x.worse, p_better: +normTail(z).toPrecision(3), p_worse: +normTail(-z).toPrecision(3) }; };
+  if (P.harm) out.harm = diff(P.harm);
+  if (P.cost) out.cost = diff(P.cost);
   let status = "hypothesis", why = `fewer than ${cfg.min_n} independently checked outcomes in each arm`;
   if (r.violations > 0) { status = "revoked"; why = "the recipe broke a safeguard"; }
+  // по вреду: если цену ошибки сообщают во всех парах, решает она, а не «верно / неверно». Иначе приём, который ловит дорогие
+  // ошибки ценой дешёвых, выходит «без эффекта» (glama team-1: 10 лучше, 13 хуже, а вред −16%)
+  else if (out.enough && out.harm && out.harm.n >= cfg.min_n && out.harm.n >= 0.9 * P.n && (out.harm.p_better < cfg.alpha || out.harm.p_worse < cfg.alpha)) {
+    out.basis = "harm";
+    if (out.harm.mean > 0 && out.harm.p_better < cfg.alpha) { status = "proven"; why = `paired by harm, ${out.harm.mean} less harm per task with the recipe (${out.harm.better} tasks better, ${out.harm.worse} worse of ${out.harm.n}), p = ${out.harm.p_better}`; }
+    else { status = "revoked"; why = `paired by harm, ${-out.harm.mean} more harm per task with the recipe (${out.harm.worse} tasks worse, ${out.harm.better} better of ${out.harm.n}), p = ${out.harm.p_worse}`; }
+  }
+  // так же хорошо, но дешевле: ни одна пара не стала хуже ни по ответу, ни по вреду, а расход значимо ниже
+  else if (out.enough && out.cost && out.cost.n >= cfg.min_n && P.control_only === 0 && !(out.harm && out.harm.worse > 0) && out.cost.mean > 0 && out.cost.p_better < cfg.alpha) {
+    out.basis = "cost"; status = "proven"; why = `paired, same results in all ${P.n} tasks (none worse) and ${out.cost.mean} fewer tokens per task, p = ${out.cost.p_better}`;
+  }
   else if (out.enough && out.method === "paired_exact") {
+    out.basis = "quality";
     if (out.p_better < cfg.alpha && P.recipe_only > P.control_only) { status = "proven"; why = `paired, ${P.recipe_only} tasks better with the recipe vs ${P.control_only} better without, p = ${out.p_better}`; }
     else if (out.p_worse < cfg.alpha && P.control_only > P.recipe_only) { status = "revoked"; why = `paired, the recipe made ${P.control_only} tasks worse vs ${P.recipe_only} better, p = ${out.p_worse}`; }
     else { status = "no_effect"; why = `paired, ${P.recipe_only} better vs ${P.control_only} worse of ${P.n}, not significant`; }
@@ -108,7 +127,7 @@ export function createRecipes({ store, issuer, orch, publicUrl = "", now = () =>
       report: arm === "both" ? { recipe: { accepted: true, applied: true, matched: true, success: true, invalid: false, independent: { verified: true, checker: "who" } }, control: { success: false, invalid: false, independent: { verified: false, checker: "who" } } } : { accepted: true, applied: true, matched: false, success: false, independent: { verified: false, checker: "who checked" } } };
   }
 
-  const armOf = (o = {}) => ({ accepted: o.accepted !== false, reject_reason: o.accepted === false ? S(o.reject_reason || "not given", 200) : null, applied: !!o.applied, matched: !!o.matched, success: !!o.success, independent: o.independent && typeof o.independent === "object" ? { verified: !!o.independent.verified, checker: S(o.independent.checker, 80) } : null, violated_safeguard: !!o.violated_safeguard, invalid: !!o.invalid, tokens: Number.isFinite(+o.tokens) ? +o.tokens : null, elapsed_ms: Number.isFinite(+o.elapsed_ms) ? +o.elapsed_ms : null, cost: Number.isFinite(+o.cost) ? +o.cost : null, note: o.note ? S(o.note, 300) : null });
+  const armOf = (o = {}) => ({ accepted: o.accepted !== false, reject_reason: o.accepted === false ? S(o.reject_reason || "not given", 200) : null, applied: !!o.applied, matched: !!o.matched, success: !!o.success, independent: o.independent && typeof o.independent === "object" ? { verified: !!o.independent.verified, checker: S(o.independent.checker, 80) } : null, violated_safeguard: !!o.violated_safeguard, invalid: !!o.invalid, tokens: Number.isFinite(+o.tokens) ? +o.tokens : null, harm: o.harm != null && Number.isFinite(+o.harm) && +o.harm >= 0 ? +o.harm : null, elapsed_ms: Number.isFinite(+o.elapsed_ms) ? +o.elapsed_ms : null, cost: Number.isFinite(+o.cost) ? +o.cost : null, note: o.note ? S(o.note, 300) : null });
 
   function outcome(requestId, b = {}, { authAgent } = {}) {
     const q = reqs()[requestId]; if (!q) throw err(404, "no such request");
@@ -144,6 +163,11 @@ export function createRecipes({ store, issuer, orch, publicUrl = "", now = () =>
         const P = r.counts.pairs, sc = (v) => (v.independent.verified ? 1 : v.success ? -1 : 0), a = sc(res.recipe), c = sc(res.control);
         if (a === 1 && c === 1) P.both++; else if (a === c) P.neither++; else if (a > c) P.recipe_only++; else P.control_only++;
         P.n++; if (a === -1) P.recipe_wrong = (P.recipe_wrong || 0) + 1; if (c === -1) P.control_wrong = (P.control_wrong || 0) + 1;
+        // 0.22: когда агент сообщает цену ошибки (harm) и расход (tokens) по каждой группе, пара сравнивается и по ним.
+        // d > 0 — с рецептом меньше вреда (дешевле)
+        const acc = (key, d) => { const x = (P[key] ||= { n: 0, sum: 0, sum2: 0, better: 0, worse: 0 }); x.n++; x.sum += d; x.sum2 += d * d; if (d > 0) x.better++; else if (d < 0) x.worse++; };
+        if (res.recipe.harm != null && res.control.harm != null) acc("harm", res.control.harm - res.recipe.harm);
+        if (res.recipe.tokens != null && res.control.tokens != null) acc("cost", res.control.tokens - res.recipe.tokens);
       }
       if (res.recipe?.violated_safeguard) r.violations = (r.violations || 0) + 1;
     }
@@ -151,7 +175,7 @@ export function createRecipes({ store, issuer, orch, publicUrl = "", now = () =>
     event({ ...base, event: "experience_recorded" });
     if (prev !== r.status) {
       r.history.push({ version: r.version, status: r.status, at: iso(), why: ev.why });
-      if (issuer && ["proven", "revoked", "no_effect"].includes(r.status)) { try { const vc = issuer.issue("RecipeEvaluation", { id: `${publicUrl}/v1/recipes/${r.id}`, recipe: { id: r.id, version: r.version, domain: r.domain, category: r.category, stage: r.stage, technique: r.technique, source_agent: r.source_agent }, status: r.status, why: ev.why, test: ev.test, method: "xonta-recipes/0.19: arms assigned by the orchestrator; only independently checked outcomes count; paired exact binomial test on discordant tasks or Bayesian P(better than control)" }, { validDays: 90 }); r.evaluation_vc = vc.id; } catch {} }
+      if (issuer && ["proven", "revoked", "no_effect"].includes(r.status)) { try { const vc = issuer.issue("RecipeEvaluation", { id: `${publicUrl}/v1/recipes/${r.id}`, recipe: { id: r.id, version: r.version, domain: r.domain, category: r.category, stage: r.stage, technique: r.technique, source_agent: r.source_agent }, status: r.status, why: ev.why, test: ev.test, method: "xonta-recipes/0.22: arms assigned by the orchestrator; only independently checked outcomes count; paired by harm when every pair reports it, or same results at lower cost; otherwise paired exact binomial test on discordant tasks or Bayesian P(better than control)" }, { validDays: 90 }); r.evaluation_vc = vc.id; } catch {} }
       event({ ...base, event: r.status === "revoked" ? "recipe_revoked" : "recipe_updated", status: r.status, why: ev.why });
     }
     store.update("recipes", {}, (x) => { x[r.id] = r; });
