@@ -17,12 +17,12 @@ const UA = "XontaDiscovery/0.25 (+https://github.com/mrsergeiluzhnov/xonta)";
 mkdirSync(DIR, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function getJson(url, timeout = 10000) {
+async function getJson(url, timeout = 10000, maxBytes = 512_000) {
   const ac = new AbortController(), t = setTimeout(() => ac.abort(), timeout);
   try {
     const r = await fetch(url, { headers: { accept: "application/json", "user-agent": UA }, signal: ac.signal, redirect: "follow" });
     if (!r.ok) return { error: `HTTP ${r.status}` };
-    const text = await r.text(); if (text.length > 512_000) return { error: "слишком большой ответ" };
+    const text = await r.text(); if (text.length > maxBytes) return { error: `слишком большой ответ (${Math.round(text.length / 1024)} КБ)` };
     try { return { json: JSON.parse(text) }; } catch { return { error: "не JSON" }; }
   } catch (e) { return { error: e.name === "AbortError" ? "таймаут" : e.message }; } finally { clearTimeout(t); }
 }
@@ -31,9 +31,9 @@ const listOf = (j) => (Array.isArray(j) ? j : j?.agents || j?.items || j?.data |
 // 1. список из реестра
 const reg = [];
 for (let off = 0; reg.length < MAX; off += 100) {
-  const r = await getJson(`${REG}/api/agents?limit=100&offset=${off}`, 20000);
+  const r = await getJson(`${REG}/api/agents?limit=100&offset=${off}`, 60000, 50_000_000); // в списке реестра карточки целиком — страница бывает в мегабайты
   if (r.error) { console.log(`реестр, offset ${off}: ${r.error}`); break; }
-  const page = listOf(r.json); reg.push(...page); console.log(`реестр: ${reg.length}`);
+  const page = listOf(r.json); if (!off) console.log(`формат ответа: ${Array.isArray(r.json) ? "массив" : Object.keys(r.json || {}).join(", ")}; поля агента: ${Object.keys(page[0] || {}).slice(0, 25).join(", ")}`); reg.push(...page); console.log(`реестр: ${reg.length}`);
   if (page.length < 100) break; await sleep(PAUSE);
 }
 writeFileSync(join(DIR, "registry.json"), JSON.stringify(reg, null, 1));
