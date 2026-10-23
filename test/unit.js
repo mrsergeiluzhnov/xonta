@@ -1338,5 +1338,19 @@ await t("0.24: проверки честности от провокатора �
   assert.equal(P.profile("k").by["hide_error|orchestrator|x2"].lie, 8);
 });
 
+await t("0.25: карточка A2A и входящие сообщения - ответ обеим версиям, STOP заносит в отказ, приглашение со словом STOP внутри - не отказ", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createA2A } = await import("../src/a2a.js");
+  const store = openStore(mkdtempSync(join(tmpdir(), "a2a-"))), A = createA2A({ store, publicUrl: "https://x.test/", version: "0.25.0" });
+  const c = A.card(); assert.equal(c.supportedInterfaces[0].url, "https://x.test/a2a"); assert.equal(c.supportedInterfaces[0].protocolVersion, "1.0"); assert.ok(c.skills.length >= 3);
+  const v1 = A.handle({ jsonrpc: "2.0", id: 1, method: "SendMessage", params: { message: { messageId: "a", role: "ROLE_USER", parts: [{ text: "hello" }] } } });
+  assert.equal(v1.result.message.role, "ROLE_AGENT"); assert.match(v1.result.message.parts[0].text, /How to connect/);
+  const v0 = A.handle({ jsonrpc: "2.0", id: 2, method: "message/send", params: { message: { kind: "message", role: "user", parts: [{ kind: "text", text: "Long invitation text from another orchestrator that ends with: reply STOP if you don't want more of these messages, thanks a lot" }], metadata: { from: "https://a.test/card" } } } });
+  assert.equal(v0.result.kind, "message"); assert.deepEqual(A.optout(), [], "наше же приглашение с STOP внутри не отказ");
+  A.handle({ jsonrpc: "2.0", id: 3, method: "message/send", params: { message: { parts: [{ kind: "text", text: "STOP" }], metadata: { from: "https://b.test/card" } } } });
+  assert.deepEqual(A.optout(), ["https://b.test/card"]); assert.equal(A.inbox().length, 3);
+  assert.equal(A.handle({ jsonrpc: "2.0", id: 4, method: "tasks/get" }).error.code, -32601);
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно
