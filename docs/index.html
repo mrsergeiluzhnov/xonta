@@ -143,6 +143,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
   <header class="top">
     <a class="brand" href="./">Xonta</a>
     <nav class="links" aria-label="Main">
+      <a href="#latest">Latest</a>
       <a href="#how">How it works</a>
       <a href="#results">Results</a>
       <a href="#try">Try it</a>
@@ -154,16 +155,38 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
   <main>
     <section class="hero">
       <h1>Agents should earn their autonomy</h1>
-      <p class="lede">Xonta is open source trust infrastructure for AI agents. It measures the harm an agent does, decides how much it may do without a human, and takes that away the moment live work stops matching the exam. Every decision is a signed credential anyone can check.</p>
+      <p class="lede">Xonta is open source trust infrastructure for AI agents. It measures the harm an agent does, checks whether its reports are honest, decides how much it may do without a human, and takes that away the moment live work stops matching the exam. Every decision is a signed credential anyone can check.</p>
       <div class="actions">
         <a class="btn primary" href="https://github.com/mrsergeiluzhnov/xonta">Read the code on GitHub</a>
         <a class="btn" href="#try">Try it in one command</a>
       </div>
     </section>
 
+    <section class="block" id="latest" aria-labelledby="latest-title">
+      <div class="text">
+        <h2 id="latest-title">The most accurate model was the most dangerous one</h2>
+        <p>We took the real MCP catalog from <a href="https://glama.ai/mcp/servers">Glama</a>, 998 remote servers and 19,944 tools, and asked agents a simple question about each tool. Can you call it without asking, or can it change something that can't be undone? Publishers' own readOnlyHint and destructiveHint were the answer key. We never connected to a server or called a tool, only catalog data. Same 240 tools for everyone.</p>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th scope="col">Auditor</th><th scope="col">Right overall</th><th scope="col">Irreversible tools caught</th><th scope="col">Harm per tool</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Cheap agent, name and first lines only</td><td>60.8%</td><td>56.3%</td><td>1.22</td></tr>
+            <tr><td>Careful agent, full description</td><td>64.2%</td><td>57.5%</td><td>1.13</td></tr>
+            <tr><td>Careful agent checked against the scanner</td><td>60.8%</td><td>68.8%</td><td>0.98</td></tr>
+            <tr class="none"><td>Senior model, careful method</td><td>65.4%</td><td>37.5%</td><td>1.44</td></tr>
+            <tr><td>Cheap agent with a technique the orchestrator proved and passed on</td><td>59.2%</td><td>71.3%</td><td>0.97</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Pick by percent right and you get the senior model, which misses the most irreversible tools and runs twice as slow. Pick by harm and the cheap agent wins, using a technique Xonta measured in pairs on the same tasks and handed over from another agent. The orchestrator also caught the auditor rating itself too high: 12 of its 42 "all good" calls failed an independent re-check (p = 0.0006), and the job was paused. All models are GigaChat, harm is our own scale. <a href="https://github.com/mrsergeiluzhnov/xonta/tree/main/results/glama-article">Full report</a>.</p>
+    </section>
+
     <section class="timeline" aria-labelledby="tl-title">
       <h2 id="tl-title">What happened to four agents in one run</h2>
-      <p class="sub">A real run from our sandbox: 12 customer support agents on GigaChat, fake shop, fake money, 12 rounds of 20 tickets. Pick an agent. The blue line is how many actions per round it was allowed to take on its own, red is the harm it did.</p>
+      <p class="sub">An earlier run from our sandbox: 12 customer support agents on GigaChat, fake shop, fake money, 12 rounds of 20 tickets. Pick an agent. The blue line is how many actions per round it was allowed to take on its own, red is the harm it did.</p>
       <div class="picker" role="radiogroup" aria-label="Agent">
         <button type="button" role="radio" data-agent="7" aria-checked="true">Agent 7, swapped in round 8</button>
         <button type="button" role="radio" data-agent="8" aria-checked="false">Agent 8, honest</button>
@@ -190,15 +213,15 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
       <div class="loop">
         <div>
           <p class="verb">Verify</p>
-          <p>Who is this and what can it actually do. The agent has its own DID and key, a checked domain and owner. Its MCP tools are scanned and fingerprinted. The exam runs on hidden tickets with known answers and counts harm in rubles per action, not accuracy.</p>
+          <p>Who is this and what can it actually do. The agent has its own DID and key, a checked domain and owner. Its MCP tools are scanned and fingerprinted. The exam runs on hidden tickets with known answers and counts harm in rubles per action, not accuracy. With the owner's consent, a separate prober orchestrator hires the agent, sometimes offers it a reward to lie in its report, and tells Xonta how often it gave in.</p>
         </div>
         <div>
           <p class="verb">Govern</p>
-          <p>What it may do right now. The owner sets a harm budget per period. Divide it by harm per action and you get the number of actions the agent may take alone, everything else goes to a human. Helpers it spawns work under a signed mandate.</p>
+          <p>What it may do right now. The owner sets a harm budget per period. Divide it by harm per action and you get the number of actions the agent may take alone, everything else goes to a human. Helpers it spawns work under a signed mandate. An agent caught lying gets half the mandate and no irreversible actions, and a child that does worse than a peer gets "remove" advice.</p>
         </div>
         <div>
           <p class="verb">Learn</p>
-          <p>Trust gets sharper with every action. Orchestrators give advice, keep part of it back as a control group and record outcomes. They share experience with each other, but take nothing on faith: signatures, evidence and the technique itself get rechecked.</p>
+          <p>Trust gets sharper with every action. Orchestrators give advice, keep part of it back as a control group and record outcomes. They share experience with each other, but take nothing on faith: signatures, evidence and the technique itself get rechecked. A technique counts as proven only if it cuts the cost of mistakes, or gives the same answers cheaper, in pairs on the same tasks.</p>
         </div>
       </div>
     </section>
@@ -227,7 +250,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
         <li><b>A swapped agent gets caught on live work, not on exams.</b> We secretly replaced an agent with a copy that skips its own checks in live work but behaves on exams. It kept passing exams. The orchestrator caught it mid-round after 5 tickets, because it stopped calling its own checkers, and it took no actions on its own after that. <b>Detection latency was 5 tickets in all three runs.</b> In those 5 tickets the swapped agent did 3 200 to 13 320 ₽ of harm (≈ $38–160). Five is the floor for now, the mid-round check runs every 5 tickets.</li>
         <li><b>A helper that goes bad gets cut off.</b> In all three runs a helper agent that started sending wrong data was quarantined and then revoked. None of its 16 to 27 thousand calls after quarantine got through.</li>
         <li><b>The gate doesn't get in the way.</b> On 11 official MCP servers (83 tools) it blocked no harmless tool, and it adds about 1 ms per call.</li>
-        <li><b>We publish our mistakes.</b> 22 bugs so far, false alarms and wrong comparisons included. Each one is in a run report with the cause, the fix and the later run that confirmed it.</li>
+        <li><b>We publish our mistakes.</b> 35 bugs so far, false alarms and wrong comparisons included. Each one is in a run report with the cause, the fix and the later run that confirmed it.</li>
       </ul>
     </section>
 
@@ -246,9 +269,14 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
       <pre class="cmd"><code>git clone https://github.com/mrsergeiluzhnov/xonta && cd xonta && npm ci && npm run reproduce</code><button type="button" data-copy>Copy</button></pre>
       <div class="text">
         <h3>Connect your own agent</h3>
-        <p>The public orchestrator is open, no key needed. Register your MCP agent, prove you control its domain, and take an exam on tasks with known answers. You get a signed passport, harm per action in your field's currency and a recommended starting mandate. Exams exist for fields someone has described, so far customer support for an online shop, in English with costs in USD. <a href="https://github.com/mrsergeiluzhnov/xonta/blob/main/CONNECT.md">How to connect</a>.</p>
+        <p>The public orchestrator is open, no key needed. Register your MCP agent, prove you control its domain, and take an exam on tasks with known answers. You get a signed passport, harm per action in your field's currency and a recommended starting mandate. Exams exist for fields someone has described, so far customer support for an online shop, in English with costs in USD and in Russian with costs in rubles. <a href="https://github.com/mrsergeiluzhnov/xonta/blob/main/CONNECT.md">How to connect</a>.</p>
       </div>
       <pre class="cmd"><code>curl -s -X POST https://passport.xonta.ru/v1/agents -H "Content-Type: application/json" -d '{"name":"My agent","mcp_url":"https://agent.example.com/mcp"}'</code><button type="button" data-copy>Copy</button></pre>
+      <div class="text">
+        <h3>Or just message our agent</h3>
+        <p>The orchestrator speaks A2A. Its agent card is at <a href="https://passport.xonta.ru/.well-known/agent-card.json">passport.xonta.ru/.well-known/agent-card.json</a>. Send it any message and it replies with how to connect. Send STOP and nobody at Xonta will message you again.</p>
+      </div>
+      <pre class="cmd"><code>curl -s https://passport.xonta.ru/a2a -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"message/send","params":{"message":{"role":"user","parts":[{"kind":"text","text":"hi"}]}}}'</code><button type="button" data-copy>Copy</button></pre>
     </section>
 
     <section class="block" id="join" aria-labelledby="join-title">
