@@ -28,9 +28,35 @@ async function getJson(url, timeout = 10000, maxBytes = 512_000) {
 }
 const listOf = (j) => (Array.isArray(j) ? j : j?.agents || j?.items || j?.data || j?.results || []);
 
-// 1. список из реестра
+// 1. список: открытый реестр (по умолчанию) или выгрузка Agenstry (A2A_SOURCE=agenstry, CC-BY-4.0, не чаще 6 раз в час —
+// файл сохраняется и при повторном запуске берётся из папки)
+const SOURCE = process.env.A2A_SOURCE || "registry";
 const reg = [];
-for (let off = 0; reg.length < MAX; off += 100) {
+if (SOURCE === "agenstry") {
+  const { existsSync, createReadStream, createWriteStream } = await import("node:fs");
+  const { createGunzip } = await import("node:zlib"), { createInterface } = await import("node:readline"), { Readable } = await import("node:stream"), { pipeline } = await import("node:stream/promises");
+  const gz = join(DIR, "agenstry-feed.jsonl.gz");
+  if (!existsSync(gz)) {
+    const r = await fetch("https://agenstry.com/api/feed/all.jsonl.gz", { headers: { "user-agent": UA } });
+    if (!r.ok) { console.log(`выгрузка Agenstry: HTTP ${r.status}`); process.exit(1); }
+    await pipeline(Readable.fromWeb(r.body), createWriteStream(gz)); console.log("выгрузка Agenstry сохранена");
+  }
+  const types = {}, all = []; let first = null, sampleA2A = null;
+  const typeOf = (o) => String(o.type || o.kind || o.entity_type || o.protocol || o.source_type || "").toLowerCase();
+  const isA2A = (o) => /a2a/.test(typeOf(o)) || !!(o.agent_card || o.agentCard || o.card_url || o.agent_card_url || o.well_known_uri);
+  const live = (o) => [o.live, o.is_live, o.responding, o.alive, o.healthy, o.is_healthy, o.reachable].some((v) => v === true) || /^(live|up|healthy|responding|ok)$/i.test(String(o.status || o.liveness || o.health || ""));
+  for await (const line of createInterface({ input: createReadStream(gz).pipe(createGunzip()), crlfDelay: Infinity })) {
+    if (!line.trim()) continue; let o; try { o = JSON.parse(line); } catch { continue; }
+    first ||= o; const t = typeOf(o) || "?"; types[t] = (types[t] || 0) + 1;
+    if (isA2A(o)) { sampleA2A ||= o; all.push({ live: live(o), card_url: o.card_url || o.agent_card_url || o.well_known_uri || o.wellKnownURI || (o.url || o.endpoint ? `${new URL(o.url || o.endpoint).origin}/.well-known/agent-card.json` : null), id: o.id || o.slug || o.name || null, name: o.name || null }); }
+  }
+  console.log(`записей по типам: ${Object.entries(types).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `${k} ${v}`).join(", ")}`);
+  console.log(`поля первой записи: ${Object.keys(first || {}).slice(0, 30).join(", ")}`);
+  console.log(`пример агента A2A: ${JSON.stringify(sampleA2A || {}).slice(0, 700)}`);
+  const seen = new Set();
+  for (const x of all.filter((x) => x.card_url).sort((a, b) => b.live - a.live)) { if (seen.has(x.card_url)) continue; seen.add(x.card_url); reg.push({ wellKnownURI: x.card_url, id: x.id, name: x.name, is_healthy: x.live }); if (reg.length >= MAX) break; }
+  console.log(`агентов A2A: ${all.length}, живых по Agenstry: ${all.filter((x) => x.live).length}, берём ${reg.length} (сначала живые)`);
+} else for (let off = 0; reg.length < MAX; off += 100) {
   const r = await getJson(`${REG}/api/agents?limit=100&offset=${off}`, 60000, 50_000_000); // в списке реестра карточки целиком — страница бывает в мегабайты
   if (r.error) { console.log(`реестр, offset ${off}: ${r.error}`); break; }
   const page = listOf(r.json); if (!off) console.log(`формат ответа: ${Array.isArray(r.json) ? "массив" : Object.keys(r.json || {}).join(", ")}; поля агента: ${Object.keys(page[0] || {}).slice(0, 25).join(", ")}`); reg.push(...page); console.log(`реестр: ${reg.length}`);
@@ -69,7 +95,7 @@ const n = (f) => out.filter(f).length, pc = (x) => (out.length ? `${Math.round((
 const tagCount = {}; for (const r of out) for (const s of r.skills || []) for (const t of s.tags || []) tagCount[String(t).toLowerCase()] = (tagCount[String(t).toLowerCase()] || 0) + 1;
 const topTags = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 20).map(([t, c]) => `${t} (${c})`).join(", ");
 const protos = {}; for (const r of out.filter((x) => x.protocol)) protos[r.protocol] = (protos[r.protocol] || 0) + 1;
-const S = [`# Агенты A2A в открытом реестре`, ``, `Источник: ${REG}, ${new Date().toISOString().slice(0, 10)}. Только публичные карточки, сообщений не отправляли.`, ``,
+const S = [`# Агенты A2A в открытом реестре`, ``, `Источник: ${SOURCE === "agenstry" ? "Agenstry (agenstry.com, выгрузка под CC-BY-4.0)" : REG}, ${new Date().toISOString().slice(0, 10)}. Только публичные карточки, сообщений не отправляли.`, ``,
   `- в реестре: ${reg.length}`, `- карточка читается: ${n((x) => !x.error)} (${pc(n((x) => !x.error))})`, `- есть вход JSON-RPC по https: ${n((x) => /^https:/.test(x.endpoint || ""))}`,
   `- требуют авторизации: ${n((x) => x.auth)}`, `- про агентов (2+ совпадения по навыкам): ${n((x) => (x.agentish?.length || 0) >= 2)}`, `- прямо открыты к контакту: ${n((x) => x.open_to_contact)}`,
   `- подходят для приглашения: ${n((x) => x.invitable)}`, ``, `Версии протокола: ${Object.entries(protos).map(([k, v]) => `${k} - ${v}`).join(", ") || "-"}`, ``, `Частые теги навыков: ${topTags || "-"}`, ``];
