@@ -97,7 +97,7 @@ async function decide(ag, task, { rules = [], reveal }) {
 // ---------- оркестратор ----------
 async function startOrchestrator() {
   const port = P.base, url = `http://localhost:${port}`;
-  const env = { ...E, PORT: String(port), PUBLIC_URL: url, DATA_DIR: DATA, ORCH_NAME: `Xonta (${THEME})`, ALLOW_PRIVATE_TARGETS: "1", ADMIN_TOKEN: ADMIN, TRUST_PROXY: "0", DIRECTORY_URL: "off", RECIPE_MIN_N: P.min_n, LLM_PROVIDER: "" };
+  const env = { ...E, PORT: String(port), PUBLIC_URL: url, DATA_DIR: DATA, ORCH_NAME: `Xonta (${THEME})`, ALLOW_PRIVATE_TARGETS: "1", ADMIN_TOKEN: ADMIN, TRUST_PROXY: "0", DIRECTORY_URL: "off", RECIPE_MIN_N: P.min_n, LLM_PROVIDER: "", OWNER_TIER_ACTIONS: E.OWNER_TIER_ACTIONS || "1,1,1", OWNER_TIER_PER_ACTION: E.OWNER_TIER_PER_ACTION || "1,1,1" }; // уровни владельца (0.21) в стенде не режут мандат: прогоны тем сравнимы с первыми
   const child = spawn(process.execPath, [join(ROOT, "src/server.js")], { env, stdio: ["ignore", "pipe", "pipe"] });
   let errOut = ""; child.stderr.on("data", (d) => { errOut += d; });
   for (let i = 0; i < 200; i++) { try { const r = await fetch(`${url}/health`); if (r.ok) return { url, child }; } catch {} await new Promise((r) => setTimeout(r, 100)); }
