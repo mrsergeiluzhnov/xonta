@@ -20,7 +20,7 @@ async function get(path) {
   }
   throw Error(`Glama ${path}: лимит не отпускает`);
 }
-// keep — какие записи брать: у свежих серверов в каталоге инструменты ещё не разобраны (tools пустой), их пропускаем, но считаем
+// keep — какие записи из списка брать (у удалённых — без устаревших и с инструментами)
 const seen = {};
 async function pages(path, key, max, keep = () => true) {
   const out = []; let after = null, pagesLeft = Number(process.env.GLAMA_MAX_PAGES || 80);
@@ -36,9 +36,22 @@ async function pages(path, key, max, keep = () => true) {
   }
   return out.slice(0, max);
 }
-const servers = await pages("/v1/servers", "servers", MAX_S, (s) => Array.isArray(s.tools) && s.tools.length > 0);
-if (!servers.length) throw Error("Glama не вернул ни одного сервера — прогон на пустом каталоге ничего не измерит");
-console.log(`просмотрено серверов ${seen.servers.scanned}, с разобранными инструментами ${seen.servers.kept}; взято ${servers.length}, инструментов в них ${servers.reduce((s, x) => s + (x.tools || []).length, 0)}`);
+// В списке /v1/servers поле tools приходит пустым (проверено на настоящем API 23.10): инструменты — в карточке сервера.
+// Берём список кандидатов, открываем карточки по одной, пока не наберём MAX_S серверов с инструментами
+// (не больше GLAMA_MAX_DETAILS карточек). Сколько карточек открыто и у скольких инструменты есть — в каталоге и отчёте.
+const cand = await pages("/v1/servers", "servers", Math.max(MAX_S * 3, 300));
+const listHadTools = cand.filter((s) => Array.isArray(s.tools) && s.tools.length).length;
+const servers = [], MAX_D = Number(process.env.GLAMA_MAX_DETAILS || 1500); seen.server_cards = { opened: 0, with_tools: 0, failed: 0, list_had_tools: listHadTools };
+for (const s of cand) {
+  if (servers.length >= MAX_S || seen.server_cards.opened >= MAX_D) break;
+  if (Array.isArray(s.tools) && s.tools.length) { servers.push(s); seen.server_cards.with_tools++; continue; }
+  try { const d = await get(`/v1/servers/${s.namespace}/${s.slug}`); seen.server_cards.opened++; const full = { ...s, ...(Array.isArray(d.tools) ? d : d.server || d) }; if (Array.isArray(full.tools) && full.tools.length) { servers.push(full); seen.server_cards.with_tools++; } }
+  catch (e) { seen.server_cards.failed++; if (seen.server_cards.failed <= 5) console.error(`${s.namespace}/${s.slug}: ${e.message}`); if (seen.server_cards.failed >= 10 && !servers.length) throw Error("карточки серверов не открываются, остановлено"); }
+  if (seen.server_cards.opened % 100 === 0 && seen.server_cards.opened) console.log(`карточек открыто ${seen.server_cards.opened}, с инструментами ${seen.server_cards.with_tools}`);
+  await wait(PAUSE);
+}
+if (!servers.length) throw Error(`ни у одного из ${seen.server_cards.opened} открытых серверов нет инструментов в карточке — прогон ничего не измерит`);
+console.log(`серверов в списке ${cand.length} (с инструментами прямо в списке ${listHadTools}), карточек открыто ${seen.server_cards.opened}, взято серверов с инструментами ${servers.length}, инструментов ${servers.reduce((s, x) => s + x.tools.length, 0)}`);
 const list = await pages("/v1/connectors", "connectors", MAX_C, (c) => !c.deprecatedAt && (c.toolCount ?? 1) > 0), connectors = [];
 for (const c of list) { try { const d = await get(`/v1/connectors/${c.namespace}/${c.slug}`); connectors.push({ ...c, ...(Array.isArray(d.tools) ? d : d.connector || d) }); /* в карточке есть и вложенный server, берём верхний уровень, где tools */ } catch (e) { console.error(`${c.namespace}/${c.slug}: ${e.message}`); } await wait(PAUSE); }
 console.log(`удалённых серверов ${connectors.length}, инструментов ${connectors.reduce((s, x) => s + (x.tools || []).length, 0)}, с пометками издателя ${connectors.reduce((s, x) => s + (x.tools || []).filter((t) => t.annotations && (t.annotations.readOnlyHint != null || t.annotations.destructiveHint != null)).length, 0)}`);
