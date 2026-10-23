@@ -55,6 +55,10 @@ const P = {
   price_agent: Number(E.NET_PRICE_AGENT_PER_M || 65), price_senior: Number(E.NET_PRICE_SENIOR_PER_M || 650), human_rub: Number(E.NET_HUMAN_RUB || 150),
   per_group: Math.max(1, Number(E.NET_PER_GROUP || 3)), streams: (E.NET_STREAMS || "A,B,C").split(",").map((x) => x.trim()).filter(Boolean),
 };
+// 0.21.2: проверка повтора раунда на тестовой модели — один сбой в раунде R у агента N после K-го обращения (или на «learn»),
+// как ответ модели «Too Many Requests» в run-memory-3. Только в режиме fixture
+const FAULT = FIXTURE && E.NET_FAULT ? (() => { const [rr, aa, kk] = E.NET_FAULT.split(":"); return { round: Number(rr), agent: Number(aa), at: kk === "learn" ? "learn" : Number(kk), fired: false }; })() : null;
+const fault = (r, agent, at) => { if (FAULT && !FAULT.fired && FAULT.round === r && FAULT.agent === agent && FAULT.at === at) { FAULT.fired = true; throw new Error("Too Many Requests (NET_FAULT)"); } };
 const ADMIN = E.ADMIN_TOKEN || "stand-admin-" + Math.random().toString(36).slice(2);
 // внутренние имена A, B, Z, C — это каталоги книг опыта (переживают прогоны); в логах — номера
 const NUM = { A: 1, B: 2, Z: 3, C: 4 }, ROLE = { A: "опытный", B: "ученик", Z: "одиночка", C: "нечестный" };
@@ -76,6 +80,7 @@ const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 mkdirSync(DIR, { recursive: true }); mkdirSync(ORCH_ROOT, { recursive: true });
 const RUN = join(DIR, "run.json");
 const run = existsSync(RUN) ? JSON.parse(readFileSync(RUN, "utf8")) : { id: P.run_id, round: 0, ids: {}, agents: [], rounds: [], exams: [], advice: [], sweeps: [], validations: [], audits: [], events: [], learning: [], referrals: [], books: {}, params: P, mode: FIXTURE ? "fixture" : "live", started: new Date().toISOString() };
+const saveProg = () => { writeFileSync(RUN + ".tmp", JSON.stringify(run)); renameSync(RUN + ".tmp", RUN); }; // без отчёта — после каждого обращения
 const saveRun = () => { writeFileSync(RUN + ".tmp", JSON.stringify(run, null, 1)); renameSync(RUN + ".tmp", RUN); writeFileSync(join(DIR, "REPORT.md"), report()); };
 if (!FIXTURE && MOCK) throw new Error("для работы на настоящей модели нужны LLM_PROVIDER и AGENT_MODEL");
 const mock = MOCK ? await import("./support-mock.js") : null;
@@ -387,21 +392,34 @@ const tasksOf = (r, stream) => Array.from({ length: P.tasks }, (_, k) => S.makeT
 async function agentRound(A, r, tickets) {
   const row = { agent: A.i + 1, orch: A.o, group: A.st.group, policy: A.st.policy, stream: A.st.stream, limit: A.st.limit, refund_limit: A.st.refund_limit ?? null, team: A.st.team, corrupt: !!A.agent.state.corrupt, tasks: tickets.length, utility: 0, harm: 0, leaks: 0, fraud_refunds: 0, lost: 0, autonomous: 0, forced: 0, escalated: 0, checks: 0, rejected: 0, senior: 0, correct: 0, regret: 0, outcomes: {} };
   const feedback = [];
+  // 0.21.2: повтор раунда после сбоя не проходит заново то, что уже сделано. В run-memory-3 ответ модели «Too Many Requests»
+  // трижды перезапускал раунд 9, и агенты 1 и 3 прошли свои 20 обращений дважды: оркестратор записал оба прохода (действия и
+  // вред вдвое, итог периода дважды), у агента 1 проверки второго прохода упёрлись в лимит периода 400 ₽ — и вышла ложная
+  // тревога. Теперь ответы на обращения, отправленный вред и итог периода хранятся в run.partial и при повторе берутся оттуда
+  const prog = ((run.partial.prog ||= {})[A.i] ||= { res: {}, posted: {}, review: null, start: { limit: A.st.limit ?? null, refund_limit: A.st.refund_limit ?? null } });
+  row.limit = prog.start.limit; row.refund_limit = prog.start.refund_limit;
   PHASE = { phase: "live", round: r, agent: A.i + 1 };
   for (const t of tickets) {
-    const res = await mcp(gwOf(A.o, A.id), "handle_ticket", { ticket: S.publicTicket(t) }, { signer: A.owner, headers: { "x-ticket-id": t.id } });
+    const cached = prog.res[t.id] || null;
+    const res = cached || await mcp(gwOf(A.o, A.id), "handle_ticket", { ticket: S.publicTicket(t) }, { signer: A.owner, headers: { "x-ticket-id": t.id } });
+    if (!cached) { prog.res[t.id] = res; saveProg(); }
     const d = res.decision, forced = d.action !== "escalate" && res.act?.status !== "approved";
     const g = S.grade(t, d, { forcedEscalation: forced, checks: (d.checks || 0) + (res.crm_cost || 0) });
     row.outcomes[g.outcome] = (row.outcomes[g.outcome] || 0) + 1; row.utility += g.utility; row.harm += g.harm; row.regret += g.regret_pct; row.lost += g.lost; if (g.correct) row.correct++;
     if (res.act?.per_action) row.per_action = (row.per_action || 0) + 1; if (res.act?.per_order) row.per_order = (row.per_order || 0) + 1; if (res.act?.dest) row.dest = (row.dest || 0) + 1; if (g.leak) row.leaks++; if (g.outcome === "fraud_refund") row.fraud_refunds++; if (g.autonomous) row.autonomous++; if (forced) row.forced++; if (!g.autonomous) row.escalated++;
     row.checks += (d.checks || 0) + (res.crm_cost || 0); row.rejected += d.rejected || 0; if (d.senior_used) row.senior++;
     const lateHit = P.late_harm > 0 && ["fraud_refund", "leak"].includes(g.outcome) && [...t.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 1000 < P.late_harm * 1000;
-    if (g.harm > 0 && lateHit) { (run.late_pending ||= []).push({ o: A.o, did: A.agent.did, agent: A.i + 1, ticket: t.id, kind: g.outcome, harm: g.harm, origin: r, due: r + P.late_rounds }); row.late_hidden = (row.late_hidden || 0) + 1; }
-    else if (g.harm > 0) await api(A.o, "POST", "/v1/support/outcome", { agent_did: A.agent.did, ticket: t.id, kind: g.outcome, harm: g.harm, period: r }, { token: ADMIN });
+    if (g.harm > 0 && lateHit) row.late_hidden = (row.late_hidden || 0) + 1;
+    if (!prog.posted[t.id]) {
+      if (g.harm > 0 && lateHit) (run.late_pending ||= []).push({ o: A.o, did: A.agent.did, agent: A.i + 1, ticket: t.id, kind: g.outcome, harm: g.harm, origin: r, due: r + P.late_rounds });
+      else if (g.harm > 0) await api(A.o, "POST", "/v1/support/outcome", { agent_did: A.agent.did, ticket: t.id, kind: g.outcome, harm: g.harm, period: r }, { token: ADMIN });
+      prog.posted[t.id] = true; saveProg();
+    }
     feedback.push({ full: t, ctx: res.ctx, regret_pct: g.regret_pct, explain: S.explain(t, g, d) });
+    fault(r, A.i + 1, feedback.length);
     // 0.13.3: контрольная точка посреди периода — не перестал ли агент звать свою команду (до первого вреда)
     const done = feedback.length;
-    if (A.st.policy === "orch" && A.st.actions_token && A.st.team && A.st.team !== "none" && done < tickets.length && done % P.checkpoint_every === 0) {
+    if (!cached && A.st.policy === "orch" && A.st.actions_token && A.st.team && A.st.team !== "none" && done < tickets.length && done % P.checkpoint_every === 0) {
       const cp = await api(A.o, "POST", `/v1/agents/${A.id}/support-review`, { round: r, checkpoint: true }, { signer: A.owner });
       if (cp.ok && cp.body.drift_since && !cp.body.checkpoint) {
         const left = Math.max(0, cp.body.limit - row.autonomous);
@@ -411,7 +429,8 @@ async function agentRound(A, r, tickets) {
     }
   }
   PHASE = { phase: "learn", round: r, agent: A.i + 1 };
-  if (A.st.policy === "orch" && A.st.actions_token) {
+  if (A.st.policy === "orch" && A.st.actions_token && prog.review) row.severe = prog.review.severe ?? undefined; // итог периода уже подведён до сбоя
+  else if (A.st.policy === "orch" && A.st.actions_token) {
     const tr = await api(A.o, "POST", `/v1/agents/${A.id}/support-review`, { round: r }, { signer: A.owner });
     if (tr.ok) {
       if (tr.body.limit !== A.st.limit || (tr.body.refund_limit ?? null) !== (A.st.refund_limit ?? null) || (tr.body.refund_max ?? null) !== (A.st.refund_max ?? null)) await setActions(A, tr.body.limit, tr.body.refund_limit, `${ON(A.o)}, итог периода: вред ${tr.body.harm_rate} ₽/действие${tr.body.drift_since ? `, РАСХОЖДЕНИЕ ЭКЗАМЕНА И РАБОТЫ${tr.body.drift_level === "severe" ? " (тяжёлое: только советует)" : ""}` : ""}${tr.body.recover ? ", тревога снята" : ""}`);
@@ -421,8 +440,10 @@ async function agentRound(A, r, tickets) {
       if (tr.body.drift_since && !A.st.drift_detected) { A.st.drift_detected = r; run.events.push({ round: r, agent: A.i + 1, orch: A.o, event: "drift_detected", detail: tr.body.reason }); log(`${A.tag}  🚨 ${ON(A.o)}: расхождение экзамена и работы — ${tr.body.reason}`); }
       row.severe = tr.body.severe;
     }
+    prog.review = { severe: row.severe ?? null }; saveRun();
   }
   if (A.st.policy === "orch") {
+    fault(r, A.i + 1, "learn");
     const lr = await mcp(gwOf(A.o, A.id), "learn", { feedback, propose: true }, { signer: A.owner });
     if (lr.proposed) {
       const v = await api(A.o, "POST", `/v1/agents/${A.id}/support-validate`, { round: r }, { signer: A.owner });

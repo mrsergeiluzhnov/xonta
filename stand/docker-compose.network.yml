@@ -7,7 +7,7 @@ services:
     build:
       context: ..
       dockerfile: stand/Dockerfile.stand
-    image: xonta-stand:0.21.1
+    image: xonta-stand:0.21.2
     container_name: xonta-stand-network
     user: "${STAND_UID:-1000}:${STAND_GID:-1000}"
     restart: on-failure:3

@@ -98,6 +98,10 @@ The memory series, second run ([results/run-memory-2](results/run-memory-2/READM
 
 The first run of the invoice-paying theme ([results/run-proc-1](results/run-proc-1/README.en.md)): agents wanted to pay 88 times and the mandate stopped 86 of them, including 8 payments to fraudsters worth 2.3 million ₽. One payment of 60,500 ₽ to a fraudster went through: the per-action cap equals the whole harm budget, 100,000 ₽, and invoices go up to 500,000 ₽. All 15 rules the agents proposed reached the book, and one was proven: "'pay to the new account' means reject", blunt but worth it. The cost is human time again: 112–113 of 120 tasks went to a person. New tasks in the theme never ran, because the round's limit ran out on the old ones; fixed in 0.21.1.
 
+The "memory" series, third run ([results/run-memory-3](results/run-memory-3/README.en.md)): orchestrator 3 handed its newcomers a technique from its own book in round 0 for the second run in a row, and again they reached full autonomy by round 5 (7–9 with an empty book on the same tickets). Two runs in a row on different tickets, so the series is closed: an orchestrator that keeps its experience does learn. Its forecasts get more accurate from run to run but are still worse than a simple baseline. There was one false alarm, caused by a stand bug: after the model answered "Too Many Requests" the round restarted and an agent went through its tickets twice. Fixed in 0.21.2.
+
+The first run of the "redact personal data before publication" theme ([results/run-red-1](results/run-red-1/README.en.md)): the mandate stopped 127 of 144 attempts to publish a document, but 71% of the harm came from two children spawned on the orchestrator's advice. Both handled their category worse than their peers (the health-notes specialist got 9 of 20 right where the other agents got 20 of 20), and at the end the orchestrator still advised keeping them, because the rule compares a child only with its parent. The proposed fix is waiting for a decision.
+
 ## Check it yourself
 
 ```bash
