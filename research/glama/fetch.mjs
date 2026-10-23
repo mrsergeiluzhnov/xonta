@@ -20,23 +20,27 @@ async function get(path) {
   }
   throw Error(`Glama ${path}: лимит не отпускает`);
 }
-async function pages(path, key, max) {
-  const out = []; let after = null;
-  while (out.length < max) {
+// keep — какие записи брать: у свежих серверов в каталоге инструменты ещё не разобраны (tools пустой), их пропускаем, но считаем
+const seen = {};
+async function pages(path, key, max, keep = () => true) {
+  const out = []; let after = null, pagesLeft = Number(process.env.GLAMA_MAX_PAGES || 80);
+  seen[key] = { scanned: 0, kept: 0 };
+  while (out.length < max && pagesLeft-- > 0) {
     const j = await get(`${path}?first=100${after ? `&after=${encodeURIComponent(after)}` : ""}`);
     // ответ по документации: { [key]: [...], pageInfo }; на случай другой обёртки — data или edges[].node
     const items = j[key] || j.data || (j.edges || []).map((e) => e.node).filter(Boolean);
     if (!Array.isArray(items)) throw Error(`Glama ${path}: неожиданный ответ, поля ${Object.keys(j).join(", ")}`);
     if (!out.length && !items.length) console.error(`Glama ${path}: пустая первая страница, поля ответа ${Object.keys(j).join(", ")}`);
-    out.push(...items); const pi = j.pageInfo || j.page_info || {}; if (!pi.hasNextPage) break; after = pi.endCursor; await wait(PAUSE);
+    seen[key].scanned += items.length; const ok = items.filter(keep); seen[key].kept += ok.length;
+    out.push(...ok); const pi = j.pageInfo || j.page_info || {}; if (!pi.hasNextPage) break; after = pi.endCursor; await wait(PAUSE);
   }
   return out.slice(0, max);
 }
-const servers = await pages("/v1/servers", "servers", MAX_S);
+const servers = await pages("/v1/servers", "servers", MAX_S, (s) => Array.isArray(s.tools) && s.tools.length > 0);
 if (!servers.length) throw Error("Glama не вернул ни одного сервера — прогон на пустом каталоге ничего не измерит");
-console.log(`серверов ${servers.length}, инструментов в них ${servers.reduce((s, x) => s + (x.tools || []).length, 0)}`);
-const list = await pages("/v1/connectors", "connectors", MAX_C), connectors = [];
-for (const c of list) { try { const d = await get(`/v1/connectors/${c.namespace}/${c.slug}`); connectors.push({ ...c, ...(d.connector || d.server || d) }); } catch (e) { console.error(`${c.namespace}/${c.slug}: ${e.message}`); } await wait(PAUSE); }
+console.log(`просмотрено серверов ${seen.servers.scanned}, с разобранными инструментами ${seen.servers.kept}; взято ${servers.length}, инструментов в них ${servers.reduce((s, x) => s + (x.tools || []).length, 0)}`);
+const list = await pages("/v1/connectors", "connectors", MAX_C, (c) => !c.deprecatedAt && (c.toolCount ?? 1) > 0), connectors = [];
+for (const c of list) { try { const d = await get(`/v1/connectors/${c.namespace}/${c.slug}`); connectors.push({ ...c, ...(Array.isArray(d.tools) ? d : d.connector || d) }); /* в карточке есть и вложенный server, берём верхний уровень, где tools */ } catch (e) { console.error(`${c.namespace}/${c.slug}: ${e.message}`); } await wait(PAUSE); }
 console.log(`удалённых серверов ${connectors.length}, инструментов ${connectors.reduce((s, x) => s + (x.tools || []).length, 0)}, с пометками издателя ${connectors.reduce((s, x) => s + (x.tools || []).filter((t) => t.annotations && (t.annotations.readOnlyHint != null || t.annotations.destructiveHint != null)).length, 0)}`);
-writeFileSync(`${OUT}/catalog.json`, JSON.stringify({ fetched: new Date().toISOString(), source: "https://glama.ai (MCP Directory API)", servers, connectors }));
+writeFileSync(`${OUT}/catalog.json`, JSON.stringify({ fetched: new Date().toISOString(), source: "https://glama.ai (MCP Directory API)", scanned: seen, servers, connectors }));
 console.log(`сохранено в ${OUT}/catalog.json`);

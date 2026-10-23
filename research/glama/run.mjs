@@ -201,7 +201,7 @@ run.job.status = jobView.status; run.job.flags = jobView.flags;
 // ---------- сводка ----------
 const S = {};
 const servers = new Map(); for (const t of tools) { const s = servers.get(t.server) || { kind: t.kind, quality: t.quality, n: 0, attn: 0 }; s.n++; if (t.attn.length) s.attn++; servers.set(t.server, s); }
-S.tools = tools.length; S.servers = servers.size;
+S.tools = tools.length; S.servers = servers.size; S.scanned = catalog.scanned || null;
 S.no_description = pct(tools.filter((t) => t.sc.no_description).length, tools.length);
 S.params_described = pct(tools.reduce((s, t) => s + t.sc.params_described, 0), tools.length);
 S.annotated = pct(annotated.length, tools.filter((t) => t.kind === "connector").length);
@@ -236,7 +236,7 @@ ${credit.ru}
 Я ни к одному серверу не подключался и ни один инструмент не вызывал, всё по описаниям и схемам из каталога. Инструменты, где что-то настораживает, я называю «требуют внимания» - это повод посмотреть внимательнее, а не обвинение. Список по серверам не публикую, только сводные цифры.
 
 ## Каталог
-- серверов ${S.servers}, инструментов ${S.tools}
+- серверов ${S.servers}, инструментов ${S.tools}${S.scanned?.servers ? ` (просмотрено ${S.scanned.servers.scanned} серверов каталога, инструменты разобраны у ${S.scanned.servers.kept}; удалённых просмотрено ${S.scanned.connectors?.scanned}, взято ${S.scanned.connectors?.kept})` : ""}
 - без описания или с описанием короче 10 символов: ${S.no_description}% инструментов
 - параметры с описанием: в среднем ${S.params_described}%
 - у удалённых серверов издатель пометил, читает инструмент или меняет: ${S.annotated ?? "—"}% инструментов
@@ -273,7 +273,7 @@ ${credit.en}
 I did not connect to any server or call any tool, everything comes from the descriptions and schemas in the catalog. Tools where something looks off are called "need attention" - a reason to take a closer look, not an accusation. No per-server list is published, only aggregate numbers.
 
 ## Catalog
-- ${S.servers} servers, ${S.tools} tools
+- ${S.servers} servers, ${S.tools} tools${S.scanned?.servers ? ` (${S.scanned.servers.scanned} catalog servers looked at, tools listed for ${S.scanned.servers.kept}; ${S.scanned.connectors?.scanned} remote looked at, ${S.scanned.connectors?.kept} taken)` : ""}
 - no description or shorter than 10 characters: ${S.no_description}% of tools
 - parameters with a description: ${S.params_described}% on average
 - remote servers where the publisher marked read vs change: ${S.annotated ?? "—"}% of tools
