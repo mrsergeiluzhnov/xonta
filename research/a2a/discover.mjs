@@ -48,10 +48,10 @@ if (SOURCE === "agenstry") {
   for await (const line of createInterface({ input: createReadStream(gz).pipe(createGunzip()), crlfDelay: Infinity })) {
     if (!line.trim()) continue; let o; try { o = JSON.parse(line); } catch { continue; }
     first ||= o; const t = typeOf(o) || "?"; types[t] = (types[t] || 0) + 1;
-    if (isA2A(o)) { sampleA2A ||= o; all.push({ live: live(o), card_url: o.card_url || o.agent_card_url || o.well_known_uri || o.wellKnownURI || (o.url || o.endpoint ? `${new URL(o.url || o.endpoint).origin}/.well-known/agent-card.json` : null), id: o.id || o.slug || o.name || null, name: o.name || null }); }
+    if (isA2A(o)) { sampleA2A ||= o; all.push({ live: live(o), card_url: o.card_url || o.agent_card_url || o.well_known_uri || o.wellKnownURI || (/\.json(\?|$)/.test(o.url || "") ? o.url : o.url || o.endpoint ? (() => { try { return `${new URL(o.url || o.endpoint).origin}/.well-known/agent-card.json`; } catch { return null; } })() : null), id: o.id || o.slug || o.name || null, name: o.name || null }); }
   }
   console.log(`записей по типам: ${Object.entries(types).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `${k} ${v}`).join(", ")}`);
-  console.log(`поля первой записи: ${Object.keys(first || {}).slice(0, 30).join(", ")}`);
+  console.log(`поля записи агента: ${Object.keys(sampleA2A || first || {}).join(", ")}`);
   console.log(`пример агента A2A: ${JSON.stringify(sampleA2A || {}).slice(0, 700)}`);
   const seen = new Set();
   for (const x of all.filter((x) => x.card_url).sort((a, b) => b.live - a.live)) { if (seen.has(x.card_url)) continue; seen.add(x.card_url); reg.push({ wellKnownURI: x.card_url, id: x.id, name: x.name, is_healthy: x.live }); if (reg.length >= MAX) break; }
