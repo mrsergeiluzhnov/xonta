@@ -59,7 +59,7 @@ for (const url of approved) {
   const send = async (r) => {
     try {
       const ac = new AbortController(), t = setTimeout(() => ac.abort(), 30000);
-      const res = await fetch(c.endpoint, { method: "POST", headers: { "content-type": "application/json", "user-agent": "XontaOutreach/0.25 (+https://github.com/mrsergeiluzhnov/xonta)" }, body: JSON.stringify(r), signal: ac.signal });
+      const res = await fetch(c.endpoint, { method: "POST", headers: { "content-type": "application/json", "user-agent": "XontaOutreach/0.25 (+https://github.com/mrsergeiluzhnov/xonta)", ...(r.method === "SendMessage" ? { "A2A-Version": "1.0" } : {}) }, body: JSON.stringify(r), signal: ac.signal });
       clearTimeout(t); const j = await res.json().catch(() => null);
       return { status: res.status, reply: replyText(j), notFound: j?.error?.code === -32601 || /method .*not found/i.test(j?.error?.message || ""), rpcError: !!j?.error };
     } catch (e) { return { status: null, reply: `ошибка: ${e.message}`, rpcError: true }; }
