@@ -24,7 +24,9 @@ const approved = lines(APPROVED);
 if (!approved.length) { console.log(`нет одобренных адресов в ${APPROVED}: выберите их из candidates.json`); process.exit(0); }
 
 const why = (c) => {
-  const skill = (c.skills || []).map((x) => x.name).find((n) => n && n.length <= 60);
+  // навык, который правда про агентов и доверие, человеческим названием; иначе общая фраза — «Instant Keyless Check-In» не повод писать
+  const REL = /agent|trust|reputation|governance|evidence|directory|registry|marketplace|identity|audit|complaint|verif/i;
+  const skill = (c.skills || []).find((x) => x.name && x.name.length <= 60 && !/_/.test(x.name) && REL.test(`${x.name} ${(x.tags || []).join(" ")}`))?.name;
   return skill ? `Your card lists "${skill}", so this may be relevant` : "You build for other agents, so this may be relevant";
 };
 const text = (c) => [
