@@ -40,7 +40,9 @@ export function createA2A({ store, publicUrl, version, name = "Xonta" }) {
     const id = rpc?.id ?? null, method = String(rpc?.method || "");
     const fail = (code, message) => ({ jsonrpc: "2.0", id, error: { code, message } });
     if (rpc?.jsonrpc !== "2.0") return fail(-32600, "Invalid Request");
-    if (!["SendMessage", "message/send"].includes(method)) return fail(-32601, `Method not found: ${method}. Supported: SendMessage, message/send`);
+    // 0.25.1: задач мы не держим — на запрос задачи честное «не найдена» (так справочники проверяют, что вход живой), а не «нет метода»
+    if (["tasks/get", "GetTask", "tasks/cancel", "CancelTask"].includes(method)) return fail(-32001, "Task not found: this agent answers right away and keeps no tasks");
+    if (!["SendMessage", "message/send"].includes(method)) return fail(-32601, `Method not found: ${method}. Supported: SendMessage, message/send, tasks/get`);
     const msg = rpc.params?.message || rpc.params?.request || {};
     const text = textOf(msg).slice(0, 2000), from = String(msg.metadata?.agentCardUrl || msg.metadata?.from || rpc.params?.metadata?.from || "").slice(0, 300) || null;
     const stop = text.length <= 120 && STOP.test(text); // длинное сообщение с «reply STOP» внутри (наше же приглашение) — не отказ
@@ -52,14 +54,25 @@ export function createA2A({ store, publicUrl, version, name = "Xonta" }) {
       ? { jsonrpc: "2.0", id, result: { message: { messageId: mid, contextId: msg.contextId || mid, role: "ROLE_AGENT", parts: [{ text: reply }] } } }
       : { jsonrpc: "2.0", id, result: { kind: "message", messageId: mid, contextId: msg.contextId || mid, role: "agent", parts: [{ kind: "text", text: reply }] } };
   }
+  // llms.txt — короткое описание для моделей и обходчиков; ссылки на справочники, где записан оркестратор (DIRECTORY_LISTINGS)
+  function llmsTxt(listings = []) {
+    return [`# ${name}`, "", "> Open orchestrator for AI agents: signed passports, field exams that measure accuracy and the cost of mistakes, an action mandate the owner can enforce, honesty probes, and a network of orchestrators.", "",
+      "## For agents", `- A2A agent card: ${base}/.well-known/agent-card.json`, `- A2A endpoint (SendMessage, message/send): ${base}/a2a`, `- Register an agent: POST ${base}/v1/agents`, `- Field exams: GET ${base}/v1/fields`, `- Orchestrator directory: GET ${base}/v1/orchestrators`, `- Health: ${base}/health`, "",
+      "## For people", "- What it is and results: https://mrsergeiluzhnov.github.io/xonta/", "- Code (Apache-2.0): https://github.com/mrsergeiluzhnov/xonta", "- How to connect: https://github.com/mrsergeiluzhnov/xonta/blob/main/CONNECT.md",
+      ...(listings.length ? ["", "## Listed in", ...listings.map((u) => `- ${u}`)] : []), ""].join("\n");
+  }
   const inbox = () => store.get("a2a_inbox", []).slice().reverse();
   const optout = () => store.get("a2a_optout", []);
-  return { card, handle, inbox, optout };
+  return { card, handle, inbox, optout, llmsTxt };
 }
 
 export function mountA2A(app, { a2a, wrap, admin, limit }) {
   app.get("/.well-known/agent-card.json", (_q, s) => s.set("Cache-Control", "max-age=3600").json(a2a.card()));
   app.get("/.well-known/agent.json", (_q, s) => s.set("Cache-Control", "max-age=3600").json(a2a.card()));
+  const listings = String(process.env.DIRECTORY_LISTINGS || "").split(",").map((x) => x.trim()).filter((x) => /^https:\/\//.test(x));
+  app.get("/llms.txt", (_q, s) => s.type("text/plain").set("Cache-Control", "max-age=3600").send(a2a.llmsTxt(listings)));
+  // подтверждение домена для справочников (allagents и подобные): строка из переменной окружения, без правки кода
+  app.get("/.well-known/allagents-proof.txt", (_q, s) => (process.env.ALLAGENTS_PROOF ? s.type("text/plain").send(String(process.env.ALLAGENTS_PROOF).trim() + "\n") : s.status(404).type("text/plain").send("not set\n")));
   app.post("/a2a", (req, res) => { try { limit(req, 120, 3600_000, "a2a"); } catch { return res.status(429).json({ jsonrpc: "2.0", id: req.body?.id ?? null, error: { code: -32000, message: "rate limited" } }); } res.json(a2a.handle(req.body || {})); });
   app.get("/v1/admin/a2a/inbox", wrap((req) => { admin(req); return { optout: a2a.optout(), messages: a2a.inbox().slice(0, 200) }; }));
 }

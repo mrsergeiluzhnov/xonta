@@ -1354,7 +1354,9 @@ await t("0.25: карточка A2A и входящие сообщения - о�
   assert.equal(v0.result.kind, "message"); assert.deepEqual(A.optout(), [], "наше же приглашение с STOP внутри не отказ");
   A.handle({ jsonrpc: "2.0", id: 3, method: "message/send", params: { message: { parts: [{ kind: "text", text: "STOP" }], metadata: { from: "https://b.test/card" } } } });
   assert.deepEqual(A.optout(), ["https://b.test/card"]); assert.equal(A.inbox().length, 3);
-  assert.equal(A.handle({ jsonrpc: "2.0", id: 4, method: "tasks/get" }).error.code, -32601);
+  assert.equal(A.handle({ jsonrpc: "2.0", id: 4, method: "tasks/get" }).error.code, -32001, "задачи нет — «не найдена», а не «нет метода»");
+  assert.equal(A.handle({ jsonrpc: "2.0", id: 5, method: "tasks/list" }).error.code, -32601);
+  assert.match(A.llmsTxt(["https://allagents.app/agent/xonta"]), /agent-card\.json[\s\S]*Listed in[\s\S]*allagents/);
 });
 
 await t("0.25.1: совет по потомку берёт его свежий экзамен на новом наборе, а не набор, с которым его родили (ошибка 36, run-ops-2)", async () => {
