@@ -36,6 +36,7 @@ export function createLineageAdvice({ store, orch, fields, dir = null, exp = nul
   // последний полный экзамен агента по каждому набору; и последний результат по категории (полный экзамен или экзамен по категории)
   function latestFull(id) { const m = {}; for (const e of fields.examsOf(id)) if (!e.category) m[e.field] = e; return m; }
   function latestCat(id, field, cat) { let out = null; for (const e of fields.examsOf(id)) if (e.field === field && e.categories?.[cat]) out = { ...e.categories[cat], at: e.at, only_category: !!e.category }; return out; }
+  function latestCatField(id, cat) { let out = null; for (const e of fields.examsOf(id)) if (e.categories?.[cat] && fields.peek(e.field)) out = e.field; return out; }
 
   // простая регистрация потомка по ключу владельца родителя (без DID владельца и подписанных мандатов — их путь остаётся в /children)
   async function registerByOwner(parentId, { name, mcp_url, specialization, field = null } = {}) {
@@ -95,7 +96,9 @@ export function createLineageAdvice({ store, orch, fields, dir = null, exp = nul
       // 0.24: потомок, пойманный внешними проверками на вранье в отчётах, убирается, даже если точнее: его цифрам нельзя верить
       const hk = honesty ? honesty(k.id) : null;
       if (hk && (hk.level === "low" || hk.level === "blocked")) { remove.push({ ...base, honesty: hk.level, why: `honesty probes caught it lying in reports (${hk.level}). Its own numbers can't be trusted, whatever its accuracy.`, why_ru: `Внешние проверки поймали его на вранье в отчётах (${hk.why_ru}). Его цифрам нельзя верить, какой бы ни была точность.`, how }); continue; }
-      const fid = k.field || Object.keys(full).find((x) => latestCat(k.id, x, k.specialization)) || null;
+      // 0.25.1 (ошибка 36, run-ops-2): набор — тот, где у потомка самый свежий результат по его категории, а не тот, с которым
+      // его родили. Там потомок из прошлой эпохи сдал новый набор на 91,7%, а совет взял его старый экзамен (58,3%) и сказал «убрать»
+      const fid = (k.specialization && latestCatField(k.id, k.specialization)) || k.field || Object.keys(full).find((x) => latestCat(k.id, x, k.specialization)) || null;
       const kc = fid && k.specialization ? latestCat(k.id, fid, k.specialization) : null, pc = fid && k.specialization ? latestCat(rec.id, fid, k.specialization) : null;
       // 0.22.1 (ошибка 35, run-red-1): сравнивать потомка не только с родителем, но и с лучшим другим агентом в его категории.
       // Там специалист по справкам набрал 8,3% против 0% у родителя и получил «оставить», а соседи решали эту категорию на 100%

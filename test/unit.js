@@ -1352,5 +1352,24 @@ await t("0.25: карточка A2A и входящие сообщения - о�
   assert.equal(A.handle({ jsonrpc: "2.0", id: 4, method: "tasks/get" }).error.code, -32601);
 });
 
+await t("0.25.1: совет по потомку берёт его свежий экзамен на новом наборе, а не набор, с которым его родили (ошибка 36, run-ops-2)", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { openStore } = await import("../src/store.js"), { createLineageAdvice } = await import("../src/lineage-advice.js");
+  const store = openStore(mkdtempSync(join(tmpdir(), "era-")));
+  const now = new Date().toISOString();
+  store.put("agents", { p: { id: "p", status: "active", created: now }, q: { id: "q", status: "active", created: now }, k: { id: "k", status: "active", created: now, parent: "p", specialization: "fix", field: "e0" } });
+  const cat = (n, ok, harm) => ({ fix: { n, ok, auto: n, harm, human: 0 } });
+  // цифры run-ops-2: старый экзамен потомка на наборе эпохи 0 — 7 из 12, новый на эпохе 1 — 11 из 12; родитель на эпохе 1 — 0 из 7
+  const exams = { p: [{ field: "e0", category: null, at: "1", categories: cat(5, 0, 8800) }, { field: "e1", category: null, at: "3", categories: cat(7, 0, 68400) }],
+    k: [{ field: "e0", category: "fix", at: "2", categories: cat(12, 7, 1600) }, { field: "e1", category: "fix", at: "4", categories: cat(12, 11, 8000) }] };
+  const stats = { e0: { fix: { p: { n: 5, ok: 0, harm: 8800 }, q: { n: 4, ok: 4, harm: 0 }, k: { n: 12, ok: 7, harm: 1600 } } }, e1: { fix: { p: { n: 7, ok: 0, harm: 68400 }, q: { n: 6, ok: 4, harm: 60000 }, k: { n: 12, ok: 11, harm: 8000 } } } };
+  const fields = { examsOf: (id) => exams[id] || [], peek: (id) => ({ id, name: id, version: id, currency: "RUB", human_cost: 300, human_action: "ask" }), statsOf: () => ({ categories: {} }), categoryResults: (f, c) => stats[f]?.[c] || {} };
+  const adv = createLineageAdvice({ store, orch: { get: (id) => store.get("agents")[id] }, fields, publicUrl: "http://x" });
+  const h = adv.descendants("p");
+  assert.equal(h.remove.length, 0, JSON.stringify(h.remove)); assert.equal(h.keep.length, 1); assert.equal(h.keep[0].field, "e1"); assert.equal(h.keep[0].child_accuracy, 91.7);
+  // без нового экзамена — по старому набору, как раньше: сосед 4 из 4 против 7 из 12 — убрать
+  exams.k.pop(); const old = adv.descendants("p"); assert.equal(old.remove.length, 1); assert.equal(old.remove[0].field, "e0");
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно
