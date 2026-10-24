@@ -25,8 +25,9 @@ if (!approved.length) { console.log(`нет одобренных адресов 
 
 const why = (c) => {
   // навык, который правда про агентов и доверие, человеческим названием; иначе общая фраза — «Instant Keyless Check-In» не повод писать
-  const REL = /agent|trust|reputation|governance|evidence|directory|registry|marketplace|identity|audit|complaint|verif/i;
-  const skill = (c.skills || []).find((x) => x.name && x.name.length <= 60 && !/_/.test(x.name) && REL.test(`${x.name} ${(x.tags || []).join(" ")}`))?.name;
+  // только по названию навыка: по тегам «agent» есть почти у всех, и проходили «Chat Agent» и «Instant Keyless Check-In»
+  const REL = /trust|reputation|governance|evidence|directory|registry|marketplace|identity|audit|complaint|verif|\bagents\b|(find|search)( an?)? agents?/i;
+  const skill = (c.skills || []).find((x) => x.name && x.name.length <= 60 && !/_/.test(x.name) && REL.test(x.name))?.name;
   return skill ? `Your card lists "${skill}", so this may be relevant` : "You build for other agents, so this may be relevant";
 };
 const text = (c) => [
