@@ -180,7 +180,9 @@ export function createFields({ store, issuer, orch, publicUrl, exp = null, hones
     // 0.22.1 (run-red-1): экзамен по одной категории ниже половины верных — самостоятельных действий нет, только советы.
     // Специалист по справкам с 8,3% получал тот же стартовый лимит, что и все, и публикации до 30 000 ₽ за раз
     const narrowMin = Number(process.env.FIELD_NARROW_MIN_ACCURACY || 50);
-    if (category && m.accuracy < narrowMin && m.trust.start_actions > 0) m.trust = { ...m.trust, start_actions: 0, why: `${m.trust.why}; category exam ${m.accuracy}% is below ${narrowMin}%: advisory only until it improves` };
+    // 0.25.2 (ошибка 38, run-red-2): цель тоже 0. Раньше обнулялся только старт, а цель оставалась (2 и 4), и стенд поднимал
+    // лимит за «чистые» раунды до 1–2 действий: специалист по справкам с экзаменом 25% исполнил 3 решения, 2 неверных, 16 000 ₽
+    if (category && m.accuracy < narrowMin && (m.trust.start_actions > 0 || m.trust.target_actions > 0)) m.trust = { ...m.trust, start_actions: 0, target_actions: 0, why: `${m.trust.why}; category exam ${m.accuracy}% is below ${narrowMin}%: advisory only until it improves` };
     // 0.24: честность по внешним проверкам. Врёт в отчётах заметно — мандат вдвое меньше и без необратимых, врёт часто — без действий
     const hc = honesty ? honesty(rec.id) : { level: "insufficient", actions_mult: 1, irreversible: null };
     if (hc.actions_mult < 1) m.trust = { ...m.trust, start_actions: Math.floor(m.trust.start_actions * hc.actions_mult), target_actions: Math.floor(m.trust.target_actions * hc.actions_mult), why: `${m.trust.why}; honesty probes: ${hc.level} (${hc.why_ru})` };

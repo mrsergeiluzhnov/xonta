@@ -801,11 +801,16 @@ await t("0.16: справочник оркестраторов — визитк�
     await ownerCall(owner, `${kidBad.url}/owner/challenge`, { token: k2.domain_challenge.content }); await call(A, "POST", `/v1/agents/${k2.id}/domain-check`, {}, k2.owner_token);
     for (const k of [k1.body, k2]) { const e = await call(A, "POST", `/v1/agents/${k.id}/field-exam`, { field: fa.id, category: "late", tasks: 10, seed: "y" }, rb.owner_token); assert.equal(e.status, 200, JSON.stringify(e.body)); assert.equal(e.body.metrics.cases, 10);
       // 0.22.1: экзамен по категории ниже половины — самостоятельных действий нет (run-red-1: специалист с 8,3% получал публикации до 30 000 ₽)
-      if (k === k2) { assert.ok(e.body.metrics.accuracy < 50); assert.equal(e.body.mandate.credentialSubject.actions_per_period, 0); assert.equal(e.body.mandate.credentialSubject.irreversible_per_period, 0); } }
+      if (k === k2) { assert.ok(e.body.metrics.accuracy < 50); assert.equal(e.body.mandate.credentialSubject.actions_per_period, 0); assert.equal(e.body.mandate.credentialSubject.irreversible_per_period, 0);
+ } }
     adv = (await call(A, "GET", `/v1/agents/${rb.id}/descendant-advice`, null, rb.owner_token)).body;
     assert.equal(adv.keep.length, 1, JSON.stringify(adv)); assert.equal(adv.keep[0].child, k1.body.id);
     assert.equal(adv.remove.length, 1); assert.equal(adv.remove[0].child, k2.id); assert.match(adv.remove[0].why, /another agent does better than this child/, "0.22.1: плохой потомок сравнивается с лучшим соседом, а не только с родителем"); assert.equal(adv.remove[0].best_other_agent, rg.id);
     assert.equal(adv.spawn.length, 0, "потомок по «late» уже есть — рожать ещё не советуем");
+    // 0.25.2 (ошибка 38, run-red-2): при экзамене по категории ниже 50% и цель мандата 0, даже когда бюджет позволяет несколько действий.
+    // Раньше обнулялся только старт, цель оставалась, и стенд поднимал лимит за «чистые» раунды до 1–2 действий
+    { const e = (await call(A, "POST", `/v1/agents/${k2.id}/field-exam`, { field: fa.id, category: "late", tasks: 10, budget: 5000, seed: "y2" }, rb.owner_token)).body.mandate.credentialSubject;
+      assert.equal(e.actions_per_period, 0); assert.equal(e.target_actions, 0, "цель мандата при экзамене по категории ниже 50% — 0"); assert.equal(e.irreversible_per_period, 0); }
     // обход справочника обновляет визитку B (набор там появился после записи)
     const sc = await call(A, "POST", "/v1/admin/directory/scan", {}, "adm"); assert.equal(sc.body.listed, 1, JSON.stringify(sc.body));
     // другие оркестраторы: B знает тот же набор — второе мнение; опыта больше ни у кого нет
