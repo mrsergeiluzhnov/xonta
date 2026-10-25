@@ -22,9 +22,9 @@ const TRUST_WORDS = /\b(verified|audited|certified|trusted|secure|compliant|guar
 const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
 const base = (h) => h.split(".").slice(-2).join(".");
 export const CATEGORIES = ["paid", "trust_claims", "directory", "data", "other"];
-export function classOf(c) {
+export function classOf(c, ignorePaid = false) {
   const text = cardText(c);
-  if (c.paid) return "paid";
+  if (c.paid && !ignorePaid) return "paid";
   if (TRUST_WORDS.test(text)) return "trust_claims";
   if (/directory|registry|marketplace|discover|catalog|find (an )?agent/i.test(text)) return "directory";
   if (/data|search|research|api|feed|price|market/i.test(text)) return "data";
@@ -33,6 +33,9 @@ export function classOf(c) {
 export const cardText = (c) => [c.name, c.description, ...(c.skills || []).map((s) => `${s.name} ${s.description || ""}`)].join(" ");
 
 // сканер Xonta по самой карточке, без модели: издатель указан и его домен совпадает с доменом входа
+// режим «платежи»: в карточке видны конкретика оплаты — цена с суммой и сеть/монета; иначе «сначала проверить»
+const PRICE = /(\$\s?\d|\d+(\.\d+)?\s?(usd|usdc|cents?)\b|per (call|request|task)|price)/i, NET = /\b(base|solana|ethereum|polygon|usdc|usdt|x402|mpp|lightning)\b/i;
+export function scannerPay(c) { const t = cardText(c); const label = PRICE.test(t) && NET.test(t) ? "trust" : "verify_first"; return { ...scannerView(c), label, price_words: PRICE.test(t), net_words: NET.test(t) }; }
 export function scannerView(c) {
   const ph = base(host(c.provider_url || "")), eh = base(host(c.endpoint || c.card_url || ""));
   const domainMatch = !!ph && ph === eh;
@@ -43,6 +46,7 @@ export function scannerView(c) {
 // «требуют внимания» — повод посмотреть, не обвинение
 export function attention(c, sc) {
   const r = [];
+  if (c.payment_evidence && !/challenge/.test(c.payment_evidence) && c.paid) r.push("payment_declared_not_seen");
   if (sc.findings.length) r.push("hidden_instructions");
   if (sc.trust_words && c.pub === "verify_first") r.push("trust_claims_without_evidence");
   if (c.paid && c.pub === "verify_first") r.push("payments_without_proven_owner");
@@ -54,7 +58,9 @@ export const taskOf = (c) => ({ name: c.name, provider: c.provider || null, prov
   description: String(c.description || "").slice(0, 800), skills: (c.skills || []).slice(0, 8).map((s) => `${String(s.name || "").slice(0, 60)}: ${String(s.description || "").slice(0, 150)}`) });
 
 // выгрузка Agenstry + разобранные карточки (candidates.json из research/a2a/discover.mjs) → карточки с эталоном
-export async function loadCards(feedFile, candFile) {
+// mode = "owner" (эталон — подтверждённый владелец) или "payments" (только платные; эталон — каталог сам получил от входа
+// требование оплаты x402/MPP, а не просто прочитал заявление в карточке или манифесте)
+export async function loadCards(feedFile, candFile, mode = "owner") {
   const cand = existsSync(candFile) ? JSON.parse(readFileSync(candFile, "utf8")).filter((x) => !x.error && x.name) : [];
   const byHost = new Map(cand.map((x) => [host(x.card_url), x]));
   const out = [];
@@ -62,12 +68,13 @@ export async function loadCards(feedFile, candFile) {
     if (!line.includes('"a2a_agent"')) continue; let o; try { o = JSON.parse(line); } catch { continue; }
     if (o.kind !== "a2a_agent") continue;
     const c = byHost.get(host(o.url)); if (!c) continue;
-    const proven = !!(o.verified_owner || o.domain_verified || o.legal_entity_verified);
+    if (mode === "payments" && !o.payment_protocol) continue;
+    const proven = mode === "payments" ? /challenge/.test(String(o.payment_evidence || "")) : !!(o.verified_owner || o.domain_verified || o.legal_entity_verified);
     out.push({ id: o.id || host(o.url), name: c.name, description: c.description || o.description || "", provider: c.provider || o.provider || null, provider_url: c.provider_url || o.provider_url || null, endpoint: c.endpoint, card_url: c.card_url, skills: c.skills || [],
-      paid: !!(o.payment_protocol || o.payment_wallet || o.min_price_usd), payment_protocol: o.payment_protocol || null, sanction_flag: !!o.sanction_flag,
+      paid: !!(o.payment_protocol || o.payment_wallet || o.min_price_usd), payment_protocol: o.payment_protocol || null, payment_evidence: o.payment_evidence || null, sanction_flag: !!o.sanction_flag,
       pub: proven ? "trust" : "verify_first", evidence: { verified_owner: !!o.verified_owner, domain_verified: !!o.domain_verified, legal_entity_verified: !!o.legal_entity_verified, signed: !!o.signed, payment_evidence: o.payment_evidence ?? null } });
   }
-  for (const c of out) { c.cls = classOf(c); c.sc = scannerView(c); c.attention = attention(c, c.sc); }
+  for (const c of out) { c.cls = classOf(c, mode === "payments"); c.sc = mode === "payments" ? scannerPay(c) : scannerView(c); c.attention = attention(c, c.sc); }
   return out;
 }
 
