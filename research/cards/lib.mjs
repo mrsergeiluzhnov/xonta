@@ -40,7 +40,7 @@ export function scannerView(c) {
   const ph = base(host(c.provider_url || "")), eh = base(host(c.endpoint || c.card_url || ""));
   const domainMatch = !!ph && ph === eh;
   const findings = (analyzeTools([{ name: c.name || "card", description: cardText(c).slice(0, 4000), inputSchema: {} }]).findings || []).filter((f) => f.severity !== "low").map((f) => f.rule);
-  return { label: domainMatch && c.provider ? "trust" : "verify_first", domain_match: domainMatch, has_provider: !!c.provider, trust_words: TRUST_WORDS.test(cardText(c)), findings };
+  return { label: domainMatch && (c.provider || c.provider_url) ? "trust" : "verify_first", domain_match: domainMatch, has_provider: !!(c.provider || c.provider_url), trust_words: TRUST_WORDS.test(cardText(c)), findings };
 }
 
 // «требуют внимания» — повод посмотреть, не обвинение
@@ -56,6 +56,7 @@ export function attention(c, sc) {
 }
 
 export const taskOf = (c) => ({ name: c.name, provider: c.provider || null, provider_url: c.provider_url || null, endpoint: c.endpoint || null, declares_payment: c.paid ? c.payment_protocol || "yes" : "no",
+  ...(c.tags ? { tags: c.tags.slice(0, 10), protocols: c.protocols, declared: c.declared } : {}),
   description: String(c.description || "").slice(0, 800), skills: (c.skills || []).slice(0, 8).map((s) => `${String(s.name || "").slice(0, 60)}: ${String(s.description || "").slice(0, 150)}`) });
 
 // выгрузка Agenstry + разобранные карточки (candidates.json из research/a2a/discover.mjs) → карточки с эталоном
@@ -78,6 +79,33 @@ export async function loadCards(feedFile, candFile, mode = "owner") {
   for (const c of out) { c.cls = classOf(c, mode === "payments"); c.sc = mode === "payments" ? scannerPay(c) : scannerView(c); c.attention = attention(c, c.sc); }
   return out;
 }
+
+// каталог allagents (с согласия allagents): cards.json из allagents-fetch.mjs. mode = "alive" (эталон — у карточки отвечает дверь)
+// или "keeper" (keeper ✓: the keeper controls the agent's domain). Отметки каталога, оценка и признак «записал сам владелец»
+// аудитору не показываются — только то, что карточка пишет о себе
+export function loadAllagents(file, mode = "alive") {
+  const raw = JSON.parse(readFileSync(file, "utf8")), out = [];
+  for (const [slug, v] of Object.entries(raw)) {
+    if (v.error || !v.card) continue;
+    const c = v.card, l = v.list || {}, reach = c.reach || l.reach || {}, badges = reach.badges || [];
+    const has = (kind) => badges.some((b) => b.kind === kind && b.state === "verified");
+    const alive = reach.answers === true || (c.liveness || l.liveness || {}).answers === true;
+    const caps = c.capabilities || {}, pay = [].concat(caps.payment || []).map(String), tags = [].concat(c.tags || []).map(String);
+    const paid = pay.some((x) => !/^free$/i.test(x)) || tags.some((t) => /x402|paid/i.test(t)) || (caps.price && !/free/i.test(String(caps.price.model || "")));
+    const ep = c.endpoints || {};
+    out.push({ id: slug, name: c.name || slug, description: String(c.description || "").slice(0, 2000), provider: c.specialty ? null : null, provider_url: ep.site || null,
+      endpoint: ep.a2a || ep.mcp || ep.api || ep.http || null, card_url: `https://allagents.app/agent/${slug}`, specialty: c.specialty || null, tags, protocols: c.protocols || [],
+      skills: [...[].concat(caps.tasks || []).map((t) => ({ name: String(t).slice(0, 60), description: "" })), ...(c.specialty ? [{ name: String(c.specialty), description: "specialty" }] : [])],
+      declared: { payment: pay, price: caps.price || null, languages: caps.languages || [] }, paid: !!paid, payment_protocol: tags.find((t) => /x402/i.test(t)) || (paid ? "declared" : null), sanction_flag: false,
+      pub: (mode === "keeper" ? has("owner") : alive) ? "trust" : "verify_first",
+      evidence: { verified_owner: has("owner"), domain_verified: has("owner"), legal_entity_verified: false, alive, a2a: has("a2a"), mcp: has("mcp"), x402: has("x402") } });
+  }
+  // категории по специальности из карточки: так у оркестратора есть, где сравнивать агентов
+  const spec = (c) => { const t = `${c.specialty || ""} ${c.tags.join(" ")}`.toLowerCase(); return /trad|financ|crypto|defi|market|price/.test(t) ? "finance" : /research|search|data|news|knowledge/.test(t) ? "research" : /code|dev|software|engineer|api/.test(t) ? "dev" : /shop|commerce|pay|sales|booking|travel/.test(t) ? "commerce" : "other"; };
+  for (const c of out) { c.cls = spec(c); c.sc = scannerView(c); c.attention = attention(c, c.sc); }
+  return out;
+}
+export const ALLAGENTS_CATEGORIES = ["finance", "research", "dev", "commerce", "other"];
 
 export function mockCards(n = 300, seed = 3) {
   const out = [];

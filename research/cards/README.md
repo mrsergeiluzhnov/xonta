@@ -10,6 +10,11 @@
 
 «Требуют внимания»: текст карточки похож на скрытые указания читающей модели, слова доверия («verified», «audited»…) без подтверждённого владельца, приём денег без подтверждённого владельца, отметка о санкциях в каталоге. Публикуются только сводные цифры, `attention-private.json` остаётся у владельца эксперимента.
 
+Второй источник - каталог [allagents](https://allagents.app), с письменного согласия allagents (25.10.2026): только открытое API, один медленный проход (запрос раз в 3 секунды, User-Agent с названием Xonta), в публикации только сводные цифры со ссылкой на allagents.app, результаты по агентам не публикуются, черновик отчёта сначала уходит allagents, агентам из каталога никаких сообщений. Значки описываются так, как на https://allagents.app/badges. Эталоны: «дверь отвечает» (`CARDS_TRUTH=alive`) и keeper ✓ (`CARDS_TRUTH=keeper`).
+
+```
+node research/cards/allagents-fetch.mjs /root/allagents-data      # список целиком, полные карточки для выборки (ALLAGENTS_SAMPLE=1200)
+CARDS_SOURCE=allagents CARDS_TRUTH=alive CARDS_ALLAGENTS=/root/allagents-data/cards.json node research/cards/team.mjs
 ```
 node research/a2a/discover.mjs   # с A2A_SOURCE=agenstry, если карточек ещё нет
 CARDS_FEED=/root/a2a-agenstry/agenstry-feed.jsonl.gz CARDS_CANDIDATES=/root/a2a-agenstry/candidates.json node research/cards/team.mjs
