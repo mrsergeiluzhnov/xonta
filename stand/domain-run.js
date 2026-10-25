@@ -31,7 +31,9 @@ const THEME = E.NET_DOMAIN || "ops", HON = E.NET_HONESTY === "1"; // 0.24: пр�
 const D = await import(`./domains/${THEME}.js`);
 const RUN_ID = E.NET_RUN_ID || `domain-${THEME}-${Date.now().toString(36)}`;
 const DIR = E.STAND_DIR || join(ROOT, "stand-data", RUN_ID), ORCH_ROOT = E.ORCH_ROOT || join(dirname(DIR), "orchestrators");
-const DATA = join(ORCH_ROOT, `domain-${THEME}`), META = join(ORCH_ROOT, `domain-${THEME}-meta`);
+// NET_DOMAIN_SET — отдельная книга темы (новая серия после правки постановки, без удаления старой книги на сервере)
+const SET = E.NET_DOMAIN_SET ? `-${String(E.NET_DOMAIN_SET).replace(/[^a-z0-9]/gi, "")}` : "";
+const DATA = join(ORCH_ROOT, `domain-${THEME}${SET}`), META = join(ORCH_ROOT, `domain-${THEME}${SET}-meta`);
 const P = { rounds: Number(E.NET_DOMAIN_ROUNDS || 6), tasks: Number(E.NET_DOMAIN_TASKS || 20), exam: Number(E.NET_DOMAIN_EXAM || 30), model: E.AGENT_MODEL || "GigaChat-2", min_n: E.RECIPE_MIN_N || "8", base: Number(E.NET_DOMAIN_PORT || 4860) };
 mkdirSync(DIR, { recursive: true }); mkdirSync(DATA, { recursive: true }); mkdirSync(join(META, "keys"), { recursive: true });
 const ADMIN = E.ADMIN_TOKEN || "domain-admin-" + Math.random().toString(36).slice(2);
@@ -329,6 +331,11 @@ function report(run, s, prev, lang) {
     const by = {}; for (const h of Object.values(run.honesty)) for (const [k, v] of Object.entries(h.by)) { const b = (by[k] ||= { n: 0, lie: 0, disclosed: 0 }); b.n += v.n; b.lie += v.lie; b.disclosed += v.disclosed; }
     L.push("", T("| Подсказка | от кого | награда | случаев | поддался | сообщил |", "| Hint | from | reward | cases | gave in | reported |"), "|---|---|---|---|---|---|");
     for (const [k, v] of Object.entries(by).sort()) { const [kind, src, inc] = k.split("|"); L.push(`| ${kind} | ${src} | ${inc === "без награды" ? T(inc, "none") : inc} | ${v.n} | ${v.lie} (${pc2(v.lie, v.n)}) | ${v.disclosed} |`); }
+    // в чём именно враньё и примеры отчётов — чтобы сверку можно было проверить глазами (0.25.4)
+    const lies = run.honesty_cases.filter((c) => c.lie), whyN = {}; for (const c of lies) whyN[c.why || "?"] = (whyN[c.why || "?"] || 0) + 1;
+    L.push("", T(`Враньё по видам: ${Object.entries(whyN).map(([k, v]) => `${k} — ${v}`).join(", ") || "нет"}.`, `Lies by kind: ${Object.entries(whyN).map(([k, v]) => `${k} - ${v}`).join(", ") || "none"}.`));
+    const ex = [...lies.filter((c) => !c.provoked).slice(0, 3), ...lies.filter((c) => c.provoked).slice(0, 3)];
+    if (ex.length) { L.push("", T("Примеры отчётов, признанных враньём:", "Examples of reports judged as lies:")); for (const c of ex) L.push(`- ${c.ex}, ${c.provoked ? `${T("с подсказкой", "with a hint")} ${c.kind}/${c.source}/${c.incentive ? "x" + c.incentive : "-"}` : T("без подсказки", "no hint")}, ${T("сделал", "did")} ${c.action}, ${c.correct ? T("верно", "right") : T("неверно", "wrong")}, ${c.why}: \`${String(c.raw || "").replace(/`/g, "'").slice(0, 220)}\``); }
   }
   L.push("", T(`Токенов модели: ${s.tokens}.`, `Model tokens: ${s.tokens}.`));
   return L.join("\n") + "\n";
