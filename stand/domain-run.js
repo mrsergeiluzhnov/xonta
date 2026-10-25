@@ -216,7 +216,7 @@ for (let r = 1; r <= P.rounds; r++) {
       if (autonomous && !gated && d.action !== t.truth.correct) wrongBy[ex.name]++;
       const g = grade(D, t, d.action, { checksCost: d.cost, gated });
       const correctDecision = d.action === t.truth.correct;
-      run.decisions.push({ round: r, agent: p.name, ex: ex.name, task: t.id, set: t.set, category: t.category, action: d.action, correct: t.truth.correct, gated, irreversible: g.irreversible, would_be_irreversible: irr, amount: t.truth.amount, harm: g.harm, checks: d.checks });
+      run.decisions.push({ round: r, agent: p.name, ex: ex.name, task: t.id, set: t.set, category: t.category, action: d.action, correct: t.truth.correct, gated, irreversible: g.irreversible, would_be_irreversible: irr, amount: t.truth.amount, harm: g.harm, checks: d.checks, reason: d.reason, ...(d.invalid ? { invalid: true } : {}) });
       await api("POST", `/v1/recipes/requests/${q.request_id}/outcome`, q.arm === "recipe" ? { accepted: true, applied: true, matched: d.checks.length > 0, success: autonomous, invalid: d.invalid, independent: { verified: correctDecision, checker: "stand_truth" } } : { success: autonomous, invalid: d.invalid, independent: { verified: correctDecision, checker: "stand_truth" } }, ex.parent ? { token: ex.owner_token } : {}).catch((e) => log(`исход рецепта: ${e.message}`));
       for (const s of [st[t.set], ...(ex !== p ? [st.child] : [])]) { s.n++; if (correctDecision) s.correct++; else if (autonomous) s.wrong++; if (!autonomous) s.human++; if (gated) s.gated++; s.harm += g.harm; s.utility += g.utility; s.checks += d.cost; if (d.invalid) s.invalid++; }
       if (!correctDecision && !d.invalid) mistakes.push({ ex: ex.name, category: t.category, era: t.era, brief: t.brief, did: d.action, checks: d.checks, right: t.truth.correct, explain: t.explain });
@@ -317,6 +317,16 @@ function report(run, s, prev, lang) {
   if (dz.length) {
     L.push("", T("## Необратимые действия (execute там, где это нельзя отменить)", "## Irreversible actions (execute where it cannot be undone)"), "", T("| Агент | пытался | остановил мандат | прошло | из них неверно | вред, ₽ |", "| Agent | tried | stopped by the mandate | went through | of them wrong | harm, RUB |"), "|---|---|---|---|---|---|");
     for (const ag of [...new Set(dz.map((x) => x.ex))]) { const a = dz.filter((x) => x.ex === ag), done = a.filter((x) => !x.gated); L.push(`| ${ag} | ${a.length} | ${a.filter((x) => x.gated).length} | ${done.length} | ${done.filter((x) => x.action !== x.correct).length} | ${done.reduce((n, x) => n + x.harm, 0)} |`); }
+  }
+  const dd = run.decisions || [];
+  if (dd.length) { // 0.25.6 (run-acc-v2-1): ни одного deny за 720 решений — видно, что выбирают вместо верного ответа и почему
+    const pairs = {}; for (const x of dd) { const k = `${x.correct}|${x.action}`; (pairs[k] ||= []).push(x); }
+    L.push("", T("## Верный ответ и что выбрали", "## Right answer and what was chosen"), "", T("| верно | выбрали | раз | самостоятельно | вред, ₽ |", "| right | chosen | times | on its own | harm, RUB |"), "|---|---|---|---|---|");
+    for (const [k, a] of Object.entries(pairs).sort((x, y) => y[1].length - x[1].length)) { const [c, ac] = k.split("|"); L.push(`| ${c} | ${ac}${c === ac ? " ✓" : ""} | ${a.length} | ${a.filter((x) => !x.gated).length} | ${a.reduce((n, x) => n + x.harm, 0)} |`); }
+    const unused = D.ACTIONS.filter((a) => !dd.some((x) => x.action === a)); if (unused.length) L.push("", T(`Ни разу не выбрали: ${unused.join(", ")}.`, `Never chosen: ${unused.join(", ")}.`));
+    const inv = dd.filter((x) => x.invalid).length; if (inv) L.push("", T(`Неразобранных ответов (ушли человеку): ${inv}.`, `Unparsed answers (sent to a human): ${inv}.`));
+    const top = Object.entries(pairs).filter(([k]) => k.split("|")[0] !== k.split("|")[1]).sort((x, y) => y[1].length - x[1].length).slice(0, 3);
+    const ex = top.flatMap(([, a]) => a.filter((x) => x.reason).slice(0, 2)); if (ex.length) { L.push("", T("Как объясняли самые частые ошибки:", "How the most common mistakes were explained:")); for (const x of ex) L.push(`- ${x.ex}, ${x.category}, ${T("верно", "right")} ${x.correct}, ${T("выбрал", "chose")} ${x.action}: «${String(x.reason).replace(/[`|]/g, "'").slice(0, 160)}»`); }
   }
   L.push("", T("## Книга рецептов Xonta после прогона", "## Xonta's recipe book after the run"), "", T("| Категория | правило | статус | почему | выдано |", "| Category | rule | status | why | issued |"), "|---|---|---|---|---|");
   for (const r of run.recipes_after) L.push(`| ${r.category} | ${String(r.rule || r.technique).replace(/\|/g, "/").slice(0, 120)} | ${r.status} | ${String(r.why || "").replace(/\|/g, "/").slice(0, 120)} | ${r.issued || 0} |`);
