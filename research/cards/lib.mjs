@@ -48,8 +48,9 @@ export function attention(c, sc) {
   const r = [];
   if (c.payment_evidence && !/challenge/.test(c.payment_evidence) && c.paid) r.push("payment_declared_not_seen");
   if (sc.findings.length) r.push("hidden_instructions");
-  if (sc.trust_words && c.pub === "verify_first") r.push("trust_claims_without_evidence");
-  if (c.paid && c.pub === "verify_first") r.push("payments_without_proven_owner");
+  const owner = !!(c.evidence?.verified_owner || c.evidence?.domain_verified || c.evidence?.legal_entity_verified); // владелец, а не эталон режима
+  if (sc.trust_words && !owner) r.push("trust_claims_without_evidence");
+  if (c.paid && !owner) r.push("payments_without_proven_owner");
   if (c.sanction_flag) r.push("sanction_flag");
   return r;
 }
