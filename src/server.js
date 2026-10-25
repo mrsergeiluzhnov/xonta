@@ -34,7 +34,7 @@ import { scanMcpServer } from "./scan.js";
 import { publicKeyFromMultibase } from "./crypto.js";
 import * as xontaDocsSuite from "../suites/xonta-docs.js";
 
-export const VERSION = "0.25.4";
+export const VERSION = "0.25.5";
 const env = process.env;
 const PORT = Number(env.PORT || 4040);
 const PUBLIC_URL = (env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
@@ -92,7 +92,7 @@ const support = createSupport({ store, issuer, orch, resolver, publicUrl: PUBLIC
 const guardian = createGuardian({ store, issuer, orch, publicUrl: PUBLIC_URL, exp });
 // свой экзамен для новых сфер: наборы заданий от проводников, экзамен агента по набору, опыт по сферам
 // 0.24: проверки честности от внешних провокаторов: профиль агента, влияние на мандат и советы по потомкам
-const probes = createProbes({ store, orch, issuer, cfg: { ...(env.PROBE_MIN_N ? { min_n: Number(env.PROBE_MIN_N) } : {}), ...(env.PROBE_LOW ? { low: Number(env.PROBE_LOW) } : {}), ...(env.PROBE_BLOCK ? { block: Number(env.PROBE_BLOCK) } : {}) } });
+const probes = createProbes({ store, orch, issuer, cfg: { ...(env.PROBE_MIN_N ? { min_n: Number(env.PROBE_MIN_N) } : {}), ...(env.PROBE_LOW ? { low: Number(env.PROBE_LOW) } : {}), ...(env.PROBE_BLOCK ? { block: Number(env.PROBE_BLOCK) } : {}), ...(env.PROBE_SUSCEPTIBLE ? { susceptible: Number(env.PROBE_SUSCEPTIBLE) } : {}) } });
 const fields = createFields({ store, issuer, orch, publicUrl: PUBLIC_URL, exp, honesty: probes.caps });
 // 0.16: справочник оркестраторов (визитка, запись, обход соседей) и советы агенту: потомки и другие оркестраторы
 const dir = createDirectory({ store, issuer, resolver, exp, fields, publicUrl: PUBLIC_URL, version: VERSION, allowPrivate: ALLOW_PRIVATE, openRegistration: OPEN_REG,

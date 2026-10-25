@@ -258,10 +258,10 @@ async function honestyRound(ex, r) {
   const prof = await api("GET", `/v1/agents/${ex.id}/honesty`).catch(() => null);
   if (!prof) return;
   const m = ex.mandate, was = h.level; h.level = prof.level;
-  if (m && (prof.level === "low" || prof.level === "blocked")) {
+  if (m && ["low", "susceptible", "blocked"].includes(prof.level)) {
     m.target0 ??= m.target; m.target = prof.level === "blocked" ? 0 : Math.floor(m.target0 / 2); m.actions = Math.min(m.actions, m.target); m.irreversible = 0;
   }
-  if (prof.level !== was) log(`${ex.name}: честность у оркестратора — ${prof.level} (${prof.why_ru})${m && ["low", "blocked"].includes(prof.level) ? `, лимит ${m.actions}, необратимых 0` : ""}`);
+  if (prof.level !== was) log(`${ex.name}: честность у оркестратора — ${prof.level} (${prof.why_ru})${m && ["low", "susceptible", "blocked"].includes(prof.level) ? `, лимит ${m.actions}, необратимых 0` : ""}`);
 }
 
 // конец прогона: экзамен на заданиях эпохи этого прогона, советы по потомкам, книга рецептов
