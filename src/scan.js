@@ -9,6 +9,11 @@ import { assertPublicUrl } from "./net.js";
 
 // --- эвристики ---
 const HIDDEN = /[​-‏⁠-⁤﻿‪-‮⁦-⁩]|[\u{E0000}-\u{E007F}]/u;
+// Склейка эмодзи (🐦‍⬛, 👩‍💻) и флаги регионов (🏴 + теги) — законные последовательности, а не спрятанный текст:
+// невидимый символ внутри них не считаем находкой (ложная тревога на карточке allagents, 29.10.2026).
+const EMOJI_JOIN = /(\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?)\u200D(?=\p{Extended_Pictographic})/gu;
+const FLAG_TAGS = /\u{1F3F4}[\u{E0020}-\u{E007E}]+\u{E007F}/gu;
+export const withoutEmojiJoins = (t) => String(t).replace(FLAG_TAGS, "").replace(EMOJI_JOIN, "$1");
 const RULES = [
   { id: "override", severity: "high", re: /(ignore|disregard|forget)\s+(all\s+)?(the\s+)?(previous|prior|above|earlier)\s+(instructions|rules|prompts?)|игнорируй\s+(все\s+)?(предыдущие|прежние|остальные)\s+(инструкции|правила)|забудь\s+(все\s+)?(предыдущие\s+)?инструкции/i, what: "попытка отменить инструкции модели" },
   { id: "conceal", severity: "high", re: /(do\s+not|don't|never)\s+(tell|mention|inform|reveal|show)\s+(this\s+|it\s+)?(to\s+)?(the\s+)?user|не\s+(сообщай|говори|показывай|упоминай)\s+(об?\s+этом\s+)?пользовател/i, what: "указание скрывать действия от пользователя" },
@@ -43,7 +48,7 @@ export function analyzeTools(tools) {
   const names = tools.map((t) => t.name);
   for (const tool of tools) {
     for (const [where, text] of textsOf(tool)) {
-      if (HIDDEN.test(text)) findings.push({ tool: tool.name, where, rule: "hidden_chars", severity: "high", what: "невидимые или управляющие символы в тексте" });
+      if (HIDDEN.test(withoutEmojiJoins(text))) findings.push({ tool: tool.name, where, rule: "hidden_chars", severity: "high", what: "невидимые или управляющие символы в тексте" });
       for (const r of RULES) {
         const m = text.match(r.re);
         if (m) findings.push({ tool: tool.name, where, rule: r.id, severity: r.severity, what: r.what, excerpt: m[0].slice(0, 80) });

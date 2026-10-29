@@ -108,6 +108,10 @@ await t("проверка MCP: скрытые инструкции", () => {
   const rules = new Set(r.findings.map((f) => f.rule));
   for (const x of ["tag", "secrets", "conceal", "preuse", "hidden_chars", "override", "shadowing"]) assert.ok(rules.has(x), `ожидалось правило ${x}`);
   assert.ok(r.findings.some((f) => f.where === "input.to.description"), "описания параметров тоже проверяются");
+  // эмодзи со склейкой и флаги регионов — не скрытый текст; голый невидимый символ рядом с эмодзи — по-прежнему находка
+  for (const d of ["Rook \u{1F426}\u200D\u2B1B a corvid", "Dev \u{1F469}\u{1F3FD}\u200D\u{1F4BB} here", "Flag \u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F} ok"])
+    assert.ok(!analyzeTools([{ name: "x", description: d, inputSchema: {} }]).findings.some((f) => f.rule === "hidden_chars"), `ложная тревога: ${d}`);
+  assert.ok(analyzeTools([{ name: "x", description: "Hi \u{1F426}\u200D text", inputSchema: {} }]).findings.some((f) => f.rule === "hidden_chars"));
   // отпечаток не зависит от порядка инструментов и меняется при смене описания
   assert.equal(toolsFingerprint([clean[0], poisoned[0]]), toolsFingerprint([poisoned[0], clean[0]]));
   assert.notEqual(toolsFingerprint(clean), toolsFingerprint([{ ...clean[0], description: clean[0].description + " " }]));
