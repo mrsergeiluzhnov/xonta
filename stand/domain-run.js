@@ -232,7 +232,9 @@ for (let r = 1; r <= P.rounds; r++) {
     // агент предлагает правило по своим ошибкам — оно уходит в оркестратор гипотезой
     if (r < P.rounds && mistakes.length) {
       const cases = mistakes.slice(0, 6).map((x) => `- категория ${x.category}, эпоха ${x.era}: «${x.brief}» Проверки: ${x.checks.join(", ") || "нет"}. Ты выбрал ${x.did}, верно ${x.right}: ${x.explain}.`).join("\n");
-      const text = await p.llm.raw(`${systemFor(p, [])}\n\nОтвечай только JSON без пояснений.`, `STEP:propose\nТвои ошибки за раунд:\n${cases}\nПредложи одно правило, которое предотвратило бы похожие ошибки: что проверять или как решать, коротко и без названий конкретных компаний. Поле category — ровно одно слово из списка: ${D.CATEGORIES.join(", ")}. Ответ: {"category":"${mistakes[0].category}","rule":"до 200 символов","when":"когда применять, до 120 символов"}`).catch((e) => `ошибка модели: ${e.message}`);
+      // 0.25.9 (run-proc-4): в образце ответа больше нет чисел — «до 200 символов» GigaChat переносил в правило и в других формах
+      // («(<200 символов)», «сравнивать первые 200 символов»), которые 0.25.8 не узнаёт. Длину по-прежнему режет parseProposal.
+      const text = await p.llm.raw(`${systemFor(p, [])}\n\nОтвечай только JSON без пояснений.`, `STEP:propose\nТвои ошибки за раунд:\n${cases}\nПредложи одно правило, которое предотвратило бы похожие ошибки: что проверять или как решать, коротко и без названий конкретных компаний. Поле category — ровно одно слово из списка: ${D.CATEGORIES.join(", ")}. Поле rule — само правило одной короткой фразой, поле when — коротко, к каким заданиям оно относится. Ответ: {"category":"${mistakes[0].category}","rule":"…","when":"…"}`).catch((e) => `ошибка модели: ${e.message}`);
       const pr = parseProposal(text, D.CATEGORIES, mistakes.map((x) => x.category));
       if (!pr.ok) { log(`${p.name}: предложение не разобрано — ${pr.why}`); run.proposals.push({ round: r, agent: p.name, dropped: pr.why.slice(0, 200) }); }
       else {

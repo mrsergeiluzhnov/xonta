@@ -35,7 +35,8 @@ export function parseProposal(text, categories, mistakeCategories = []) {
   const field = (k) => (o && o[k] != null ? String(o[k]) : (body.match(new RegExp(`["«]?${k}["»]?\\s*:\\s*["«]([\\s\\S]*?)["»]\\s*(?:,\\s*["«]?\\w+["»]?\\s*:|}|$)`)) || [])[1] || "");
   // 0.25.8: модель иногда переписывает в поле образец из подсказки — «до 120 символов», «когда применять»
   // (run-red-3, run-ops-4: два доказанных правила с таким хвостом). Хвост убираем, смысл правила не трогаем.
-  const clean = (x) => x.replace(/\s+/g, " ").replace(/[,;]?\s*\(?\s*до\s+\d+\s+символ[а-яё]*\s*\)?/gi, "").replace(/^когда применять[,.:]?\s*/i, "").replace(/[\s,;]+$/, "").trim();
+  // 0.25.9 (run-proc-4): ещё две формы того же образца — «(<200 символов)» и «независимо от количества символов»
+  const clean = (x) => x.replace(/\s+/g, " ").replace(/[,;]?\s*\(?\s*(?:до|<|≤|не более|не длиннее)\s*\d+\s+символ[а-яё]*\s*\)?/gi, "").replace(/[,;]?\s*независимо от (?:количества|числа|длины) символов/gi, "").replace(/^когда применять[,.:]?\s*/i, "").replace(/\s+([.,;])/g, "$1").replace(/[\s,;]+$/, "").trim();
   const rule = clean(field("rule")), when = clean(field("when")), rawCat = field("category");
   if (!rule) return { ok: false, why: `нет правила в ответе: ${s.replace(/\s+/g, " ").slice(0, 160)}` };
   const find = (x) => { const low = String(x).toLowerCase(); return categories.find((c) => low.includes(c.toLowerCase())) || null; };

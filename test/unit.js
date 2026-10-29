@@ -1276,6 +1276,17 @@ await t("0.25.8: образец из подсказки («до 120 символ
   assert.equal(parseProposal('{"category":"scale_down","rule":"не уменьшать до 0 экземпляров без вопроса","when":"prod"}', C).rule, "не уменьшать до 0 экземпляров без вопроса", "обычное «до 0» не трогаем");
 });
 
+await t("0.25.9: образец из подсказки в других формах — «(<200 символов)», «независимо от количества символов» (run-proc-4)", async () => {
+  const { parseProposal } = await import("../stand/domains/common.js");
+  const C = ["duplicate", "urgent_request"];
+  assert.equal(parseProposal('{"category":"duplicate","rule":"при наличии нового назначения платежа или короткого описания счёта (<200 символов) проводить дополнительную проверку на дублирование оплат.","when":"x"}', C).rule, "при наличии нового назначения платежа или короткого описания счёта проводить дополнительную проверку на дублирование оплат.");
+  assert.equal(parseProposal('{"category":"duplicate","rule":"при наличии нового назначения платежа или суммы проверять дублирование оплат независимо от количества символов","when":"x"}', C).rule, "при наличии нового назначения платежа или суммы проверять дублирование оплат");
+  assert.equal(parseProposal('{"category":"duplicate","rule":"сравнивать первые 200 символов назначения и суммы","when":"x"}', C).rule, "сравнивать первые 200 символов назначения и суммы", "смысловое «первые 200 символов» не трогаем — его убирает только новая подсказка");
+  const src = (await import("node:fs")).readFileSync(new URL("../stand/domain-run.js", import.meta.url), "utf8");
+  const prompt = src.split("\n").find((l) => l.includes("STEP:propose\\n"));
+  assert.ok(prompt && !/\d+\s+символ/.test(prompt), "в образце ответа шага propose нет чисел символов");
+});
+
 await t("0.22: приём оценивается по цене ошибки и по расходу; совет родить потомка учитывает вред (glama team-1)", async () => {
   const { evaluateRecipe } = await import("../src/recipes.js");
   const cfg = { min_n: 8, alpha: 0.05 };
