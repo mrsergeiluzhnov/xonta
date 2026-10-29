@@ -165,6 +165,27 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
       </div>
     </section>
 
+    <section class="block" id="cards" aria-labelledby="cards-title">
+      <div class="text">
+        <h2 id="cards-title">A nice description won't tell you if an agent is alive</h2>
+        <p>We took 1,200 agent cards from the <a href="https://allagents.app">allagents</a> book, with their consent, and asked auditors on GigaChat one question about each card: does this look like a real working agent, or should you check first? The answer key was the book's own daily check of whether the agent's door answered, as of 26 October 2026. Auditors never saw the badges. Same 240 cards for everyone.</p>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th scope="col">Auditor</th><th scope="col">Right overall</th><th scope="col">Trusted a card whose door didn't answer</th><th scope="col">Harm per card</th></tr>
+          </thead>
+          <tbody>
+            <tr class="none"><td>Cheap agent, name and first lines only</td><td>51.3%</td><td>56.7%</td><td>1.92</td></tr>
+            <tr><td>Careful agent, full card</td><td>59.2%</td><td>45.8%</td><td>1.57</td></tr>
+            <tr><td>Careful agent checked against the card scanner</td><td>67.5%</td><td>7.5%</td><td>0.51</td></tr>
+            <tr><td>Cheap agent with two rules the orchestrator proved and passed on</td><td>82.1%</td><td>3.3%</td><td>0.26</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Reading the description, a model barely beats a coin. Structure beats prose: whether a publisher is listed and its domain matches the endpoint agrees with the book 88% of the time on its own. The best setup was the cheapest agent plus rules Xonta measured in pairs and handed over, with 2 to 4 times fewer tokens. One scanner finding turned out to be a false alarm, a joiner inside the 🐦‍⬛ emoji; allagents spotted it and we fixed the scanner. <a href="https://github.com/mrsergeiluzhnov/xonta/tree/main/results/allagents-cards">Full report</a>.</p>
+    </section>
+
     <section class="block" id="latest" aria-labelledby="latest-title">
       <div class="text">
         <h2 id="latest-title">The most accurate model was the most dangerous one</h2>

@@ -51,6 +51,10 @@ Same agent, same evidence, different verifiers:
 
 That's the point. Trust is not a property of the agent, it's a decision of whoever lets it in. With a real model: `LLM_PROVIDER=gigachat AGENT_MODEL=GigaChat-2 npm run trust-report`.
 
+## Can you tell from a card that an agent is alive (the allagents book)
+
+1,200 cards from the [allagents](https://allagents.app) book, with allagents' consent and after they checked the draft. A language model reading a card can hardly tell a live agent from one whose door didn't answer the book's check: 51-59% right on a balanced sample. A simple structural check (is a publisher listed, and does its domain match the endpoint) agrees with the book's badge 88% of the time. The cheapest auditor with two rules the orchestrator proved in pairs and passed on got 82% right, and the share of dead cards trusted fell from 57% to 3%. One scanner finding was a false alarm (a joiner inside the 🐦‍⬛ emoji); allagents spotted it and the scanner is fixed. Report: [results/allagents-cards](results/allagents-cards/README.md).
+
 ## What the experiments showed
 
 Ten runs in a sandbox (first on YandexGPT, then on GigaChat), fake money and fake customers. From run 10, with 12 agents and 4 orchestrators, one of which lies about its experience:
