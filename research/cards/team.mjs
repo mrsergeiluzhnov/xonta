@@ -38,13 +38,21 @@ const FEED = E.CARDS_FEED || "/root/a2a-agenstry/agenstry-feed.jsonl.gz", CAND =
 // CARDS_SOURCE=allagents — каталог allagents (CARDS_ALLAGENTS=…/cards.json, CARDS_TRUTH=alive|keeper), иначе Agenstry (owner|payments)
 const SOURCE = E.CARDS_SOURCE === "allagents" ? "allagents" : "agenstry", AFILE = E.CARDS_ALLAGENTS || "/root/allagents-data/cards.json";
 const MODE = SOURCE === "allagents" ? (E.CARDS_TRUTH === "keeper" ? "keeper" : "alive") : E.CARDS_TRUTH === "payments" ? "payments" : "owner";
+// подписи по эталону: чтобы в отчёте по allagents не было слов про «подтверждённого владельца» из режима Agenstry
+const LBL = {
+  owner: { yes: "владелец подтверждён", no: "владелец не подтверждён", recog: "подтверждённых узнал", yesEn: "owner verified", noEn: "owner not verified", recogEn: "verified recognized", refRu: "Эталон — проверки владельца, домена и юрлица в каталоге: «не подтверждено» значит, что каталог не проверил, а не что агент нечестный.", refEn: "\"Not verified\" means the catalog hasn't checked it, not that the agent is dishonest." },
+  payments: { yes: "оплата проверена каталогом", no: "оплата только заявлена", recog: "проверенных узнал", yesEn: "payment seen by the catalog", noEn: "payment only declared", recogEn: "seen ones recognized", refRu: "Эталон — получил ли каталог от входа требование оплаты; «только заявлена» не значит, что оплата не работает.", refEn: "\"Only declared\" means the catalog hasn't seen a payment challenge, not that payments don't work." },
+  alive: { yes: "дверь отвечает", no: "дверь не отвечает", recog: "живых узнал", yesEn: "door answers", noEn: "door doesn't answer", recogEn: "live ones recognized", refRu: "Эталон — значок каталога «дверь отвечает» на момент выгрузки: «не отвечает» значит, что вход не ответил проверке каталога, а не что агент нечестный.", refEn: "The reference is the book's \"door answers\" badge at export time: \"doesn't answer\" means the endpoint didn't answer the book's check, not that the agent is dishonest." },
+  keeper: { yes: "keeper ✓", no: "нет keeper ✓", recog: "с keeper ✓ узнал", yesEn: "keeper ✓", noEn: "no keeper ✓", recogEn: "keeper ✓ recognized", refRu: "Эталон — значок каталога keeper ✓ (keeper controls the agent's domain): его отсутствие значит, что проверка домена не пройдена или не проводилась, а не что агент нечестный.", refEn: "The reference is the book's keeper ✓ badge (the keeper controls the agent's domain); no badge means the domain check wasn't passed or done, not that the agent is dishonest." },
+};
 const useMock = E.CARDS_MOCK === "1" || !existsSync(SOURCE === "allagents" ? AFILE : FEED);
 const tools = useMock ? mockCards(Number(E.CARDS_MOCK_N || 300)) : SOURCE === "allagents" ? loadAllagents(AFILE, MODE) : await loadCards(FEED, CAND, MODE);
+const L = LBL[MODE], SHOW_PAID = tools.filter((t) => t.paid).length >= 10; // колонка «берут деньги» только если таких карточек хватает для вывода
 const CATEGORIES = SOURCE === "allagents" && !useMock ? ALLAGENTS_CATEGORIES : AG_CATEGORIES;
 const annotated = tools, catalogFp = fp(tools.map((t) => t.id).sort());
 const nTrust = tools.filter((t) => t.pub === "trust").length;
 log(`карточки: ${useMock ? "ТЕСТОВЫЕ" : SOURCE === "allagents" ? "allagents" : "Agenstry + публичные карточки"}, эталон ${{ payments: "«оплата проверена каталогом»", alive: "«дверь отвечает»", keeper: "«keeper ✓»", owner: "«владелец подтверждён»" }[MODE]}; всего ${tools.length}, класс trust ${nTrust}, verify_first ${tools.length - nTrust}, берут деньги ${tools.filter((t) => t.paid).length}`);
-if (Math.min(nTrust, tools.length - nTrust) < 20) { log(`карточек с подтверждённым владельцем меньше 20 (${nTrust}) — экзамен не собрать, эталон слишком перекошен`); process.exit(2); }
+if (Math.min(nTrust, tools.length - nTrust) < 20) { log(`карточек с отметкой «${L.yes}» или без неё меньше 20 (${nTrust} из ${tools.length}) — экзамен не собрать, эталон слишком перекошен`); process.exit(2); }
 const cat = { fetched: new Date().toISOString().slice(0, 10) };
 
 // ---------- модель и подходы агентов ----------
@@ -126,7 +134,7 @@ const fits = (t) => Buffer.byteLength(JSON.stringify(examInput(t))) <= 3800;
 const examPool = strat(annotated.filter(fits), Math.min(150, 2 * Math.floor(nTrust / 2)), "cards-exam");
 var byExamId = new Map(tools.map((t) => [t.id, t]));
 if (!meta.fields[catalogFp]) {
-  const f = await api("POST", "/v1/fields", { name: "Можно ли верить карточке агента A2A (каталог Agenstry)", description: "По тексту карточки ответить: trust (владелец подтверждаем, можно верить), verify_first (сначала проверить) или unsure. Эталон — проверки владельца, домена и юрлица в каталоге Agenstry. Категории — тип карточки.", currency: "USD", wrong_harm: 2, human_cost: 1, tool: "decide", arg: "task", actions: [...LABELS, HUMAN], human_action: HUMAN,
+  const f = await api("POST", "/v1/fields", { name: SOURCE === "allagents" ? `Видно ли по карточке агента, что ${MODE === "keeper" ? "домен за keeper" : "агент живой"} (каталог allagents)` : "Можно ли верить карточке агента A2A (каталог Agenstry)", description: SOURCE === "allagents" ? `По тексту карточки ответить: trust, verify_first (сначала проверить) или unsure. Эталон — значок каталога «${L.yes}». Категории — тип карточки.` : "По тексту карточки ответить: trust (владелец подтверждаем, можно верить), verify_first (сначала проверить) или unsure. Эталон — проверки владельца, домена и юрлица в каталоге Agenstry. Категории — тип карточки.", currency: "USD", wrong_harm: 2, human_cost: 1, tool: "decide", arg: "task", actions: [...LABELS, HUMAN], human_action: HUMAN,
     tasks: examPool.map((t) => ({ input: examInput(t), correct: t.pub, harm: harmMap(t), category: t.cls })) });
   meta.fields[catalogFp] = f.id; saveMeta();
 }
@@ -192,7 +200,7 @@ for (const t of rows) {
   }
   const kid = kids.fast; if (kid && t.cls === kid.category) { const x = await decideBy(kid.ag, t); row.child = { label: x.label, tokens: x.tokens, ms: x.ms, senior: kid.ag.senior }; }
   R.push(row);
-  if (R.length % 20 === 0) { const ok = (k) => pct(R.filter((r) => r[k].label === r.pub).length, R.length); const un = R.filter((r) => r.pub === "verify_first"); log(`  карточек ${R.length}/${rows.length}: верно fast ${ok("fast")}%, careful ${ok("careful")}%, dual ${ok("dual")}%; поверили без подтверждённого владельца fast ${pct(un.filter((r) => r.fast.label === "trust").length, un.length)}%, dual ${pct(un.filter((r) => r.dual.label === "trust").length, un.length)}%`); }
+  if (R.length % 20 === 0) { const ok = (k) => pct(R.filter((r) => r[k].label === r.pub).length, R.length); const un = R.filter((r) => r.pub === "verify_first"); log(`  карточек ${R.length}/${rows.length}: верно fast ${ok("fast")}%, careful ${ok("careful")}%, dual ${ok("dual")}%; поверили там, где ${L.no}, fast ${pct(un.filter((r) => r.fast.label === "trust").length, un.length)}%, dual ${pct(un.filter((r) => r.dual.label === "trust").length, un.length)}%`); }
 }
 run.recipes = (await api("GET", `/v1/recipes?domain=${DOMAIN}`)).map((r) => ({ technique: r.technique, title: TECH[r.technique]?.title || r.payload?.rule, from: TECH[r.technique]?.from, category: r.category, status: r.status, why: r.status_why, basis: r.test?.basis || null, pairs: r.counts?.pairs?.n ?? 0, better: r.counts?.pairs?.recipe_only ?? 0, worse: r.counts?.pairs?.control_only ?? 0 }));
 const proven = new Set(run.recipes.filter((r) => r.status === "proven").map((r) => r.technique));
@@ -228,8 +236,8 @@ writeFileSync(join(DIR, "run.json"), JSON.stringify({ ...run, rows: R.map((r) =>
 meta.runs.at(-1).done = true; saveMeta();
 
 // ---------- отчёт ----------
-const C = run.configs, row = (k, title) => `| ${title} | ${C[k].accuracy}% | ${C[k].unproven_trusted}% | ${C[k].paid_unproven_trusted} из ${C[k].paid_unproven} | ${C[k].proven_recognized}% | ${C[k].harm_per_card} | ${C[k].tokens_per_card}${C[k].senior_tokens_per_card ? ` (старшей ${C[k].senior_tokens_per_card})` : ""} | ${C[k].sec_per_card} |`;
-const rowEn = (k, title) => `| ${title} | ${C[k].accuracy}% | ${C[k].unproven_trusted}% | ${C[k].paid_unproven_trusted} of ${C[k].paid_unproven} | ${C[k].proven_recognized}% | ${C[k].harm_per_card} | ${C[k].tokens_per_card} | ${C[k].sec_per_card} |`;
+const C = run.configs, row = (k, title) => `| ${title} | ${C[k].accuracy}% | ${C[k].unproven_trusted}% |${SHOW_PAID ? ` ${C[k].paid_unproven_trusted} из ${C[k].paid_unproven} |` : ""} ${C[k].proven_recognized}% | ${C[k].harm_per_card} | ${C[k].tokens_per_card}${C[k].senior_tokens_per_card ? ` (старшей ${C[k].senior_tokens_per_card})` : ""} | ${C[k].sec_per_card} |`;
+const rowEn = (k, title) => `| ${title} | ${C[k].accuracy}% | ${C[k].unproven_trusted}% |${SHOW_PAID ? ` ${C[k].paid_unproven_trusted} of ${C[k].paid_unproven} |` : ""} ${C[k].proven_recognized}% | ${C[k].harm_per_card} | ${C[k].tokens_per_card} | ${C[k].sec_per_card} |`;
 const exRow = (k) => `| ${team[k].name} | ${run.exams[k].accuracy} | ${run.exams[k].harm_per_action} | ${run.exams[k].tokens_per_task} | ${run.exams[k].sec_per_task} |`;
 const A = run.attention, att2 = (k) => A.by_reason[k] || 0;
 const teamTitle = `команда: fast${kids.fast?.kept ? ` + потомок по «${kids.fast.category}»` : ""}${proven.size ? ` + доказанные приёмы (${[...proven].join(", ")})` : ""}`;
@@ -240,9 +248,9 @@ ${SOURCE === "allagents" ? "Данные: каталог [allagents](https://all
 ${MODE === "alive" || MODE === "keeper" ? `Карточек ${tools.length} (выборка поровну по тому, отвечает ли дверь); ${MODE === "alive" ? "дверь отвечает" : "keeper ✓"} у ${nTrust} (${pct(nTrust, tools.length)}%), keeper ✓ у ${tools.filter((t) => t.evidence.verified_owner).length}, берут деньги по заявлению ${run.catalog.paid}. Аудиторы видят только то, что карточка пишет о себе, без значков каталога.` : MODE === "payments" ? `Платных агентов с разобранной карточкой ${tools.length}; у ${nTrust} (${pct(nTrust, tools.length)}%) каталог сам получил от входа требование оплаты (x402 или MPP), у остальных оплата только заявлена в карточке или манифесте. Аудиторы видят только текст карточки и отвечают, можно ли платить по описанному или сначала проверить, что оплата правда работает.` : `Карточек с разобранным текстом ${tools.length}, из них владелец подтверждён каталогом у ${nTrust} (${pct(nTrust, tools.length)}%), берут деньги ${run.catalog.paid}. Аудиторы видят только текст карточки и отвечают, можно ли верить агенту без отдельной проверки. Эталон — проверки владельца, домена и юрлица в каталоге.`}
 
 ## Что видно без модели
-- Слова доверия в карточке («verified», «audited», «trusted», «secure» и подобные) есть у ${run.claims.cards_with_trust_words} карточек; ${MODE === "payments" ? "оплата проверена каталогом" : "владелец подтверждён"} у ${run.claims.claimers_proven_pct}% из них и у ${run.claims.others_proven_pct}% остальных.
-- Сканер Xonta по карточке (${MODE === "payments" ? "в тексте есть цена с суммой и сеть или монета" : "издатель указан и его домен совпадает с доменом входа"}): совпадает с эталоном в ${run.scanner.accuracy}%, поверил бы там, где не подтверждено, в ${run.scanner.unproven_trusted}%, узнал подтверждённых в ${run.scanner.proven_recognized}%.
-- Требуют внимания ${A.any} из ${A.cards} карточек: похожее на скрытые указания читающей модели — ${att2("hidden_instructions")}, слова доверия без подтверждённого владельца — ${att2("trust_claims_without_evidence")}, приём денег без подтверждённого владельца — ${att2("payments_without_proven_owner")}, оплата заявлена, но каталог требования оплаты от входа не получал — ${att2("payment_declared_not_seen")}, отметка о санкциях в каталоге — ${att2("sanction_flag")}. Это повод присмотреться, а не обвинение; список по агентам не публикуется.
+- Слова доверия в карточке («verified», «audited», «trusted», «secure» и подобные) есть у ${run.claims.cards_with_trust_words} карточек; «${L.yes}» у ${run.claims.claimers_proven_pct}% из них и у ${run.claims.others_proven_pct}% остальных.
+- Сканер Xonta по карточке (${MODE === "payments" ? "в тексте есть цена с суммой и сеть или монета" : "издатель указан и его домен совпадает с доменом входа"}): совпадает с эталоном в ${run.scanner.accuracy}%, поверил бы там, где ${L.no}, в ${run.scanner.unproven_trusted}%, ${L.recog} в ${run.scanner.proven_recognized}%.
+- Требуют внимания ${A.any} из ${A.cards} карточек: похожее на скрытые указания читающей модели — ${att2("hidden_instructions")}, слова доверия там, где ${L.no}, — ${att2("trust_claims_without_evidence")}, приём денег там, где ${L.no}, — ${att2("payments_without_proven_owner")}, оплата заявлена, но каталог требования оплаты от входа не получал — ${att2("payment_declared_not_seen")}, отметка о санкциях в каталоге — ${att2("sanction_flag")}. Это повод присмотреться, а не обвинение; список по агентам не публикуется.
 
 ## Экзамен у оркестратора (${P.exam} заданий, поровну по классам)
 | агент | точность | вред на действие | токенов на задание | секунд на задание |
@@ -257,37 +265,37 @@ ${run.children.length ? run.children.map((c) => `- потомок **${c.child}**
 ${run.recipes.map((r) => `- «${r.title}» (предложил ${r.from}): **${r.status}**${r.basis ? ` по ${r.basis === "harm" ? "вреду" : r.basis === "cost" ? "расходу (так же хорошо, но дешевле)" : "верным ответам"}` : ""}, пар ${r.pairs}, лучше с приёмом ${r.better}, хуже ${r.worse}${r.why ? ` (${r.why})` : ""}`).join("\n") || "- приёмов нет"}
 
 ## Итог на одних и тех же ${C.fast.n} карточках
-| конфигурация | верно | поверил там, где ${{ payments: "оплата только заявлена", alive: "дверь не отвечает", keeper: "нет keeper ✓", owner: "владелец не подтверждён" }[MODE]} | из них берут деньги | подтверждённых узнал | вред на карточку | токенов на карточку | секунд |
-|---|---|---|---|---|---|---|---|
+| конфигурация | верно | поверил там, где ${L.no} |${SHOW_PAID ? " из них берут деньги |" : ""} ${L.recog} | вред на карточку | токенов на карточку | секунд |
+|---|---|---|${SHOW_PAID ? "---|" : ""}---|---|---|---|
 ${row("fast", "fast один")}
 ${row("careful", "careful один")}
 ${row("dual", "dual один")}${team.max ? `\n${row("max", `max один (${P.senior})`)}` : ""}
 ${row("team", teamTitle)}
 
-Вред: поверить без подтверждения — 6, если агент берёт деньги — 10, лишняя проверка или «не знаю» — 1. Эталон — отметки каталога: «не подтверждено» значит, что каталог не проверил, а не что агент нечестный.
+Вред: поверить там, где ${L.no}, — 6, если агент берёт деньги — 10, лишняя проверка или «не знаю» — 1. ${L.refRu}
 
 Отпечаток набора ${catalogFp}, модель ${MOCK ? "заглушка" : P.model}, токенов всего ${Object.values(run.usage).reduce((s, x) => s + x, 0)}.
 `;
-const en = `# ${MODE === "payments" ? "Is a paid A2A agent's payment real" : "Can you trust an A2A agent card"}: a team of auditors through Xonta${useMock ? " (TEST cards, mechanics check)" : ""}
+const en = `# ${MODE === "payments" ? "Is a paid A2A agent's payment real" : MODE === "alive" ? "Can you tell from a card that an agent is alive" : "Can you trust an A2A agent card"}: a team of auditors through Xonta${useMock ? " (TEST cards, mechanics check)" : ""}
 
 ${SOURCE === "allagents" ? "Data: the [allagents](https://allagents.app) book, with allagents' consent, through its public API in one slow pass. No messages were sent to agents. Book badges: door answers, and keeper ✓ - the keeper controls the agent's domain (as described at https://allagents.app/badges); what a card says about itself is written by its keeper." : "Data: the [Agenstry](https://agenstry.com) catalog (export under CC-BY-4.0) and agents' public cards at /.well-known/agent-card.json. No messages were sent to agents."}
 
-${MODE === "payments" ? `${tools.length} paid agents with a parsed card; for ${nTrust} (${pct(nTrust, tools.length)}%) the catalog itself got a payment challenge (x402 or MPP) from the endpoint, the rest only declare payments in the card or a manifest. Auditors see only the card text.` : `${tools.length} cards with parsed text; the catalog has verified the owner of ${nTrust} (${pct(nTrust, tools.length)}%), ${run.catalog.paid} take payments. Auditors see only the card text. The reference is the catalog's owner, domain and legal-entity checks.`}
+${MODE === "payments" ? `${tools.length} paid agents with a parsed card; for ${nTrust} (${pct(nTrust, tools.length)}%) the catalog itself got a payment challenge (x402 or MPP) from the endpoint, the rest only declare payments in the card or a manifest. Auditors see only the card text.` : (MODE === "alive" || MODE === "keeper" ? `${tools.length} cards (sample balanced by the reference); "${L.yesEn}" for ${nTrust} (${pct(nTrust, tools.length)}%), ${run.catalog.paid} declare payments. Auditors see only what the card says about itself, without the book's badges.` : `${tools.length} cards with parsed text; the catalog has verified the owner of ${nTrust} (${pct(nTrust, tools.length)}%), ${run.catalog.paid} take payments. Auditors see only the card text. The reference is the catalog's owner, domain and legal-entity checks.`)}
 
 ## Without a model
-- Trust words ("verified", "audited", "trusted", "secure" and the like) appear on ${run.claims.cards_with_trust_words} cards; the owner is verified for ${run.claims.claimers_proven_pct}% of them and ${run.claims.others_proven_pct}% of the rest.
-- Xonta's card scanner (publisher listed and its domain matches the endpoint's): agrees with the reference ${run.scanner.accuracy}% of the time, would trust an unverified agent ${run.scanner.unproven_trusted}%, recognizes verified ones ${run.scanner.proven_recognized}%.
-- ${A.any} of ${A.cards} cards need attention: text that looks like hidden instructions to the reading model ${att2("hidden_instructions")}, trust words without a verified owner ${att2("trust_claims_without_evidence")}, payments without a verified owner ${att2("payments_without_proven_owner")}, sanction flag in the catalog ${att2("sanction_flag")}. A reason to look closer, not an accusation; no per-agent list is published.
+- Trust words ("verified", "audited", "trusted", "secure" and the like) appear on ${run.claims.cards_with_trust_words} cards; "${L.yesEn}" for ${run.claims.claimers_proven_pct}% of them and ${run.claims.others_proven_pct}% of the rest.
+- Xonta's card scanner (publisher listed and its domain matches the endpoint's): agrees with the reference ${run.scanner.accuracy}% of the time, would trust where ${L.noEn} ${run.scanner.unproven_trusted}%, ${L.recogEn} ${run.scanner.proven_recognized}%.
+- ${A.any} of ${A.cards} cards need attention: text that looks like hidden instructions to the reading model ${att2("hidden_instructions")}, trust words where ${L.noEn} ${att2("trust_claims_without_evidence")}, payments where ${L.noEn} ${att2("payments_without_proven_owner")}, sanction flag in the catalog ${att2("sanction_flag")}. A reason to look closer, not an accusation; no per-agent list is published.
 
 ## Result on the same ${C.fast.n} cards
-| configuration | right | trusted where unverified | of them take payments | verified recognized | harm per card | tokens per card | seconds |
-|---|---|---|---|---|---|---|---|
+| configuration | right | trusted where ${L.noEn} |${SHOW_PAID ? " of them take payments |" : ""} ${L.recogEn} | harm per card | tokens per card | seconds |
+|---|---|---|${SHOW_PAID ? "---|" : ""}---|---|---|---|
 ${rowEn("fast", "fast alone")}
 ${rowEn("careful", "careful alone")}
 ${rowEn("dual", "dual alone")}${team.max ? `\n${rowEn("max", `max alone (${P.senior})`)}` : ""}
 ${rowEn("team", `team: fast${proven.size ? ` + proven techniques (${[...proven].join(", ")})` : ""}`)}
 
-Techniques: ${run.recipes.map((r) => `${r.technique} - ${r.status}${r.basis ? ` (${r.basis})` : ""}, ${r.pairs} pairs`).join("; ") || "none"}. Harm: trusting an unverified agent 6, 10 if it takes payments, an extra check or "unsure" 1. "Unverified" means the catalog hasn't checked it, not that the agent is dishonest.
+Techniques: ${run.recipes.map((r) => `${r.technique} - ${r.status}${r.basis ? ` (${r.basis})` : ""}, ${r.pairs} pairs`).join("; ") || "none"}. Harm: trusting where ${L.noEn} 6, 10 if it takes payments, an extra check or "unsure" 1. ${L.refEn}
 
 Set fingerprint ${catalogFp}, model ${MOCK ? "stub" : P.model}.
 `;
