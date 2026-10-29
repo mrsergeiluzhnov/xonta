@@ -1,4 +1,4 @@
-// Выгрузка истории инцидентов с открытых страниц статуса (Statuspage): Cloudflare и GitHub.
+// Выгрузка истории инцидентов с открытых страниц статуса (Statuspage): по умолчанию GitHub и DigitalOcean.
 // API /api/v2/incidents.json отдаёт только последние 50, поэтому коды инцидентов берутся со страниц истории
 // (/history.json?page=N, если его нет — из ссылок /history?page=N), а сами инциденты — по одному (/incidents/<код>.json).
 // Медленно: пауза между запросами INC_PAUSE_MS (по умолчанию 2 с), User-Agent с названием Xonta. Повторный запуск
@@ -12,7 +12,11 @@ const PAUSE = Math.max(1500, Number(process.env.INC_PAUSE_MS || 2000));
 const TARGET = Number(process.env.INC_TARGET || 400), MAX_PAGES = Number(process.env.INC_MAX_PAGES || 40);
 const SINCE = process.env.INC_SINCE || "2023-01-01";
 const UA = "XontaResearch/0.25 (+https://github.com/mrsergeiluzhnov/xonta; incident history study, slow single pass)";
-export const SERVICES = { cloudflare: "https://www.cloudflarestatus.com", github: "https://www.githubstatus.com" };
+// INC_SERVICES=имя=адрес,имя=адрес — другие страницы на Statuspage. Cloudflare с осени 2026 ушёл со Statuspage на свою страницу:
+// история и отдельные инциденты там больше не отдаются (404), только последние 50 в /api/v2/incidents.json.
+export const SERVICES = process.env.INC_SERVICES
+  ? Object.fromEntries(process.env.INC_SERVICES.split(",").map((x) => x.split("=")).filter((p) => p.length === 2 && /^https:\/\//.test(p[1])))
+  : { github: "https://www.githubstatus.com", digitalocean: "https://status.digitalocean.com" };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function get(url, accept = "application/json") {
