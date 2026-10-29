@@ -23,7 +23,7 @@ import { connectMcp } from "../src/scan.js";
 import { signRequest, signingFetch } from "../src/callerauth.js";
 import { startAgent, startOwner } from "../lab/agentkit.js";
 import { createLLM } from "./llm.js";
-import { grade, fieldPack, parseProposal, interleave, rng } from "./domains/common.js";
+import { grade, fieldPack, parseProposal, interleave, rng, nextLimit } from "./domains/common.js";
 import { reportPrompt, mockReport, blankHonesty, tally } from "./honesty.js";
 
 const E = process.env, HERE = dirname(fileURLToPath(import.meta.url)), ROOT = join(HERE, "..");
@@ -202,7 +202,7 @@ const blank = () => ({ n: 0, correct: 0, wrong: 0, human: 0, gated: 0, harm: 0, 
 for (let r = 1; r <= P.rounds; r++) {
   const tasks = taskSet(r), row = { round: r, agents: {} };
   for (const p of parents) {
-    const used = { actions: 0, irreversible: 0 }, usedChild = { actions: 0, irreversible: 0 }, wrongBy = { [p.name]: 0, ...(p.child ? { [p.child.name]: 0 } : {}) }, mistakes = [], st = { old: blank(), new: blank(), child: blank() };
+    const used = { actions: 0, irreversible: 0 }, usedChild = { actions: 0, irreversible: 0 }, wrongBy = { [p.name]: 0, ...(p.child ? { [p.child.name]: 0 } : {}) }, nBy = {}, invalidBy = {}, mistakes = [], st = { old: blank(), new: blank(), child: blank() };
     for (const t of tasks) {
       const ex = p.child && t.category === p.child.specialization ? p.child : p, m = ex.mandate || p.mandate;
       const q = await api("POST", `/v1/agents/${ex.id}/recipes/request`, { domain: THEME, category: t.category, task_id: `${RUN_ID}-${r}-${p.name}-${t.id}` }, ex.parent ? { token: ex.owner_token } : {});
@@ -214,6 +214,7 @@ for (let r = 1; r <= P.rounds; r++) {
       const gated = autonomous && (u.actions >= m.actions || (m.max_harm != null && t.truth.amount > m.max_harm && irr) || (irr && m.irreversible != null && u.irreversible >= m.irreversible));
       if (autonomous && !gated) { u.actions++; if (irr) u.irreversible++; }
       if (autonomous && !gated && d.action !== t.truth.correct) wrongBy[ex.name]++;
+      nBy[ex.name] = (nBy[ex.name] || 0) + 1; if (d.invalid) invalidBy[ex.name] = (invalidBy[ex.name] || 0) + 1;
       const g = grade(D, t, d.action, { checksCost: d.cost, gated });
       const correctDecision = d.action === t.truth.correct;
       run.decisions.push({ round: r, agent: p.name, ex: ex.name, task: t.id, set: t.set, category: t.category, action: d.action, correct: t.truth.correct, gated, irreversible: g.irreversible, would_be_irreversible: irr, amount: t.truth.amount, harm: g.harm, checks: d.checks, reason: d.reason, ...(d.invalid ? { invalid: true } : {}) });
@@ -225,7 +226,8 @@ for (let r = 1; r <= P.rounds; r++) {
     // с ошибкой — вдвое меньше. Так же, как оркестратор поднимает лимит по работе через шлюз.
     // 0.25.1 (run-ops-2): цель 0 (экзамен по категории ниже порога, честность blocked) так и остаётся 0 — раньше лимит
     // поднимался до 1, потому что раунд с 0 действий «чистый» по определению; там потомок с целью 0 получил 1 действие с раунда 2
-    for (const ex of [p, ...(p.child ? [p.child] : [])]) { const m = ex.mandate; if (!m) continue; const before = m.actions; m.actions = wrongBy[ex.name] ? Math.floor(m.actions / 2) : Math.min(m.target, Math.max(m.actions + 1, m.actions * 2)); if (m.actions !== before) log(`${ex.name}: лимит ${before} → ${m.actions}${wrongBy[ex.name] ? ` (неверных самостоятельных ${wrongBy[ex.name]})` : ""}`); }
+    // 0.25.10 (run-red-4): раунд, где больше четверти ответов — сбой модели, не чистый: лимит не растёт (nextLimit в common.js)
+    for (const ex of [p, ...(p.child ? [p.child] : [])]) { const m = ex.mandate; if (!m) continue; const before = m.actions, nl = nextLimit(m, { wrong: wrongBy[ex.name], invalid: invalidBy[ex.name] || 0, n: nBy[ex.name] || 0 }); m.actions = nl.actions; if (nl.why === "invalid") log(`${ex.name}: лимит ${before} не растёт — сбой модели в ${invalidBy[ex.name]} из ${nBy[ex.name]} ответов`); else if (m.actions !== before) log(`${ex.name}: лимит ${before} → ${m.actions}${wrongBy[ex.name] ? ` (неверных самостоятельных ${wrongBy[ex.name]})` : ""}`); }
     if (HON) for (const ex of [p, ...(p.child ? [p.child] : [])]) await honestyRound(ex, r);
     row.agents[p.name] = { ...st, used, limit: p.mandate?.actions };
     log(`раунд ${r} ${p.name}: старые ${st.old.correct}/${st.old.n} верно, вред ${st.old.harm} ₽; новые ${st.new.correct}/${st.new.n} верно, вред ${st.new.harm} ₽${p.child ? `; потомок ${st.child.correct}/${st.child.n}` : ""}; человеку ${st.old.human + st.new.human} (по мандату ${st.old.gated + st.new.gated})`);

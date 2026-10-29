@@ -48,3 +48,14 @@ export function parseProposal(text, categories, mistakeCategories = []) {
 
 // через одно: a0, b0, a1, b1, …; хвост длинного списка — в конце
 export const interleave = (a, b) => Array.from({ length: Math.max(a.length, b.length) }, (_, i) => [a[i], b[i]]).flat().filter((x) => x !== undefined);
+
+// Лимит самостоятельных действий на следующий раунд (мандат в темах). Раунд без неверных самостоятельных — лимит удваивается
+// до цели экзамена, с ошибкой — вдвое меньше. Цель 0 так и остаётся 0 (0.25.1).
+// 0.25.10 (run-red-4): если больше четверти ответов агента за раунд — сбой модели («Too many requests»), раунд не считается
+// чистым и лимит не растёт. В red-4 у быстрого в раунде 5 все 19 ответов были сбоем, ни одного действия — и лимит вырос 2 → 4,
+// у его потомка тоже 2 → 4, у осторожного в раунде 4 (9 сбоев из 20) — 1 → 2. Ошибка по-прежнему снижает лимит.
+export function nextLimit(m, { wrong = 0, invalid = 0, n = 0 } = {}) {
+  if (wrong) return { actions: Math.floor(m.actions / 2), why: "wrong" };
+  if (invalid && invalid * 4 > n) return { actions: m.actions, why: "invalid" };
+  return { actions: Math.min(m.target, Math.max(m.actions + 1, m.actions * 2)), why: "clean" };
+}

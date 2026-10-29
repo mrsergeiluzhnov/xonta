@@ -1434,5 +1434,20 @@ await t("0.25.1: совет по потомку берёт его свежий �
   exams.k.pop(); const old = adv.descendants("p"); assert.equal(old.remove.length, 1); assert.equal(old.remove[0].field, "e0");
 });
 
+await t("0.25.10: раунд со сбоями модели не считается чистым — лимит не растёт (run-red-4)", async () => {
+  const { nextLimit } = await import("../stand/domains/common.js");
+  // быстрый в раунде 5: 19 ответов из 19 — «Too many requests», действий 0; было 2 → 4
+  assert.equal(nextLimit({ actions: 2, target: 13 }, { wrong: 0, invalid: 13, n: 13 }).actions, 2);
+  assert.equal(nextLimit({ actions: 2, target: 6 }, { wrong: 0, invalid: 6, n: 6 }).actions, 2, "потомок");
+  // осторожный в раунде 4: 9 сбоев из 20 — было 1 → 2
+  assert.equal(nextLimit({ actions: 1, target: 9 }, { wrong: 0, invalid: 9, n: 20 }).actions, 1);
+  // одиночный сбой (как в proc-4) — раунд чистый, как раньше
+  assert.equal(nextLimit({ actions: 2, target: 13 }, { wrong: 0, invalid: 1, n: 20 }).actions, 4);
+  // ошибка по-прежнему снижает лимит, цель 0 остаётся 0
+  assert.equal(nextLimit({ actions: 4, target: 13 }, { wrong: 1, invalid: 10, n: 20 }).actions, 2);
+  assert.equal(nextLimit({ actions: 0, target: 0 }, {}).actions, 0);
+  assert.equal(nextLimit({ actions: 8, target: 13 }, { n: 20 }).actions, 13);
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно
