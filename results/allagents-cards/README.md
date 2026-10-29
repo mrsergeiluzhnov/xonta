@@ -13,7 +13,7 @@
 ## Что видно без модели
 - Слова доверия («verified», «audited», «trusted», «secure» и подобные) есть в 68 карточках. Дверь ответила у 64,7% из них и у 49,1% остальных: тревожным признаком эти слова здесь не оказались.
 - Сканер Xonta по карточке (издатель указан и его домен совпадает с доменом входа): совпадает с эталоном в 87,8% случаев, поверил бы карточке с неответившей дверью в 7%, узнаёт живых агентов в 82,5%.
-- Стоит присмотреться к 75 карточкам из 1200 (6%): слова доверия при неответившей двери — 58, заявлен приём оплаты при неответившей двери — 17, текст похож на скрытые указания читающей модели — 1. Это повод присмотреться, а не обвинение; список по агентам не публикуется.
+- Стоит присмотреться к 74 карточкам из 1200 (6%): слова доверия при неответившей двери — 58, заявлен приём оплаты при неответившей двери — 17. Текста, похожего на скрытые указания читающей модели, не нашлось. Сначала сканер отметил одну карточку, но allagents попросили её показать, и это оказалась ложная тревога: невидимый символ был склейкой внутри эмодзи 🐦‍⬛. Сканер исправлен. Это повод присмотреться, а не обвинение; список по агентам не публикуется.
 
 ## Команда
 Три аудитора на GigaChat-2, подключённые к оркестратору Xonta:
@@ -74,7 +74,7 @@ A door that didn't answer means the endpoint didn't answer the book's check that
 ## Without a model
 - Trust words ("verified", "audited", "trusted", "secure" and the like) appear on 68 cards. The door answered for 64.7% of them and 49.1% of the rest, so these words are not a warning sign here.
 - Xonta's card scanner (a publisher is listed and its domain matches the endpoint's domain): agrees with the reference 87.8% of the time, would trust a card whose door didn't answer in 7% of cases, recognizes live agents in 82.5%.
-- 75 of 1,200 cards (6%) are worth a closer look: trust words on a card whose door didn't answer - 58, payments declared on a card whose door didn't answer - 17, text that looks like hidden instructions to the reading model - 1. This is a reason to look closer, not an accusation; no per-agent list is published.
+- 74 of 1,200 cards (6%) are worth a closer look: trust words on a card whose door didn't answer - 58, payments declared on a card whose door didn't answer - 17. No text that looks like hidden instructions to the reading model was found. The scanner first flagged one card, but when allagents asked to see it, it turned out to be a false alarm: the invisible character was a joiner inside the 🐦‍⬛ emoji. The scanner is fixed. This is a reason to look closer, not an accusation; no per-agent list is published.
 
 ## The team
 Three auditors on GigaChat-2, connected to a Xonta orchestrator:
