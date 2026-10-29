@@ -1266,6 +1266,16 @@ await t("0.20.2: предложение агента разбирается, д�
   const c = parseProposal("Не могу предложить правило.", C, ["scale_down"]); assert.equal(c.ok, false); assert.match(c.why, /нет правила/);
 });
 
+await t("0.25.8: образец из подсказки («до 120 символов») не попадает в правило (run-ops-4, run-red-3)", async () => {
+  const { parseProposal } = await import("../stand/domains/common.js");
+  const C = ["delete_resource", "schema_migration", "scale_down"];
+  const a = parseProposal('{"category":"scale_down","rule":"проверять наличие среды в запросе, до 120 символов","when":"когда применять, до 120 символов"}', C);
+  assert.equal(a.rule, "проверять наличие среды в запросе"); assert.equal(a.when, "");
+  assert.equal(parseProposal('{"category":"schema_migration","rule":"указывать среду и тип миграции до 200 символов","when":"миграция в prod"}', C).rule, "указывать среду и тип миграции");
+  assert.equal(parseProposal('{"category":"scale_down","rule":"до 200 символов","when":"x"}', C).ok, false, "одно образцовое — правила нет");
+  assert.equal(parseProposal('{"category":"scale_down","rule":"не уменьшать до 0 экземпляров без вопроса","when":"prod"}', C).rule, "не уменьшать до 0 экземпляров без вопроса", "обычное «до 0» не трогаем");
+});
+
 await t("0.22: приём оценивается по цене ошибки и по расходу; совет родить потомка учитывает вред (glama team-1)", async () => {
   const { evaluateRecipe } = await import("../src/recipes.js");
   const cfg = { min_n: 8, alpha: 0.05 };

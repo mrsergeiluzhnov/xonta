@@ -33,7 +33,10 @@ export function parseProposal(text, categories, mistakeCategories = []) {
   const body = ((s.match(/```(?:json)?\s*([\s\S]*?)```/) || [])[1] || s).trim(), at = body.indexOf("{");
   if (at >= 0) for (let end = body.lastIndexOf("}"); end > at && !o; end = body.lastIndexOf("}", end - 1)) { try { o = JSON.parse(body.slice(at, end + 1)); } catch {} }
   const field = (k) => (o && o[k] != null ? String(o[k]) : (body.match(new RegExp(`["«]?${k}["»]?\\s*:\\s*["«]([\\s\\S]*?)["»]\\s*(?:,\\s*["«]?\\w+["»]?\\s*:|}|$)`)) || [])[1] || "");
-  const rule = field("rule").replace(/\s+/g, " ").trim(), when = field("when").replace(/\s+/g, " ").trim(), rawCat = field("category");
+  // 0.25.8: модель иногда переписывает в поле образец из подсказки — «до 120 символов», «когда применять»
+  // (run-red-3, run-ops-4: два доказанных правила с таким хвостом). Хвост убираем, смысл правила не трогаем.
+  const clean = (x) => x.replace(/\s+/g, " ").replace(/[,;]?\s*\(?\s*до\s+\d+\s+символ[а-яё]*\s*\)?/gi, "").replace(/^когда применять[,.:]?\s*/i, "").replace(/[\s,;]+$/, "").trim();
+  const rule = clean(field("rule")), when = clean(field("when")), rawCat = field("category");
   if (!rule) return { ok: false, why: `нет правила в ответе: ${s.replace(/\s+/g, " ").slice(0, 160)}` };
   const find = (x) => { const low = String(x).toLowerCase(); return categories.find((c) => low.includes(c.toLowerCase())) || null; };
   let category = find(rawCat) || find(rule), guessed = false;
