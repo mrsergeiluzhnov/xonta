@@ -57,7 +57,7 @@ That's the point. Trust is not a property of the agent, it's a decision of whoev
 
 ## The model misses major outages, the orchestrator finds the signal in outcomes (GitHub incidents)
 
-391 incidents from GitHub's status page. From the first 30 minutes of updates the model misses 96-98% of major outages: "degraded availability" sounds harmless to it. Xonta found that word in its outcome log by itself (35-43% of major outages, 9-13% of minor ones), proved the rule in pairs and passed it to the agent. On the held-out half, misses fell to 22% and harm by 3 times, in two runs on different splits. The price is false alarms on about half of minor incidents. On Discord and npm GitHub's word didn't work, while the orchestrator confirmed general outage signs again: harm there fell by 28% and 38-53%. Report: [results/incidents-github](results/incidents-github/README.md).
+391 incidents from GitHub's status page. From the first 30 minutes of updates the model misses 96-98% of major outages: "degraded availability" sounds harmless to it. Xonta found that word in its outcome log by itself (35-43% of major outages, 9-13% of minor ones), proved the rule in pairs and passed it to the agent. On the held-out half, misses fell to 22% and harm by 3 times, in two runs on different splits. The price is false alarms on about half of minor incidents. On Discord and npm GitHub's word didn't work, while the orchestrator confirmed general outage signs again: harm there fell by 28% and 38-53%. Correction of 30 October: on the same scale the constant "always major" is no worse than these rules, details in the report. Report: [results/incidents-github](results/incidents-github/README.md).
 
 ## An agent that knows the exam answers in advance
 

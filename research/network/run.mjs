@@ -28,8 +28,10 @@ mkdirSync(DIR, { recursive: true });
 const log = (s) => { const line = `${new Date().toISOString().slice(11, 19)} ${s}`; console.log(line); appendFileSync(join(DIR, "log.txt"), line + "\n"); };
 const pct = (k, n) => (n ? Math.round(1000 * k / n) / 10 : null);
 const fp = (x) => createHash("sha256").update(String(x)).digest("hex");
-const harmOf = (label, t) => (label === t.sev ? 0 : label === HUMAN || !LABELS.includes(label) ? 1 : t.sev === "serious" ? 6 : 1);
-const harmMap = (t) => (t.sev === "serious" ? { minor: 6 } : { serious: 1 });
+// цена лишней тревоги (INC_FALSE_ALARM) и доля крупных как в жизни (INC_NATURAL=1), см. research/incidents/team.mjs
+const FA = Number(E.INC_FALSE_ALARM || 1), NATURAL = E.INC_NATURAL === "1";
+const harmOf = (label, t) => (label === t.sev ? 0 : label === HUMAN || !LABELS.includes(label) ? FA : t.sev === "serious" ? 6 : FA);
+const harmMap = (t) => (t.sev === "serious" ? { minor: 6 } : { serious: FA });
 const RANK = { minor: 0, serious: 1, unsure: 1 };
 const NAME = { github: "GitHub", digitalocean: "DigitalOcean", discord: "Discord", npm: "npm" };
 
@@ -54,6 +56,7 @@ function mock(service) {
     return { id: `${service}:m${i}`, service, sev: serious ? "serious" : "minor", created: "2026-01-01", input: { service, title: `Issue ${i}`, first_update: `We are investigating ${(serious !== flip ? hard : soft)[(h >> 4) % 4]}${serious && h % 3 ? local : ""}.`, next_30min: [], components: ["API"] } }; });
 }
 function balanced(list, n, salt) {
+  if (NATURAL && !String(salt).endsWith("exam")) return [...list].sort((a, b) => fp(`${salt}|${a.id}`).localeCompare(fp(`${salt}|${b.id}`))).slice(0, n);
   const by = Object.fromEntries(LABELS.map((l) => [l, list.filter((t) => t.sev === l).sort((a, b) => fp(`${salt}|${a.id}`).localeCompare(fp(`${salt}|${b.id}`)))]));
   const k = Math.min(Math.floor(n / 2), by.serious.length, by.minor.length);
   return [...by.serious.slice(0, k), ...by.minor.slice(0, k)].sort((a, b) => fp(`${salt}|o|${a.id}`).localeCompare(fp(`${salt}|o|${b.id}`)));
@@ -84,7 +87,7 @@ const applyRule = (p, t, base) => {
   if (p.kind === "stricter_regex") { const s = new RegExp(p.regex, "i").test(text("any", t)) ? "serious" : "minor"; return (RANK[s] ?? 1) > (RANK[base.label] ?? 1) ? { ...base, label: s } : base; }
   return p.words.some((w) => text(p.field, t).includes(w)) ? { ...base, label: p.then } : base;
 };
-const describe = (p) => (p.kind === "stricter_regex" ? "более строгий из ответа модели и сканера по словам отказа" : `если в ${p.field === "any" ? "тексте" : p.field} есть «${p.words.join("», «")}» — ${p.then}`);
+const describe = (p, en) => (p.kind === "stricter_regex" ? (en ? "the stricter of the model and the outage-word scanner" : "более строгий из ответа модели и сканера по словам отказа") : en ? `if the ${p.field === "any" ? "text" : p.field} has "${p.words.join('", "')}" then ${p.then}` : `если в ${p.field === "any" ? "тексте" : p.field} есть «${p.words.join("», «")}» — ${p.then}`);
 function mineWords(rows, compWords) {
   const ns = rows.filter((r) => r.t.sev === "serious").length, nm = rows.length - ns, cs = {}, cm = {};
   for (const r of rows) for (const w of new Set(text("any", r.t).match(/[a-z][a-z'-]{3,}/g) || [])) { const c = r.t.sev === "serious" ? cs : cm; c[w] = (c[w] || 0) + 1; }
@@ -135,10 +138,10 @@ async function measure(S, rows, techs) {
   const local = {};
   for (const r of rows) for (const [key, x] of Object.entries(techs)) {
     const w = applyRule(x.payload, r.t, r.fast), dh = harmOf(w.label, r.t) - harmOf(r.fast.label, r.t);
-    (local[key] ||= { pairs: 0, better: 0, worse: 0 }); local[key].pairs++; if (dh < 0) local[key].better++; if (dh > 0) local[key].worse++;
+    (local[key] ||= { pairs: 0, better: 0, worse: 0, harm_delta: 0 }); local[key].pairs++; local[key].harm_delta += dh; if (dh < 0) local[key].better++; if (dh > 0) local[key].worse++;
     const q = await S.O.api("POST", `/v1/agents/${S.ag.id}/recipes/request`, { domain: DOMAIN, category: S.service, stage: key, task_id: `${RUN_ID}-${key}-${r.t.id}`, paired: true }, { token: S.ag.token }).catch(() => null);
     if (q?.arm !== "both" || q.recipe?.technique !== key) continue;
-    await S.O.api("POST", `/v1/recipes/requests/${q.request_id}/outcome`, { recipe: { accepted: true, applied: true, matched: true, ...score(w, r.t) }, control: score(r.fast, r.t) }, { token: S.ag.token }).catch(() => {});
+    await S.O.api("POST", `/v1/recipes/requests/${q.request_id}/outcome`, { recipe: { accepted: true, applied: true, matched: true, ...score(w, r.t) }, control: score(r.fast, r.t), baseline_harm: harmOf("serious", r.t) }, { token: S.ag.token }).catch(() => {});
   }
   const rec = await S.O.api("GET", `/v1/recipes?domain=${DOMAIN}&category=${S.service}`);
   return Object.fromEntries(Object.keys(local).map((k) => [k, { ...local[k], status: rec.find((x) => x.technique === k)?.status || "—" }]));
@@ -189,14 +192,15 @@ function metrics(rows, techs, keys) {
 const run = { id: RUN_ID, model: MOCK ? "заглушка" : P.model, sides: {} };
 for (const S of Object.values(side)) {
   const all = { ...S.techs, ...S.received }, ownP = Object.keys(S.own).filter((k) => S.own[k].status === "proven"), recv = Object.keys(S.received), recvOk = recv.filter((k) => S.recheck[k]?.status === "proven");
-  S.cfg = { alone: metrics(S.RB, all, []), own: metrics(S.RB, all, ownP), recv_as_is: metrics(S.RB, all, [...ownP, ...recv]), recv_checked: metrics(S.RB, all, [...ownP, ...recvOk]) };
+  S.cfg = { always: metrics(S.RB.map((r) => ({ ...r, fast: { label: "serious" } })), all, []), alone: metrics(S.RB, all, []), own: metrics(S.RB, all, ownP), recv_as_is: metrics(S.RB, all, [...ownP, ...recv]), recv_checked: metrics(S.RB, all, [...ownP, ...recvOk]) };
   run.sides[S.tag] = { service: S.service, exam: S.examAcc, mined: S.mined, own: S.own, offered: S.offered, not_offered: S.notOffered, dupes: S.dupes, recheck: S.recheck, configs: S.cfg, techs: Object.fromEntries(Object.entries(all).map(([k, x]) => [k, x.payload])), usage: S.llm.usage.input + S.llm.usage.output };
 }
 writeFileSync(join(DIR, "run.json"), JSON.stringify(run, null, 1));
 
-const T = { ru: { alone: "агент один", own: "+ свои доказанные правила", recv_as_is: "+ полученные от соседа как есть", recv_checked: "+ полученные и подтверждённые у себя" }, en: { alone: "agent alone", own: "+ own proven rules", recv_as_is: "+ rules from the neighbour taken as is", recv_checked: "+ rules from the neighbour confirmed locally" } };
+const T = { ru: { always: "всегда serious (без модели, для сравнения)", alone: "агент один", own: "+ свои доказанные правила", recv_as_is: "+ полученные от соседа как есть", recv_checked: "+ полученные и подтверждённые у себя" }, en: { always: "always serious (no model, for comparison)", alone: "agent alone", own: "+ own proven rules", recv_as_is: "+ rules from the neighbour taken as is", recv_checked: "+ rules from the neighbour confirmed locally" } };
+const dH = (x, ru) => `${x.harm_delta > 0 ? "+" : ""}${Math.round(100 * x.harm_delta / x.pairs) / 100} ${ru ? "на задание" : "per task"}`;
 const sideText = (S, L) => {
-  const ru = L === "ru", lst = (o, tech) => Object.entries(o).map(([k, x]) => `- **${k}** (${tech[k].from}): ${describe(tech[k].payload)}. ${ru ? `Пар ${x.pairs}, лучше ${x.better}, хуже ${x.worse}, статус` : `${x.pairs} pairs, better ${x.better}, worse ${x.worse}, status`} **${x.status}**.`).join("\n") || (ru ? "- нет" : "- none");
+  const ru = L === "ru", lst = (o, tech) => Object.entries(o).map(([k, x]) => `- **${k}** (${ru ? tech[k].from : tech[k].from.replace("агент", "agent").replace("оркестратор", "orchestrator")}): ${describe(tech[k].payload, !ru)}. ${ru ? `Пар ${x.pairs}, лучше ${x.better}, хуже ${x.worse}, вред ${dH(x, ru)}, статус` : `${x.pairs} pairs, better ${x.better}, worse ${x.worse}, harm ${dH(x, ru)}, status`} **${x.status}**.`).join("\n") || (ru ? "- нет" : "- none");
   return `### ${ru ? "Оркестратор" : "Orchestrator"} ${S.tag}: ${S.name}
 ${ru ? `Экзамен агента ${S.examAcc}%. Слова, найденные Xonta в журнале исходов (у крупных / у мелких)` : `Agent exam ${S.examAcc}%. Words Xonta found in the outcome log (major / minor)`}: ${S.mined.map((x) => `«${x.word}» ${x.serious}/${x.minor}`).join(", ") || "—"}.
 
@@ -212,7 +216,7 @@ ${Object.keys(T.ru).map((k) => `| ${T[L][k]} | ${S.cfg[k].accuracy}% | ${S.cfg[k
 `; };
 const report = `# Сеть из двух оркестраторов: ${side.A.name} и ${side.B.name}${MOCK ? " (ТЕСТОВЫЕ данные, проверка механики)" : ""}
 
-Два отдельных оркестратора Xonta, у каждого свой сервис, своя книга и свой журнал. Каждый мерит правила парами на половине A своего сервиса. Друг другу они передают только приёмы со статусом proven из открытого списка, и получатель мерит их заново у себя. Итог на половине B, которую никто не видел. Вред: назвать крупный сбой мелким 6, лишняя тревога 1.
+Два отдельных оркестратора Xonta, у каждого свой сервис, своя книга и свой журнал. Каждый мерит правила парами на половине A своего сервиса. Друг другу они передают только приёмы со статусом proven из открытого списка, и получатель мерит их заново у себя. Итог на половине B, которую никто не видел. Вред: назвать крупный сбой мелким 6, лишняя тревога ${FA}. ${NATURAL ? "Экзамены поровну, остальное с той долей крупных, что в жизни." : "Все выборки поровну по серьёзности."} Строка «всегда serious» — простейшее правило без модели для сравнения; приём, который не лучше её, оркестратор не признаёт доказанным.
 
 ${Object.values(side).map((S) => sideText(S, "ru")).join("\n")}
 Отпечаток: прогон ${RUN_ID}, модель ${run.model}.
@@ -221,7 +225,7 @@ ${Object.values(side).map((S) => sideText(S, "ru")).join("\n")}
 
 # A network of two orchestrators: ${side.A.name} and ${side.B.name}${MOCK ? " (TEST data, mechanics check)" : ""}
 
-Two separate Xonta orchestrators, each with its own service, book and log. Each measures rules in pairs on half A of its own service. They pass each other only recipes with status proven from the public listing, and the receiver measures them again at home. Results are on half B, which nobody saw. Harm: calling a major outage minor 6, a false alarm 1.
+Two separate Xonta orchestrators, each with its own service, book and log. Each measures rules in pairs on half A of its own service. They pass each other only recipes with status proven from the public listing, and the receiver measures them again at home. Results are on half B, which nobody saw. Harm: calling a major outage minor 6, a false alarm ${FA}. ${NATURAL ? "Exams are balanced, the rest keeps the real share of major outages." : "All samples are balanced by severity."} The "always serious" row is the simplest rule with no model, for comparison; the orchestrator does not accept as proven a recipe that is not better than it.
 
 ${Object.values(side).map((S) => sideText(S, "en")).join("\n")}
 Fingerprint: run ${RUN_ID}, model ${run.model}.

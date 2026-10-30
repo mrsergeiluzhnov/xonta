@@ -1306,6 +1306,10 @@ await t("0.22: приём оценивается по цене ошибки и �
   const cheap = [...Array(40).fill({ q: 0, h: 0, c: 130 }), ...Array(20).fill({ q: 0, h: 0, c: 0 })];
   const b = evaluateRecipe(mk(cheap), cfg); assert.equal(b.status, "proven", b.why); assert.equal(b.test.basis, "cost");
   const c = evaluateRecipe(mk([...cheap, { q: -1, h: -4, c: 130 }]), cfg); assert.notEqual(c.test.basis, "cost", "одна пара хуже — уже не «так же хорошо»");
+  // 0.26: приём лучше агента, но не лучше константы «всегда осторожно» — не доказан (сеть оркестраторов, 30.10)
+  const mkB = (pairs) => { const r = mk(pairs); const x = { n: 0, sum: 0, sum2: 0, better: 0, worse: 0 }; for (const p of pairs) { x.n++; x.sum += p.b; x.sum2 += p.b * p.b; if (p.b > 0) x.better++; else if (p.b < 0) x.worse++; } r.counts.pairs.baseline = x; return r; };
+  const blanket = evaluateRecipe(mkB(pairs.map((p) => ({ ...p, b: p.h > 0 ? -1 : 0 }))), cfg); assert.equal(blanket.status, "no_effect", blanket.why); assert.match(blanket.why, /simplest fixed policy/);
+  const real = evaluateRecipe(mkB(pairs.map((p) => ({ ...p, b: p.h > 0 ? 0 : 1 }))), cfg); assert.equal(real.status, "proven", real.why);
   // совет по потомку: другой агент в категории не точнее, но вред заметно меньше
   const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
   const { openStore } = await import("../src/store.js"), { createLineageAdvice } = await import("../src/lineage-advice.js");

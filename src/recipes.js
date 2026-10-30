@@ -56,13 +56,19 @@ export function evaluateRecipe(r, cfg) {
   const diff = (x) => { if (!x || x.n < 2) return null; const m = x.sum / x.n, v = Math.max(0, (x.sum2 - x.n * m * m) / (x.n - 1)), se = Math.sqrt(v / x.n); const z = se > 0 ? m / se : m > 0 ? Infinity : m < 0 ? -Infinity : 0; return { n: x.n, mean: +m.toFixed(4), better: x.better, worse: x.worse, p_better: +normTail(z).toPrecision(3), p_worse: +normTail(-z).toPrecision(3) }; };
   if (P.harm) out.harm = diff(P.harm);
   if (P.cost) out.cost = diff(P.cost);
+  // 0.26 (сеть оркестраторов, 30.10): шкала вреда 6:1 делает выгодной тревогу по любому поводу, и приём «почти всегда
+  // осторожно» проходил как доказанный, хотя константа «всегда осторожно» была не хуже. Если агент сообщает вред простейшего
+  // правила (baseline_harm: всегда одно и то же действие), доказанным считается только приём, который значимо лучше и его
+  if (P.baseline) out.baseline = diff(P.baseline);
   let status = "hypothesis", why = `fewer than ${cfg.min_n} independently checked outcomes in each arm`;
   if (r.violations > 0) { status = "revoked"; why = "the recipe broke a safeguard"; }
   // по вреду: если цену ошибки сообщают во всех парах, решает она, а не «верно / неверно». Иначе приём, который ловит дорогие
   // ошибки ценой дешёвых, выходит «без эффекта» (glama team-1: 10 лучше, 13 хуже, а вред −16%)
   else if (out.enough && out.harm && out.harm.n >= cfg.min_n && out.harm.n >= 0.9 * P.n && (out.harm.p_better < cfg.alpha || out.harm.p_worse < cfg.alpha)) {
     out.basis = "harm";
-    if (out.harm.mean > 0 && out.harm.p_better < cfg.alpha) { status = "proven"; why = `paired by harm, ${out.harm.mean} less harm per task with the recipe (${out.harm.better} tasks better, ${out.harm.worse} worse of ${out.harm.n}), p = ${out.harm.p_better}`; }
+    const vsBase = out.baseline && out.baseline.n >= 0.9 * out.harm.n ? out.baseline : null;
+    if (out.harm.mean > 0 && out.harm.p_better < cfg.alpha && vsBase && !(vsBase.mean > 0 && vsBase.p_better < cfg.alpha)) { status = "no_effect"; why = `paired by harm, ${out.harm.mean} less harm per task than without the recipe, but not better than the simplest fixed policy (${-vsBase.mean} harm per task vs it, p = ${vsBase.p_better})`; }
+    else if (out.harm.mean > 0 && out.harm.p_better < cfg.alpha) { status = "proven"; why = `paired by harm, ${out.harm.mean} less harm per task with the recipe (${out.harm.better} tasks better, ${out.harm.worse} worse of ${out.harm.n}), p = ${out.harm.p_better}`; }
     else { status = "revoked"; why = `paired by harm, ${-out.harm.mean} more harm per task with the recipe (${out.harm.worse} tasks worse, ${out.harm.better} better of ${out.harm.n}), p = ${out.harm.p_worse}`; }
   }
   // так же хорошо, но дешевле: ни одна пара не стала хуже ни по ответу, ни по вреду, а расход значимо ниже
@@ -193,6 +199,7 @@ export function createRecipes({ store, issuer, orch, publicUrl = "", now = () =>
         const acc = (key, d) => { const x = (P[key] ||= { n: 0, sum: 0, sum2: 0, better: 0, worse: 0 }); x.n++; x.sum += d; x.sum2 += d * d; if (d > 0) x.better++; else if (d < 0) x.worse++; };
         if (res.recipe.harm != null && res.control.harm != null) acc("harm", res.control.harm - res.recipe.harm);
         if (res.recipe.tokens != null && res.control.tokens != null) acc("cost", res.control.tokens - res.recipe.tokens);
+        const bh = b.baseline_harm; if (res.recipe.harm != null && bh != null && Number.isFinite(+bh) && +bh >= 0) acc("baseline", +bh - res.recipe.harm);
       }
       if (res.recipe?.violated_safeguard) r.violations = (r.violations || 0) + 1;
     }

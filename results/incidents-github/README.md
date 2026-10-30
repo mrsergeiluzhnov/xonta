@@ -8,6 +8,14 @@
 
 Каждый прогон делит инциденты GitHub поровну по серьёзности на экзамен, половину A (здесь учатся и меряют правила) и отложенную половину B (на ней правила не выбирались). Два прогона на разных разбиениях: inc-3 и inc-4.
 
+## Поправка от 30 октября 2026
+
+В таблицах ниже не хватало строки для сравнения с простейшим правилом без модели: «всегда крупный». На выборке поровну и при шкале 6 к 1 оно ошибается только на мелких сбоях, по 1 за каждый, и даёт вред 0,5 на инцидент. Это лучше всех конфигураций в отчёте, в том числе лучшей (0,90). При реальной доле крупных у GitHub (около четверти) «всегда крупный» даёт около 0,75, а правила Xonta около 0,7, то есть почти столько же.
+
+Что остаётся верным: модель пропускает почти все крупные сбои, Xonta сама нашла признак «availability», которого модель не видит, и правила Xonta снижают вред агента в 3 раза. Что неверно: считать это знанием, которое лучше простой тревоги по любому поводу. Шкала 6 к 1 сама делает тревогу выгодной, если шанс крупного сбоя выше 1 из 7.
+
+Мы заметили это на следующем эксперименте, сети из двух оркестраторов, где «доказанные» правила GitHub подняли тревогу на 98% мелких сбоев. В версии 0.26 оркестратор больше не признаёт приём доказанным, если тот не лучше простейшего правила (агент сообщает его вред в каждой паре). В отчётах появилась строка «всегда serious», шкалу и долю крупных теперь можно задать как в жизни (`INC_FALSE_ALARM`, `INC_NATURAL`). Перезапуск с ценой тревоги 2 и реальной долей крупных будет в отдельном отчёте.
+
 ## Что делает модель
 По первым сообщениям модель почти всегда отвечает «мелкий»: пропускает 96–98% крупных сбоев. Тексты GitHub и правда звучат спокойно: «We are investigating reports of degraded performance / degraded availability». Агент, который видит ещё и сообщения за 30 минут, пропускает 89–91%.
 
@@ -74,6 +82,14 @@ Data: the public GitHub status page history, 391 incidents from May 2025 to Octo
 The on-call agent's task: from what is known in the first 30 minutes (title, first update, following updates, affected components), say whether it's a major outage. The reference is the final impact GitHub itself set. Harm: missing a major outage 6, a false alarm or "unsure" 1. Model: GigaChat-2.
 
 Each run splits GitHub incidents, balanced by severity, into an exam, half A (rules are learned and measured here) and a held-out half B (never used to pick rules). Two runs on different splits: inc-3 and inc-4.
+
+## Correction, 30 October 2026
+
+The tables below were missing a comparison row for the simplest rule with no model: "always major". On a balanced sample with the 6 to 1 scale it is wrong only on minor incidents, 1 each, so its harm is 0.5 per incident. That beats every configuration in this report, including the best one (0.90). With GitHub's real share of major outages (about a quarter), "always major" gives about 0.75 and Xonta's rules about 0.7, so nearly the same.
+
+What still holds: the model misses almost all major outages, Xonta found the "availability" signal by itself while the model can't see it, and Xonta's rules cut the agent's harm 3 times. What doesn't hold: calling this knowledge that beats a plain alarm on everything. The 6 to 1 scale itself makes an alarm pay off whenever the chance of a major outage is above 1 in 7.
+
+We noticed it in the next experiment, a network of two orchestrators, where GitHub's "proven" rules raised an alarm on 98% of minor incidents. In version 0.26 the orchestrator no longer accepts a recipe as proven if it isn't better than the simplest rule (the agent reports that rule's harm in every pair). Reports now have an "always serious" row, and the scale and the share of major outages can be set as in real life (`INC_FALSE_ALARM`, `INC_NATURAL`). A rerun with a false alarm cost of 2 and the real share of major outages will get its own report.
 
 ## What the model does
 From the early updates the model nearly always says "minor" and misses 96-98% of major outages. GitHub's texts do sound calm: "We are investigating reports of degraded performance / degraded availability". The agent that also reads the first 30 minutes of updates misses 89-91%.
