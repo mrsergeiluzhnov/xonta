@@ -1453,5 +1453,27 @@ await t("0.25.10: раунд со сбоями модели не считает�
   assert.equal(nextLimit({ actions: 8, target: 13 }, { n: 20 }).actions, 13);
 });
 
+await t("правила из исходов: шум не выдаётся (run-acc-v2-5)", async () => {
+  const { mineRules, fisherP, ruleText } = await import("../stand/miner.js");
+  const { makeTask } = await import("../stand/domains/access.js");
+  assert.ok(Math.abs(fisherP(3, 3, 3, 6) - 0.05) < 1e-9, "3 из 3 при 3 из 6 — 1/20");
+  // ci_service в run-acc-v2-5: deny в 2 заданиях из 9, оба со словом «сеть» — 0.26.0 выдал правило, слово ни при чём
+  const row = (i, correct, brief) => ({ id: `t${i}`, category: "ci_service", correct, brief });
+  const small = [row(1, "deny", "сеть сборки"), row(2, "deny", "сеть сборки"), row(3, "deny", "реестр"), row(4, "deny", "реестр"),
+    row(5, "grant_scoped", "реестр"), row(6, "grant_scoped", "кластер"), row(7, "grant_scoped", "кластер"), row(8, "escalate", "кластер"), row(9, "grant_scoped", "реестр")];
+  assert.equal(mineRules(small).length, 0);
+  // те же задания, что видят агенты за пять раундов темы access эпохи 2: в 0.26.0 правила находились почти всегда и почти все
+  // были шумом; теперь выданное правило должно держаться на большой выборке
+  const seen = [];
+  for (let r = 1; r <= 5; r++) for (let k = 0; k < 10; k++) for (const [sd, e] of [[`old-${r}-${k}`, 0], [`unit-${r}-${k}`, 2]]) { const x = makeTask(sd, e); seen.push({ id: x.id, category: x.category, brief: x.brief, correct: x.truth.correct }); }
+  const big = []; for (let i = 0; i < 20000; i++) big.push(makeTask(`unit-big-${i}`, 2), makeTask(`unit-big0-${i}`, 0));
+  for (const m of mineRules(seen)) {
+    const inC = big.filter((x) => x.category === m.category), has = inC.filter((x) => m.words.some((w) => x.brief.toLowerCase().includes(w)));
+    const share = (xs) => xs.filter((x) => x.truth.correct === m.action).length / xs.length;
+    assert.ok(share(has) - share(inC.filter((x) => !has.includes(x))) > 0.1, `шумное правило: ${ruleText(m)}`);
+    assert.match(ruleText(m), / из \d+ таких заданий/);
+  }
+});
+
 console.log(`\nALL PASSED (${passed})`);
 process.exit(0); // тестовые агенты и владелец держат открытые соединения — выходим явно
