@@ -55,6 +55,10 @@ That's the point. Trust is not a property of the agent, it's a decision of whoev
 
 1,200 cards from the [allagents](https://allagents.app) book, with allagents' consent and after they checked the draft. A language model reading a card can hardly tell a live agent from one whose door didn't answer the book's check: 51-59% right on a balanced sample. A simple structural check (is a publisher listed, and does its domain match the endpoint) agrees with the book's badge 88% of the time. The cheapest auditor with two rules the orchestrator proved in pairs and passed on got 82% right, and the share of dead cards trusted fell from 57% to 3%. One scanner finding was a false alarm (a joiner inside the 🐦‍⬛ emoji); allagents spotted it and the scanner is fixed. Report: [results/allagents-cards](results/allagents-cards/README.md).
 
+## The model misses major outages, the orchestrator finds the signal in outcomes (GitHub incidents)
+
+391 incidents from GitHub's status page. From the first 30 minutes of updates the model misses 96-98% of major outages: "degraded availability" sounds harmless to it. Xonta found that word in its outcome log by itself (35-43% of major outages, 9-13% of minor ones), proved the rule in pairs and passed it to the agent. On the held-out half, misses fell to 22% and harm by 3 times, in two runs on different splits. The price is false alarms on about half of minor incidents; transfer to DigitalOcean is not proven yet. Report: [results/incidents-github](results/incidents-github/README.md).
+
 ## What the experiments showed
 
 Ten runs in a sandbox (first on YandexGPT, then on GigaChat), fake money and fake customers. From run 10, with 12 agents and 4 orchestrators, one of which lies about its experience:
