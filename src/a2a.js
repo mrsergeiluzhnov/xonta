@@ -22,7 +22,7 @@ export function createA2A({ store, publicUrl, version, name = "Xonta" }) {
   function card() {
     return {
       name, description: "Xonta is an open orchestrator for AI agents: passports, field exams with a harm-aware action mandate, honesty probes and a network of orchestrators. Send any message to learn how to connect; send STOP and we won't write to you again.",
-      version, provider: { organization: "Xonta", url: "https://mrsergeiluzhnov.github.io/xonta" }, iconUrl: "https://mrsergeiluzhnov.github.io/xonta/logo.png", documentationUrl: "https://github.com/mrsergeiluzhnov/xonta",
+      version, provider: { organization: name, url: process.env.A2A_PROVIDER_URL || publicUrl }, iconUrl: "https://mrsergeiluzhnov.github.io/xonta/logo.png", documentationUrl: "https://github.com/mrsergeiluzhnov/xonta",
       supportedInterfaces: [{ url: `${base}/a2a`, protocolBinding: "JSONRPC", protocolVersion: "1.0" }],
       url: `${base}/a2a`, protocolVersion: "0.3.0", preferredTransport: "JSONRPC", // для клиентов до 1.0
       capabilities: { streaming: false, pushNotifications: false }, defaultInputModes: ["text/plain"], defaultOutputModes: ["text/plain"], skills,
