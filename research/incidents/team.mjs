@@ -26,7 +26,7 @@ const E = process.env, HERE = dirname(fileURLToPath(import.meta.url)), ROOT = jo
 const RUN_ID = E.NET_RUN_ID || `incidents-${Date.now().toString(36)}`;
 const DIR = E.STAND_DIR || join(ROOT, "stand-data", RUN_ID), ORCH_ROOT = E.ORCH_ROOT || join(dirname(DIR), "orchestrators");
 const BOOK = join(ORCH_ROOT, "incidents"), META = join(ORCH_ROOT, "incidents-meta");
-const P = { src: E.INC_SOURCE || "digitalocean", dst: E.INC_TARGET || "github", data: E.INC_DATA || "/data", examSrc: Number(E.INC_EXAM_SRC || 20), examDst: Number(E.INC_EXAM_DST || 30),
+const P = { src: E.INC_SOURCE || "github", dst: E.INC_TARGET || "digitalocean", data: E.INC_DATA || "/data", examSrc: Number(E.INC_EXAM_SRC || 20), examDst: Number(E.INC_EXAM_DST || 30),
   model: E.AGENT_MODEL || "GigaChat-2", min_n: E.RECIPE_MIN_N || "8", base: Number(E.INC_PORT || 5150), maxDst: Number(E.INC_MAX_DST || 400) };
 const DOMAIN = "incident_severity", LABELS = ["serious", "minor"], HUMAN = "unsure";
 for (const d of [DIR, BOOK, join(META, "keys")]) mkdirSync(d, { recursive: true });
@@ -84,13 +84,16 @@ const DST = useMock ? mockService(P.dst, 260) : loadService(join(P.data, `${P.ds
 const count = (xs) => `${xs.length} (серьёзных ${xs.filter((t) => t.sev === "serious").length})`;
 log(`инциденты: ${useMock ? "ТЕСТОВЫЕ" : "настоящие"}; ${P.src} ${count(SRC)}, ${P.dst} ${count(DST)}`);
 const srcAll = balanced(SRC, 10_000, `${RUN_ID}-src`), dstAll = balanced(DST, P.maxDst, `${RUN_ID}-dst`);
-if (srcAll.length < 16 || dstAll.length < 60) { log(`мало серьёзных инцидентов для выборки поровну: ${P.src} ${srcAll.length}, ${P.dst} ${dstAll.length}`); process.exit(2); }
+if (srcAll.length < 60 || dstAll.length < 20) { log(`мало серьёзных инцидентов для выборки поровну: ${P.src} ${srcAll.length}, ${P.dst} ${dstAll.length}`); process.exit(2); }
 const srcExam = balanced(srcAll, P.examSrc, `${RUN_ID}-srcexam`), srcExamIds = new Set(srcExam.map((t) => t.id)), srcWork = srcAll.filter((t) => !srcExamIds.has(t.id));
-const dstExam = balanced(dstAll, P.examDst, `${RUN_ID}-dstexam`), dstExamIds = new Set(dstExam.map((t) => t.id)), dstRest = dstAll.filter((t) => !dstExamIds.has(t.id));
+const examDst = Math.min(P.examDst, Math.max(20, 2 * Math.floor(dstAll.length / 6))); // поле экзамена — от 20 заданий
+const dstExam = balanced(dstAll, examDst, `${RUN_ID}-dstexam`), dstExamIds = new Set(dstExam.map((t) => t.id)), dstRest = dstAll.filter((t) => !dstExamIds.has(t.id));
 // половины A и B — поровну по серьёзности в каждой
 const halves = (xs) => { const A = [], B = []; for (const l of LABELS) xs.filter((t) => t.sev === l).forEach((t, i) => (i % 2 ? B : A).push(t)); return [A, B]; };
-const [dstA, dstB] = halves(dstRest);
-log(`выборки поровну по серьёзности: ${P.src} экзамен ${srcExam.length}, работа ${srcWork.length}; ${P.dst} экзамен ${dstExam.length}, половина A ${dstA.length} (замер правил), половина B ${dstB.length} (отложена)`);
+const [srcA, srcB] = halves(srcWork);
+// у цели может быть мало серьёзных сбоев: тогда половины не делим, перенос меряем на всех оставшихся
+const dstSmall = dstRest.length < 60, [dstA, dstB] = dstSmall ? [dstRest, dstRest] : halves(dstRest);
+log(`выборки поровну по серьёзности: ${P.src} экзамен ${srcExam.length}, половина A ${srcA.length} (учёба и замер), половина B ${srcB.length} (отложена); ${P.dst} экзамен ${dstExam.length}, ${dstSmall ? `перенос на ${dstRest.length} (половины не делим, мало сбоев)` : `половина A ${dstA.length}, половина B ${dstB.length}`}`);
 
 // ---------- сканер Xonta: слова отказа против слов деградации, без модели ----------
 const OUTAGE = /\b(outage|unavailable|down\b|not (?:be )?(?:able|accessible|working|loading|reachable)|unable to|failing|failures?|failed|errors? for all|all (?:users|customers)|cannot|can't|inaccessible)/i;
@@ -184,7 +187,9 @@ for (const [k, ag] of Object.entries(team)) {
 // ---------- источник работает ----------
 const answerBoth = async (fastAg, carefulAg, t) => ({ fast: await decideBy(fastAg, t), careful: await decideBy(carefulAg, t) });
 const SR = [];
-for (const t of srcWork) { SR.push({ t, ...(await answerBoth(team.srcFast, team.srcCareful, t)) }); if (SR.length % 20 === 0) log(`  ${P.src}: ${SR.length}/${srcWork.length}`); }
+for (const t of srcA) { SR.push({ t, ...(await answerBoth(team.srcFast, team.srcCareful, t)) }); if (SR.length % 20 === 0) log(`  ${P.src} половина A: ${SR.length}/${srcA.length}`); }
+const SRB = [];
+for (const t of srcB) { SRB.push({ t, ...(await answerBoth(team.srcFast, team.srcCareful, t)) }); if (SRB.length % 20 === 0) log(`  ${P.src} половина B: ${SRB.length}/${srcB.length}`); }
 log(`${P.src}: работа ${SR.length} инцидентов, верно fast ${pct(SR.filter((r) => r.fast.label === r.t.sev).length, SR.length)}%, careful ${pct(SR.filter((r) => r.careful.label === r.t.sev).length, SR.length)}%`);
 
 // ---------- careful источника выводит правила из своих ошибок ----------
@@ -211,8 +216,20 @@ proposed.forEach((r, i) => {
 log(`${team.srcCareful.name} вывел правил: ${Object.keys(RULES).length} из ${mistakesSrc.length} ошибок`);
 const fieldText = (f, t) => (f === "title" ? t.input.title : f === "first_update" ? t.input.first_update : f === "next_30min" ? t.input.next_30min.join(" ") : `${t.input.title} ${t.input.first_update} ${t.input.next_30min.join(" ")}`).toLowerCase();
 const matches = (rule, t) => { const txt = fieldText(rule.field, t); return rule.words.some((w) => txt.includes(w)); };
+// Xonta сама ищет в журнале исходов половины A слова, которые отделяют крупные сбои от мелких (модель этого не видит):
+// слово есть хотя бы у 15% крупных и встречается у крупных втрое чаще, чем у мелких; названия компонентов источника не берём
+function mineWords(rows) {
+  const ns = rows.filter((r) => r.t.sev === "serious").length, nm = rows.length - ns, cs = {}, cm = {};
+  for (const r of rows) for (const w of new Set(fieldText("any", r.t).match(/[a-z][a-z'-]{3,}/g) || [])) (r.t.sev === "serious" ? cs : cm)[w] = ((r.t.sev === "serious" ? cs : cm)[w] || 0) + 1;
+  return Object.keys(cs).map((w) => ({ w, ps: cs[w] / ns, pm: (cm[w] || 0) / nm })).filter((x) => x.ps >= 0.15 && x.ps >= 3 * (x.pm + 0.01) && ![...srcOnly].some((c) => c.split(/\s+/).includes(x.w)))
+    .sort((a, b) => Math.log((b.ps + 0.01) / (b.pm + 0.01)) - Math.log((a.ps + 0.01) / (a.pm + 0.01))).slice(0, 5);
+}
+const mined = mineWords(SR);
+run.mined = mined.map((x) => ({ word: x.w, serious: Math.round(100 * x.ps), minor: Math.round(100 * x.pm) }));
+log(`Xonta нашла в журнале исходов слова: ${run.mined.map((x) => `${x.word} ${x.serious}/${x.minor}`).join(", ") || "—"}`);
 const TECH = {
   scanner_stricter: { title: "более строгий из двух: ответ модели и сканер Xonta по словам отказа (outage, unavailable, unable to, errors for all…)", from: "Xonta", apply: (t, base) => ({ ...base, label: stricter(base.label, scanner(t)) }) },
+  ...(mined.length ? { xonta_words: { title: `слова, которые Xonta нашла в журнале исходов: «${mined.map((x) => x.w).join("», «")}» — серьёзный`, from: "Xonta", apply: (t, base) => (mined.some((x) => fieldText("any", t).includes(x.w)) ? { ...base, label: "serious" } : base) } } : {}),
   ...Object.fromEntries(Object.entries(RULES).map(([k, r]) => [k, { title: r.title, from: r.from, rule: r, apply: (t, base) => (matches(r, t) ? { ...base, label: r.then } : base) }])),
 };
 run.rules = Object.entries(RULES).map(([k, r]) => ({ key: k, ...r }));
@@ -249,6 +266,7 @@ for (const [h, rows] of [["A", dstA], ["B", dstB]]) for (const t of rows) { DR[h
 run.recipes[P.dst] = run.transfer.length ? await measure(P.dst, DR.A, team.dstFast, team.srcCareful) : {};
 for (const [k, x] of Object.entries(run.recipes[P.dst])) log(`  на ${P.dst} (половина A): ${k} — пар ${x.pairs}, лучше ${x.better}, хуже ${x.worse}, у оркестратора ${x.status}`);
 const confirmed = Object.entries(run.recipes[P.dst]).filter(([, x]) => x.status === "proven").map(([k]) => k);
+const provenSrc = Object.entries(run.recipes[P.src]).filter(([, x]) => x.status === "proven").map(([k]) => k);
 
 // ---------- итог на отложенной половине B ----------
 const applyAll = (keys, r) => keys.reduce((a, k) => ({ ...a, ...TECH[k].apply(r.t, a) }), { ...r.fast });
@@ -262,7 +280,10 @@ run.configs = {
   fast: metrics((r) => r.fast), careful: metrics((r) => r.careful), scanner: metrics((r) => ({ label: scanner(r.t), tokens: 0 })),
   transfer_as_is: metrics((r) => applyAll(run.transfer, r)), transfer_confirmed: metrics((r) => applyAll(confirmed, r)),
 };
-run.configs_source = { fast: metrics((r) => r.fast, SR), careful: metrics((r) => r.careful, SR) };
+run.configs_source = { fast: metrics((r) => r.fast, SRB), careful: metrics((r) => r.careful, SRB), scanner: metrics((r) => ({ label: scanner(r.t), tokens: 0 }), SRB),
+  ...(TECH.xonta_words ? { xonta_words: metrics((r) => applyAll(["xonta_words"], r), SRB) } : {}), proven: metrics((r) => applyAll(provenSrc, r), SRB) };
+run.proven_src = provenSrc; run.dst_small = dstSmall;
+if (dstSmall) delete run.configs.transfer_confirmed;
 run.confirmed = confirmed;
 run.usage = Object.fromEntries(Object.entries(team).map(([k, ag]) => [k, ag.llm.usage.input + ag.llm.usage.output]));
 run.finished = new Date().toISOString();
@@ -271,13 +292,18 @@ writeFileSync(join(DIR, "run.json"), JSON.stringify({ ...run, exams: Object.from
 // ---------- отчёт ----------
 const S = SERVICE_NAME[P.src] || P.src, D = SERVICE_NAME[P.dst] || P.dst, C = run.configs;
 const titleRu = { fast: "fast один (название и первое сообщение)", careful: "careful один (плюс сообщения за 30 минут и компоненты)", scanner: "сканер Xonta без модели", transfer_as_is: `fast + все правила, прошедшие проверку на ${S}`, transfer_confirmed: `fast + только правила, которые Xonta подтвердила на ${D}` };
+const srcTitleRu = { fast: "fast один", careful: "careful один", scanner: "сканер Xonta без модели", xonta_words: "fast + слова, найденные Xonta", proven: `fast + все правила, доказанные Xonta на половине A (${provenSrc.join(", ") || "нет"})` };
+const srcTitleEn = { fast: "fast alone", careful: "careful alone", scanner: "Xonta scanner, no model", xonta_words: "fast + words Xonta found", proven: `fast + all rules Xonta proved on half A (${provenSrc.join(", ") || "none"})` };
+const minedRu = run.mined.length ? `Xonta сама нашла в журнале исходов половины A слова, которые чаще встречаются у крупных сбоев (у крупных / у мелких): ${run.mined.map((x) => `«${x.word}» ${x.serious}% / ${x.minor}%`).join(", ")}.` : "Xonta не нашла слов, которые заметно отделяют крупные сбои от мелких.";
+const minedEn = run.mined.length ? `Xonta itself found words in the half A outcome log that show up more in major outages (major / minor): ${run.mined.map((x) => `"${x.word}" ${x.serious}% / ${x.minor}%`).join(", ")}.` : "Xonta found no words that clearly separate major outages from minor ones.";
 const titleEn = { fast: "fast alone (title and first update)", careful: "careful alone (plus updates in the first 30 minutes and components)", scanner: "Xonta scanner, no model", transfer_as_is: `fast + all rules that passed the ${S} check`, transfer_confirmed: `fast + only rules Xonta confirmed on ${D}` };
-const tbl = (T, h) => [h, "|---|---|---|---|---|---|", ...Object.keys(C).map((k) => `| ${T[k]} | ${C[k].accuracy}% | ${C[k].missed_serious}% | ${C[k].false_alarm}% | ${C[k].harm_per_incident} | ${C[k].tokens} |`)].join("\n");
+const tbl = (T, h, CC = C) => [h, "|---|---|---|---|---|---|", ...Object.keys(CC).map((k) => `| ${T[k]} | ${CC[k].accuracy}% | ${CC[k].missed_serious}% | ${CC[k].false_alarm}% | ${CC[k].harm_per_incident} | ${CC[k].tokens} |`)].join("\n");
 const ex = (k) => `| ${team[k].name} | ${run.exams[k].accuracy} | ${run.exams[k].harm_per_action} | ${run.exams[k].tokens_per_task} |`;
 const rulesList = (lang) => run.rules.length ? run.rules.map((r) => { const s = run.recipes[P.src][r.key] || {}, d = run.recipes[P.dst][r.key]; return lang === "ru"
-  ? `- **${r.key}**: ${r.title}. На ${S}: пар ${s.pairs}, лучше ${s.better}, хуже ${s.worse}${run.transfer.includes(r.key) ? " → передано" : " → не передано"}${d ? `. На ${D}: пар ${d.pairs}, лучше ${d.better}, хуже ${d.worse}, вердикт оркестратора **${d.status}**` : ""}.`
+  ? `- **${r.key}**: ${r.title}. На ${S}: пар ${s.pairs}, лучше ${s.better}, хуже ${s.worse}, вердикт **${s.status}**${run.transfer.includes(r.key) ? " → передано" : " → не передано"}${d ? `. На ${D}: пар ${d.pairs}, лучше ${d.better}, хуже ${d.worse}, вердикт оркестратора **${d.status}**` : ""}.`
   : `- **${r.key}**: ${r.words.map((w) => `"${w}"`).join(", ")} in ${r.field} → ${r.then}. On ${S}: ${s.pairs} pairs, better ${s.better}, worse ${s.worse}${run.transfer.includes(r.key) ? ", passed on" : ", not passed on"}${d ? `. On ${D}: ${d.pairs} pairs, better ${d.better}, worse ${d.worse}, orchestrator verdict **${d.status}**` : ""}.`; }).join("\n") : (lang === "ru" ? "- правил не получено" : "- no rules");
-const scn = (lang) => { const s = run.recipes[P.src].scanner_stricter || {}, d = run.recipes[P.dst].scanner_stricter; return lang === "ru" ? `- **scanner_stricter** (Xonta): ${TECH.scanner_stricter.title}. На ${S}: пар ${s.pairs}, лучше ${s.better}, хуже ${s.worse}${d ? `. На ${D}: пар ${d.pairs}, лучше ${d.better}, хуже ${d.worse}, вердикт **${d.status}**` : ""}.` : `- **scanner_stricter** (Xonta): the stricter of the model's answer and Xonta's outage-word scanner. On ${S}: ${s.pairs} pairs, better ${s.better}, worse ${s.worse}${d ? `. On ${D}: ${d.pairs} pairs, better ${d.better}, worse ${d.worse}, verdict **${d.status}**` : ""}.`; };
+const xw = (lang) => { const s = run.recipes[P.src].xonta_words, d = run.recipes[P.dst].xonta_words; if (!s) return ""; return lang === "ru" ? `- **xonta_words** (Xonta): ${TECH.xonta_words.title}. На ${S}: пар ${s.pairs}, лучше ${s.better}, хуже ${s.worse}, вердикт **${s.status}**${d ? `. На ${D}: пар ${d.pairs}, лучше ${d.better}, хуже ${d.worse}, вердикт **${d.status}**` : ""}.\n` : `- **xonta_words** (Xonta): words found in the outcome log. On ${S}: ${s.pairs} pairs, better ${s.better}, worse ${s.worse}, verdict **${s.status}**${d ? `. On ${D}: ${d.pairs} pairs, better ${d.better}, worse ${d.worse}, verdict **${d.status}**` : ""}.\n`; };
+const scn = (lang) => { const s = run.recipes[P.src].scanner_stricter || {}, d = run.recipes[P.dst].scanner_stricter; return lang === "ru" ? `- **scanner_stricter** (Xonta): ${TECH.scanner_stricter.title}. На ${S}: пар ${s.pairs}, лучше ${s.better}, хуже ${s.worse}, вердикт **${s.status}**${d ? `. На ${D}: пар ${d.pairs}, лучше ${d.better}, хуже ${d.worse}, вердикт **${d.status}**` : ""}.` : `- **scanner_stricter** (Xonta): the stricter of the model's answer and Xonta's outage-word scanner. On ${S}: ${s.pairs} pairs, better ${s.better}, worse ${s.worse}${d ? `. On ${D}: ${d.pairs} pairs, better ${d.better}, worse ${d.worse}, verdict **${d.status}**` : ""}.`; };
 const ru = `# Переносится ли опыт между сервисами: сбои ${S} → ${D} через Xonta${useMock ? " (ТЕСТОВЫЕ инциденты, проверка механики)" : ""}
 
 Данные: открытая история страниц статуса ${S} (${run.data[P.src].total} инцидентов с ${run.data[P.src].since}, серьёзных ${run.data[P.src].serious}) и ${D} (${run.data[P.dst].total} с ${run.data[P.dst].since}, серьёзных ${run.data[P.dst].serious}); плановые работы исключены. Ретроспектива: мы не обнаруживаем сбои раньше сервисов, а проверяем решения на истории.
@@ -289,12 +315,15 @@ const ru = `# Переносится ли опыт между сервисами
 |---|---|---|---|
 ${Object.keys(team).map(ex).join("\n")}
 
-## Правила, которые агент ${S} вывел из своих ошибок
-${team.srcCareful.name} получил ${mistakesSrc.length} своих ошибок (экзамен и работа на ${S}) и вывел правила для любого сервиса. Каждое правило оркестратор мерил парами: тот же инцидент с правилом и без. На ${D} передано то, что на ${S} не ухудшило вред. На ${D} правила мерились заново на половине A (${DR.A.length} инцидентов).
-${scn("ru")}
+## Правила
+${team.srcCareful.name} получил ${mistakesSrc.length} ошибок (экзамен и половина A ${S}) и вывел правила для любого сервиса. ${minedRu} Каждое правило оркестратор мерил парами на половине A ${S}: тот же инцидент с правилом и без. На ${D} передано то, что на ${S} не ухудшило вред, и там измерено заново${dstSmall ? ` на ${DR.A.length} инцидентах (у ${D} мало крупных сбоев, половины не делили)` : ` на половине A (${DR.A.length} инцидентов)`}.
+${xw("ru")}${scn("ru")}
 ${rulesList("ru")}
 
-## Итог на отложенной половине ${D} (${DR.B.length} инцидентов, правила на ней не выбирались)
+## Учёба на ${S}: итог на отложенной половине B (${SRB.length} инцидентов, правила на ней не выбирались)
+${tbl(srcTitleRu, "| конфигурация | верно | крупный назвал мелким | лишняя тревога | вред на инцидент | токенов |", run.configs_source)}
+
+## Перенос на ${D} (${DR.B.length} инцидентов${dstSmall ? ", те же, на которых мерили правила" : ", правила на них не выбирались"})
 ${tbl(titleRu, "| конфигурация | верно | крупный назвал мелким | лишняя тревога | вред на инцидент | токенов |")}
 
 Отпечаток: прогон ${RUN_ID}, модель ${run.model}, токенов всего ${Object.values(run.usage).reduce((s, x) => s + x, 0)}.
@@ -310,12 +339,15 @@ Task: from what an on-call engineer knows in the first 30 minutes (title, first 
 |---|---|---|---|
 ${Object.keys(team).map(ex).join("\n")}
 
-## Rules the ${S} agent drew from its mistakes
-${team.srcCareful.name} got ${mistakesSrc.length} of its own mistakes (exam and work on ${S}) and wrote rules meant for any service. The orchestrator measured each rule in pairs: the same incident with and without the rule. Rules that didn't increase harm on ${S} were passed to ${D} and measured again on half A (${DR.A.length} incidents).
-${scn("en")}
+## Rules
+${team.srcCareful.name} got ${mistakesSrc.length} mistakes (exam and half A of ${S}) and wrote rules meant for any service. ${minedEn} The orchestrator measured each rule in pairs on half A of ${S}: the same incident with and without the rule. Rules that didn't increase harm on ${S} were passed to ${D} and measured again${dstSmall ? ` on ${DR.A.length} incidents (${D} has few major outages, no halves)` : ` on half A (${DR.A.length} incidents)`}.
+${xw("en")}${scn("en")}
 ${rulesList("en")}
 
-## Result on the held-out half of ${D} (${DR.B.length} incidents, never used to pick rules)
+## Learning on ${S}: held-out half B (${SRB.length} incidents, never used to pick rules)
+${tbl(srcTitleEn, "| configuration | right | major called minor | false alarm | harm per incident | tokens |", run.configs_source)}
+
+## Transfer to ${D} (${DR.B.length} incidents${dstSmall ? ", the same ones the rules were measured on" : ", never used to pick rules"})
 ${tbl(titleEn, "| configuration | right | major called minor | false alarm | harm per incident | tokens |")}
 
 Fingerprint: run ${RUN_ID}, model ${run.model}, ${Object.values(run.usage).reduce((s, x) => s + x, 0)} tokens in total.
