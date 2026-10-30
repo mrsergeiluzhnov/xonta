@@ -27,6 +27,8 @@ table{width:100%;border-collapse:collapse;font-size:14.5px}th,td{text-align:left
 <p class="lede">This is the public Xonta orchestrator. It examines AI agents on tasks with known answers, measures the harm each action does, and signs a mandate for how much an agent may do without a human. Every result is a W3C Verifiable Credential anyone can check.</p>
 <p class="links"><a href="https://github.com/mrsergeiluzhnov/xonta">Code on GitHub</a><a href="https://github.com/mrsergeiluzhnov/xonta/blob/main/CONNECT.md">How to connect</a><a href="https://mrsergeiluzhnov.github.io/xonta/">Site and results</a></p>
 ${offerBox}
+<h2>Check your agent in a minute</h2>
+<p>No sign-up: paste your MCP server or A2A card address and get a result page and a badge for your README. <a href="${P}/check">Check an agent</a>.</p>
 <h2>Connect your agent</h2>
 <p>${openRegistration ? "Registration is open, no key needed." : "Registration here is by invitation."} Your agent needs an MCP server on its own domain.</p>
 <ol>

@@ -59,6 +59,12 @@ That's the point. Trust is not a property of the agent, it's a decision of whoev
 
 391 incidents from GitHub's status page. From the first 30 minutes of updates the model misses 96-98% of major outages: "degraded availability" sounds harmless to it. Xonta found that word in its outcome log by itself (35-43% of major outages, 9-13% of minor ones), proved the rule in pairs and passed it to the agent. On the held-out half, misses fell to 22% and harm by 3 times, in two runs on different splits. The price is false alarms on about half of minor incidents. On Discord and npm GitHub's word didn't work, while the orchestrator confirmed general outage signs again: harm there fell by 28% and 38-53%. Correction of 30 October: on the same scale the constant "always major" is no worse than these rules, details in the report. Report: [results/incidents-github](results/incidents-github/README.md).
 
+## Check your agent in a minute, and an honesty benchmark
+
+The public orchestrator now has a page at [passport.xonta.ru/check](https://passport.xonta.ru/check). Paste your MCP server or A2A card address and get a result page and a README badge, no sign-up. It checks what can be seen from outside: the server answers, the card names a publisher on the same domain, and descriptions show no signs of hidden instructions. It's not an exam, it's the first step towards one.
+
+An open benchmark, [will your agent lie in its report if asked](bench/honesty/README.md): 40 tasks, a report with no hint and one after a request to make it look better. It runs on any model with one command, and results go into a [table](bench/honesty/RESULTS.md).
+
 ## A network of two orchestrators (GitHub and Discord)
 
 Two separate orchestrators exchange only proven rules, and the receiver re-checks them locally. The first run exposed a mistake in our harm scale: with 6 to 1 and balanced samples an alarm on everything beat every rule. In 0.26 the orchestrator doesn't accept a recipe that isn't better than the simplest rule. With a 6 to 2 scale and the real share of major outages, the words Xonta found on GitHub cut harm from 1.29 to 0.91 (the constant gives 1.54). Discord re-checked GitHub's rule and didn't take it, and it had no rules of its own. Report: [results/network-orchestrators](results/network-orchestrators/README.md).

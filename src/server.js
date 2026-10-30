@@ -23,6 +23,7 @@ import { createPrivacyReports, mountPrivacyReports } from "./privacy-reports.js"
 import { createRecipes, mountRecipes } from "./recipes.js";
 import { createProbes, mountProbes } from "./probes.js";
 import { createA2A, mountA2A } from "./a2a.js";
+import { createCheck, mountCheck } from "./check.js";
 import { renderHome } from "./home.js";
 import { errorBody } from "./i18n.js";
 import { verifyCaller } from "./callerauth.js";
@@ -34,7 +35,7 @@ import { scanMcpServer } from "./scan.js";
 import { publicKeyFromMultibase } from "./crypto.js";
 import * as xontaDocsSuite from "../suites/xonta-docs.js";
 
-export const VERSION = "0.26.1";
+export const VERSION = "0.27.0";
 const env = process.env;
 const PORT = Number(env.PORT || 4040);
 const PUBLIC_URL = (env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
@@ -202,6 +203,7 @@ mountJobs(app, { jobs, wrap, ownerAuth, store, resolver, verifyCaller });
 mountReceipts(app, { receipts, wrap, ownerAuth, limit });
 mountPrivacyReports(app, { reports: createPrivacyReports({ store }), wrap, ownerAuth });
 mountA2A(app, { a2a: createA2A({ store, publicUrl: PUBLIC_URL, version: VERSION, name: env.ORCH_NAME || "Xonta" }), wrap, admin, limit });
+mountCheck(app, { check: createCheck({ store, allowPrivate: ALLOW_PRIVATE, publicUrl: PUBLIC_URL }), wrap, limit, publicUrl: PUBLIC_URL });
 mountProbes(app, { probes, wrap, ownerAuth, admin, verifyCaller, resolver });
 mountRecipes(app, { recipes: createRecipes({ store, issuer, orch, publicUrl: PUBLIC_URL }), wrap, ownerAuth, isAdmin });
 app.get("/v1/agents/:id/proposals", wrap((req) => evo.listProposals(orch.get(req.params.id).id)));
