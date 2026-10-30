@@ -59,6 +59,14 @@ That's the point. Trust is not a property of the agent, it's a decision of whoev
 
 391 incidents from GitHub's status page. From the first 30 minutes of updates the model misses 96-98% of major outages: "degraded availability" sounds harmless to it. Xonta found that word in its outcome log by itself (35-43% of major outages, 9-13% of minor ones), proved the rule in pairs and passed it to the agent. On the held-out half, misses fell to 22% and harm by 3 times, in two runs on different splits. The price is false alarms on about half of minor incidents. On Discord and npm GitHub's word didn't work, while the orchestrator confirmed general outage signs again: harm there fell by 28% and 38-53%. Correction of 30 October: on the same scale the constant "always major" is no worse than these rules, details in the report. Report: [results/incidents-github](results/incidents-github/README.md).
 
+## A network of two orchestrators (GitHub and Discord)
+
+Two separate orchestrators exchange only proven rules, and the receiver re-checks them locally. The first run exposed a mistake in our harm scale: with 6 to 1 and balanced samples an alarm on everything beat every rule. In 0.26 the orchestrator doesn't accept a recipe that isn't better than the simplest rule. With a 6 to 2 scale and the real share of major outages, the words Xonta found on GitHub cut harm from 1.29 to 0.91 (the constant gives 1.54). Discord re-checked GitHub's rule and didn't take it, and it had no rules of its own. Report: [results/network-orchestrators](results/network-orchestrators/README.md).
+
+## Security advisories for npm and PyPI
+
+Instead of malicious packages (they get removed from the registry, and we don't pull live malicious code onto our server) the agent went through 1,300 GitHub Advisory Database entries. Severity is barely visible in the text: the model calls almost everything serious, it's right 50-58% of the time, and no rule was proven. An honest negative result. Report: [results/advisories](results/advisories/README.md).
+
 ## An agent that knows the exam answers in advance
 
 Since 0.26 a field author can keep some tasks in reserve. Only the orchestrator sees them and mixes them into every exam itself. If an agent does clearly better on the open part than on the reserve part, the result is flagged and the mandate comes from the reserve part only. In a mechanics check the "knowing" agent got 100% and the maximum mandate target of 20 without reserve tasks, and 15.4 with them, against 14 for an honest one. Half of the knowing agents were flagged and none of the honest ones. Report: [results/exam-leak](results/exam-leak/README.md).
