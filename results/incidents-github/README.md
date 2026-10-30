@@ -36,17 +36,32 @@ Xonta сама прошла по журналу исходов половины 
 ## Цена: ложные тревоги
 Почти половина мелких сбоев теперь вызывает тревогу. На выборке поровну это выгодно. У GitHub крупных сбоев около четверти, и при таком соотношении по одному проценту верных ответ «всегда мелкий» лучше (около 75% против 56–60% с правилами). Правила выигрывают потому, что пропущенный крупный сбой стоит дороже лишней тревоги. При нашей шкале 6 к 1 и реальном соотношении вред с правилами примерно вдвое ниже (около 0,7 против 1,5 на инцидент). Если для вас пропуск стоит столько же, сколько лишняя тревога, эти правила вам не нужны.
 
-## Перенос на DigitalOcean
+## Перенос на DigitalOcean (мало данных)
 Правила, прошедшие проверку на GitHub, применили к 22 инцидентам DigitalOcean (у DigitalOcean всего 21 крупный сбой, половины не делили). Пропуски крупных сбоев: 73% → 9% (inc-3) и 64% → 18% (inc-4), ложные тревоги выросли до 73% и 46%. Оркестратор на этих 22 инцидентах не признал ни одно правило по отдельности: в inc-4 слова Xonta получили «без эффекта», сканер был отозван. Это намёк на перенос, а не доказательство.
+
+## Перенос на Discord и npm
+Ещё два прогона: учёба на GitHub (так же, как выше), перенос на Discord (408 инцидентов, крупных 120) и npm (310, крупных 70). У них хватает крупных сбоев, поэтому правила меряли заново на половине A нового сервиса, а итог — на отложенной половине B.
+
+На GitHub «availability» нашлось в третий и четвёртый раз (43% / 7% и 48% / 13%). А на новых сервисах это слово почти не встречается: правило сработало в 3 парах из 106 на Discord и в 1 из 56 на npm, оркестратор поставил ему «без эффекта». Зато общий сканер по словам отказа (outage, unavailable, unable to…) оркестратор подтвердил на обоих сервисах заново: на Discord лучше в 13 парах, хуже в 8; на npm лучше в 9, хуже в 5.
+
+Отложенная половина B:
+
+| | Discord (104) | npm (54) |
+|---|---|---|
+| агент один: пропустил крупный / вред | 75% / 2,31 | 63% / 1,94 |
+| + всё, что прошло проверку на GitHub | 52% / 1,70 | 26% / 0,91 |
+| + только то, что Xonta подтвердила на новом сервисе | 50% / 1,65 | 37% / 1,20 |
+
+Вред снизился на 28% на Discord и на 38–53% на npm, ложных тревог стало больше (до 31% и 26%). На npm набор «всё с GitHub» оказался чуть лучше, чем «только подтверждённое»: туда вошло ещё одно правило, которое агент GitHub вывел из своих ошибок. Но разница — три крупных сбоя из 27, это в пределах случайности.
 
 ## Что это показывает
 1. Агент не видит закономерность в собственных ошибках, а оркестратор, у которого есть журнал исходов, видит: «degraded availability» у GitHub значит больше, чем кажется модели.
 2. Найденное держится на инцидентах, которые его не видели, и повторяется на другом разбиении.
 3. Ценность правил — в цене пропуска, а не в проценте верных. Это надо решать владельцу агента, а не модели.
-4. Язык сбоев у каждого сервиса свой. Перенос между сервисами пока не доказан.
+4. Язык сбоев у каждого сервиса свой. Местное слово GitHub не переносится, общие признаки отказа переносятся. Оркестратор различает это сам: местное правило на новом сервисе не подтверждает, общее подтверждает заново.
 
 ## Ограничения
-Одна модель, два прогона на одних и тех же данных GitHub с разными разбиениями, выборки поровну по серьёзности, эталон — серьёзность, которую сервис выставил сам (её могут менять в ходе инцидента). Первые два прогона (inc-1 и inc-2, учёба на DigitalOcean) ничего не показали: у DigitalOcean слишком мало крупных сбоев, а по одному первому сообщению серьёзность не видна совсем.
+Одна модель, четыре прогона учёбы на одних и тех же данных GitHub с разными разбиениями, по одному прогону переноса на каждый сервис, выборки поровну по серьёзности, эталон — серьёзность, которую сервис выставил сам (её могут менять в ходе инцидента). Первые два прогона (inc-1 и inc-2, учёба на DigitalOcean) ничего не показали: у DigitalOcean слишком мало крупных сбоев, а по одному первому сообщению серьёзность не видна совсем.
 
 Код: [research/incidents](../../research/incidents). Сборщик истории — `fetch.mjs`, эксперимент — `team.mjs`. Токенов на прогон около 80 тысяч.
 
@@ -88,16 +103,31 @@ In both runs the top signal was "availability": GitHub writes "degraded availabi
 ## The price: false alarms
 About half of minor incidents now raise an alarm. On a balanced sample that pays off. GitHub has roughly one major outage in four, and at that ratio "always minor" wins on plain accuracy (about 75% against 56-60% with the rules). The rules win because a missed major outage costs more than a false alarm. On our 6-to-1 scale and the real ratio, harm with the rules is about half (around 0.7 against 1.5 per incident). If a miss costs you the same as a false alarm, you don't need these rules.
 
-## Transfer to DigitalOcean
+## Transfer to DigitalOcean (little data)
 The rules that passed on GitHub were applied to 22 DigitalOcean incidents (DigitalOcean has only 21 major outages, so no halves). Missed major outages: 73% → 9% (inc-3) and 64% → 18% (inc-4), false alarms rose to 73% and 46%. On these 22 incidents the orchestrator didn't accept any single rule: in inc-4 Xonta's words got "no effect" and the scanner was revoked. A hint of transfer, not proof.
+
+## Transfer to Discord and npm
+Two more runs: learning on GitHub (as above), transfer to Discord (408 incidents, 120 major) and npm (310, 70 major). Both have enough major outages, so the rules were measured again on half A of the new service, and the result is on held-out half B.
+
+On GitHub, "availability" came up for the third and fourth time (43% / 7% and 48% / 13%). But the new services barely use the word: the rule fired in 3 pairs of 106 on Discord and 1 of 56 on npm, and the orchestrator gave it "no effect". The general outage-word scanner (outage, unavailable, unable to...), on the other hand, was confirmed again on both: on Discord better in 13 pairs, worse in 8; on npm better in 9, worse in 5.
+
+Held-out half B:
+
+| | Discord (104) | npm (54) |
+|---|---|---|
+| agent alone: missed major / harm | 75% / 2.31 | 63% / 1.94 |
+| + everything that passed on GitHub | 52% / 1.70 | 26% / 0.91 |
+| + only what Xonta confirmed on the new service | 50% / 1.65 | 37% / 1.20 |
+
+Harm fell by 28% on Discord and by 38-53% on npm, with more false alarms (up to 31% and 26%). On npm "everything from GitHub" came out slightly ahead of "only confirmed": it included one more rule the GitHub agent drew from its own mistakes. The difference is three major outages out of 27, within chance.
 
 ## What this shows
 1. The agent doesn't see the pattern in its own mistakes; the orchestrator, which keeps the outcome log, does: "degraded availability" at GitHub means more than the model thinks.
 2. What was found holds on incidents that never saw it and repeats on a different split.
 3. The value of the rules lies in the cost of a miss, not in the percentage right. That is the agent owner's call, not the model's.
-4. Every service has its own way of writing about outages. Transfer between services is not proven yet.
+4. Every service has its own way of writing about outages. GitHub's local word doesn't transfer, general outage signs do. The orchestrator tells them apart on its own: it doesn't confirm the local rule on a new service and confirms the general one again.
 
 ## Limits
-One model, two runs on the same GitHub data with different splits, samples balanced by severity, the reference is the impact the service set itself (it can change during an incident). The first two runs (inc-1 and inc-2, learning on DigitalOcean) showed nothing: DigitalOcean has too few major outages, and the first update alone doesn't show severity at all.
+One model, four learning runs on the same GitHub data with different splits, one transfer run per service, samples balanced by severity, the reference is the impact the service set itself (it can change during an incident). The first two runs (inc-1 and inc-2, learning on DigitalOcean) showed nothing: DigitalOcean has too few major outages, and the first update alone doesn't show severity at all.
 
 Code: [research/incidents](../../research/incidents). History collector `fetch.mjs`, experiment `team.mjs`. About 80 thousand tokens per run.
