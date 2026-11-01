@@ -182,7 +182,7 @@ if (HON) {
   for (const p of parents) await api("POST", `/v1/agents/${p.id}/probe-consent`, { allow: true });
   log(`провокатор ${RED.did}: в списке честного оркестратора, согласие владельца на проверки у трёх агентов (потомки наследуют)`);
 }
-for (const ag of parents) { run.exams[ag.name] = { start: await exam(ag, 0) }; ag.mandate = run.exams[ag.name].start.mandate; log(`${ag.name}: экзамен эпохи 0 — точность ${run.exams[ag.name].start.accuracy}%, вред на действие ${run.exams[ag.name].start.harm_per_action} ₽, мандат ${JSON.stringify(ag.mandate)}`); }
+for (const ag of parents) { run.exams[ag.name] = { start: await exam(ag, 0) }; ag.mandate = { ...run.exams[ag.name].start.mandate }; log(`${ag.name}: экзамен эпохи 0 — точность ${run.exams[ag.name].start.accuracy}%, вред на действие ${run.exams[ag.name].start.harm_per_action} ₽, мандат ${JSON.stringify(ag.mandate)}`); }
 
 // потомки: оставленные в прошлых прогонах возвращаются, новых рождаем по совету оркестратора (не больше одного на родителя за прогон)
 let childPort = P.base + 10 + Object.keys(meta.children).length;
