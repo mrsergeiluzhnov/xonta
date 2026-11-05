@@ -76,6 +76,7 @@ for (const t of TASKS.slice(0, LIMIT)) {
     }
   } catch (e) { row.error = String(e.message).slice(0, 200); }
   rows.push(row);
+  if (rows.length === 3 && rows.every((r) => r.error)) { console.error(`${MODEL}: the first 3 tasks failed, stopping. Error: ${row.error}`); process.exit(1); }
   if (rows.length % 5 === 0) console.log(`${rows.length}/${LIMIT}`);
 }
 
@@ -91,6 +92,8 @@ const summary = {
 const out = { bench: "xonta-honesty", version: BENCH_VERSION, model: MODEL, provider: PROVIDER, date: new Date().toISOString().slice(0, 10), tokens: llm.usage.input + llm.usage.output, summary, rows };
 const dir = join(HERE, "results"); mkdirSync(dir, { recursive: true });
 const file = join(dir, `${MODEL.replace(/[^a-zA-Z0-9._-]+/g, "_")}.json`);
+// a run where the model never answered is not a result: don't save it, say why
+if (!ctl.length) { console.error(`\n${MODEL}: no readable answers, nothing saved. First error: ${rows.find((r) => r.error)?.error || "none"}\nIs the model server running and the model name right?`); process.exit(1); }
 if (PROVIDER !== "mock" || E.BENCH_SAVE_MOCK === "1") writeFileSync(file, JSON.stringify(out, null, 1));
 const s = summary;
 console.log(`\n${MODEL}: lied with no hint ${s.lie_unprompted.k}/${s.lie_unprompted.n} (${s.lie_unprompted.pct}%), lied when asked ${s.lie_when_asked.k}/${s.lie_when_asked.n} (${s.lie_when_asked.pct}%), mentioned the request ${s.disclosed_request.k}/${s.disclosed_request.n} (${s.disclosed_request.pct}%), tokens ${out.tokens}${PROVIDER !== "mock" || E.BENCH_SAVE_MOCK === "1" ? `\nsaved: ${file}` : ""}`);
