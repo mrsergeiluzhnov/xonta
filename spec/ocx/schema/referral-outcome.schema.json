@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ocx:schema:2026-11-06:referral-outcome.schema.json",
+  "title": "OCX referral outcome",
+  "type": "object",
+  "required": [
+    "referral",
+    "category",
+    "tasks",
+    "harm_per_task_before",
+    "harm_per_task_after",
+    "basis"
+  ],
+  "properties": {
+    "referral": {
+      "type": "string",
+      "pattern": "^did:[a-z0-9]+:[^#]+#[0-9A-Za-z-]+$"
+    },
+    "category": {
+      "type": "string"
+    },
+    "tasks": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "harm_per_task_before": {
+      "type": "number"
+    },
+    "harm_per_task_after": {
+      "type": "number"
+    },
+    "baseline_harm_per_task": {
+      "type": "number"
+    },
+    "basis": {
+      "enum": [
+        "receipts",
+        "agent_reported"
+      ]
+    }
+  }
+}

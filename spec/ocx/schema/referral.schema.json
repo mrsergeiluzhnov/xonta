@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ocx:schema:2026-11-06:referral.schema.json",
+  "title": "OCX referral token",
+  "type": "object",
+  "required": [
+    "ocx",
+    "type",
+    "id",
+    "from",
+    "to",
+    "target_referral_id",
+    "subject",
+    "category",
+    "reason",
+    "alternatives",
+    "relationship",
+    "issued_at",
+    "expires_at",
+    "signature"
+  ],
+  "properties": {
+    "ocx": {
+      "type": "string"
+    },
+    "type": {
+      "const": "referral"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^did:[a-z0-9]+:[^#]+#[0-9A-Za-z-]+$"
+    },
+    "from": {
+      "type": "string",
+      "pattern": "^did:"
+    },
+    "to": {
+      "type": "string",
+      "pattern": "^did:"
+    },
+    "target_referral_id": {
+      "type": "string",
+      "pattern": "^did:[a-z0-9]+:[^#]+#[0-9A-Za-z-]+$"
+    },
+    "subject": {
+      "type": "object",
+      "required": [
+        "agent"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "agent"
+          ]
+        },
+        "agent": {
+          "type": "string",
+          "pattern": "^(did:[a-z0-9]+:.+|a2a:https://.+|erc8004:.+|fp:sha256:[0-9a-f]{64})$"
+        },
+        "owner": {
+          "type": "string",
+          "pattern": "^(did:[a-z0-9]+:.+|a2a:https://.+|erc8004:.+|fp:sha256:[0-9a-f]{64})$"
+        },
+        "owner_verified": {
+          "enum": [
+            "domain",
+            "signature",
+            "none"
+          ]
+        }
+      }
+    },
+    "category": {
+      "type": "string"
+    },
+    "reason": {
+      "enum": [
+        "category_outside_competence",
+        "measured_better",
+        "capacity"
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "competence_by_me": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "referrals",
+                "improved",
+                "worse"
+              ],
+              "properties": {
+                "referrals": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "improved": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "worse": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "harm_delta_per_task": {
+                  "type": "number"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "alternatives": {
+      "type": "object",
+      "required": [
+        "learn_here"
+      ],
+      "properties": {
+        "learn_here": {
+          "type": "boolean"
+        },
+        "experience": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^did:[a-z0-9]+:[^#]+#[0-9A-Za-z-]+$"
+          }
+        }
+      }
+    },
+    "relationship": {
+      "enum": [
+        "none",
+        "same_owner",
+        "paid",
+        "partner"
+      ]
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "signature": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "reason": {
+            "const": "measured_better"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "evidence"
+        ],
+        "properties": {
+          "evidence": {
+            "required": [
+              "competence_by_me"
+            ],
+            "properties": {
+              "competence_by_me": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

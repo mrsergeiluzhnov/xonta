@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ocx:schema:2026-11-06:appeal.schema.json",
+  "title": "OCX appeal (params of ocx/appeal.submit)",
+  "type": "object",
+  "required": [
+    "signal",
+    "owner",
+    "statement",
+    "owner_jwk",
+    "owner_signature"
+  ],
+  "properties": {
+    "signal": {
+      "type": "string",
+      "pattern": "^did:[a-z0-9]+:[^#]+#[0-9A-Za-z-]+$"
+    },
+    "owner": {
+      "type": "string",
+      "pattern": "^(did:[a-z0-9]+:.+|a2a:https://.+|erc8004:.+|fp:sha256:[0-9a-f]{64})$"
+    },
+    "statement": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "evidence": {
+      "type": "array"
+    },
+    "owner_jwk": {
+      "type": "object",
+      "required": [
+        "kty",
+        "crv",
+        "x"
+      ]
+    },
+    "owner_signature": {
+      "type": "string"
+    }
+  }
+}

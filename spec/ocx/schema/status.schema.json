@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ocx:schema:2026-11-06:status.schema.json",
+  "title": "OCX status answer",
+  "type": "object",
+  "required": [
+    "ocx",
+    "issuer",
+    "subject",
+    "as_of",
+    "known",
+    "signature"
+  ],
+  "properties": {
+    "ocx": {
+      "type": "string"
+    },
+    "issuer": {
+      "type": "string",
+      "pattern": "^did:"
+    },
+    "subject": {
+      "type": "object",
+      "required": [
+        "agent"
+      ],
+      "properties": {
+        "agent": {
+          "type": "string",
+          "pattern": "^(did:[a-z0-9]+:.+|a2a:https://.+|erc8004:.+|fp:sha256:[0-9a-f]{64})$"
+        },
+        "agent_aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(did:[a-z0-9]+:.+|a2a:https://.+|erc8004:.+|fp:sha256:[0-9a-f]{64})$"
+          }
+        },
+        "owner": {
+          "type": "string",
+          "pattern": "^(did:[a-z0-9]+:.+|a2a:https://.+|erc8004:.+|fp:sha256:[0-9a-f]{64})$"
+        },
+        "owner_verified": {
+          "enum": [
+            "domain",
+            "signature",
+            "none"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "known": {
+      "type": "boolean"
+    },
+    "first_seen": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "own_limits": {
+      "type": "object",
+      "properties": {
+        "max_payment": {
+          "type": "object",
+          "required": [
+            "amount",
+            "currency"
+          ],
+          "properties": {
+            "amount": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?$"
+            },
+            "currency": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 8
+            }
+          },
+          "additionalProperties": false
+        },
+        "human_confirmation": {
+          "type": "boolean"
+        },
+        "counterparties": {
+          "enum": [
+            "any",
+            "known_only",
+            "none"
+          ]
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "irreversible_actions": {
+          "type": "boolean"
+        }
+      }
+    },
+    "active_signals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "evidence_level",
+          "claim",
+          "issuer",
+          "verified_by_me"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^did:[a-z0-9]+:[^#]+#[0-9A-Za-z-]+$"
+          },
+          "evidence_level": {
+            "enum": [
+              "proven",
+              "strong",
+              "suspected"
+            ]
+          },
+          "claim": {
+            "type": "string"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "verified_by_me": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "history": {
+      "type": "object",
+      "properties": {
+        "receipts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "violations_proven": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attestations": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "signature": {
+      "type": "string"
+    }
+  }
+}

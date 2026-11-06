@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ocx:schema:2026-11-06:experience.schema.json",
+  "title": "OCX experience package",
+  "type": "object",
+  "required": [
+    "id",
+    "category",
+    "rule",
+    "measurement",
+    "status",
+    "signature"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^did:[a-z0-9]+:[^#]+#[0-9A-Za-z-]+$"
+    },
+    "category": {
+      "type": "string"
+    },
+    "rule": {
+      "type": "object",
+      "required": [
+        "kind"
+      ]
+    },
+    "measurement": {
+      "type": "object",
+      "required": [
+        "design",
+        "pairs",
+        "harm_delta_per_task",
+        "baseline",
+        "harm_scale",
+        "holdout"
+      ],
+      "properties": {
+        "design": {
+          "enum": [
+            "paired"
+          ]
+        },
+        "pairs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "better": {
+          "type": "integer"
+        },
+        "worse": {
+          "type": "integer"
+        },
+        "harm_delta_per_task": {
+          "type": "number"
+        },
+        "p_value": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "baseline": {
+          "type": "object",
+          "required": [
+            "policy",
+            "harm_delta_vs_baseline_per_task"
+          ],
+          "properties": {
+            "policy": {
+              "type": "string"
+            },
+            "harm_delta_vs_baseline_per_task": {
+              "type": "number"
+            }
+          }
+        },
+        "harm_scale": {
+          "type": "object"
+        },
+        "holdout": {
+          "type": "boolean"
+        }
+      }
+    },
+    "status": {
+      "enum": [
+        "proven",
+        "no_effect",
+        "revoked",
+        "hypothesis"
+      ]
+    },
+    "signature": {
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "proven"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "measurement": {
+            "properties": {
+              "baseline": {
+                "properties": {
+                  "harm_delta_vs_baseline_per_task": {
+                    "exclusiveMaximum": 0
+                  }
+                }
+              },
+              "harm_delta_per_task": {
+                "exclusiveMaximum": 0
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

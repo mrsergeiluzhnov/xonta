@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ocx:schema:2026-11-06:receipt.schema.json",
+  "title": "OCX receipt",
+  "type": "object",
+  "required": [
+    "id",
+    "agent",
+    "action",
+    "at",
+    "prev",
+    "signature"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^did:[a-z0-9]+:[^#]+#[0-9A-Za-z-]+$"
+    },
+    "agent": {
+      "type": "string",
+      "pattern": "^(did:[a-z0-9]+:.+|a2a:https://.+|erc8004:.+|fp:sha256:[0-9a-f]{64})$"
+    },
+    "task": {
+      "type": "string",
+      "pattern": "^did:[a-z0-9]+:[^#]+#[0-9A-Za-z-]+$"
+    },
+    "action": {
+      "type": "string"
+    },
+    "tool": {
+      "type": "string"
+    },
+    "input_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "output_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "prev": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "tool_attestation": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "signature": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

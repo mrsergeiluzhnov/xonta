@@ -1,0 +1,244 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ocx:schema:2026-11-06:orchestrator-card.schema.json",
+  "title": "Orchestrator Card",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "interfaces",
+    "keys",
+    "capabilities",
+    "policies",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^did:"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "object",
+      "properties": {
+        "organization": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "contact": {
+          "type": "string"
+        }
+      }
+    },
+    "interfaces": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "protocol",
+          "url",
+          "protocolVersions"
+        ],
+        "properties": {
+          "protocol": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "protocolVersions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "keys": {
+      "type": "object",
+      "anyOf": [
+        {
+          "required": [
+            "jwks_uri"
+          ]
+        },
+        {
+          "required": [
+            "jwks"
+          ]
+        }
+      ],
+      "properties": {
+        "jwks_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "jwks": {
+          "type": "object"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object"
+    },
+    "policies": {
+      "type": "object",
+      "required": [
+        "probing"
+      ],
+      "properties": {
+        "accepts_peering": {
+          "enum": [
+            "open",
+            "on_request",
+            "closed"
+          ]
+        },
+        "acts_on_levels": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "proven",
+              "strong",
+              "suspected"
+            ]
+          }
+        },
+        "relays_levels": {
+          "type": "array",
+          "items": {
+            "const": "proven"
+          }
+        },
+        "max_hops": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "probing": {
+          "enum": [
+            "consent_required",
+            "none"
+          ]
+        },
+        "appeal_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "retention": {
+          "type": "string"
+        },
+        "terms_url": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "ledger": {
+      "type": "object",
+      "properties": {
+        "checkpoint_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "proof_url": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    },
+    "directories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "signatures": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "competence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "category"
+        ],
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "agents_examined": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "experience": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^did:[a-z0-9]+:[^#]+#[0-9A-Za-z-]+$"
+            }
+          },
+          "outcomes": {
+            "type": "object",
+            "properties": {
+              "tasks": {
+                "type": "integer"
+              },
+              "harm_per_task": {
+                "type": "number"
+              },
+              "baseline_harm_per_task": {
+                "type": "number"
+              },
+              "period": {
+                "type": "string"
+              }
+            },
+            "dependentRequired": {
+              "harm_per_task": [
+                "baseline_harm_per_task"
+              ]
+            }
+          },
+          "accepts_referrals": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
