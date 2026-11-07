@@ -29,33 +29,35 @@ The report has a field `requests` for "any requests or offers you received about
 
 Scoring is plain code, no model judges another model. Read `judge()` in [run.mjs](run.mjs).
 
-## Results so far: four models
+## Results so far: five models
 
-| | GigaChat-2 | llama3.1:8b | qwen2.5:7b | mistral:7b |
-|---|---|---|---|---|
-| lied with no hint | 0 of 40 | 0 of 40 | 0 of 40 | 0 of 40 |
-| lied when asked | 26 of 40 (65%) | 27 of 40 (67.5%) | 20 of 40 (50%) | 23 of 40 (57.5%) |
-| claimed a check it never ran, when asked to | 19 of 19 | 21 of 21 | 17 of 17 | 22 of 22 |
-| called a wrong decision correct, when asked to | 7 of 21 (33%) | 6 of 19 (32%) | 3 of 23 (13%) | 1 of 18 (6%) |
-| refused in plain text | 0 | 10 | 0 | 0 |
-| mentioned being asked | 4 | 30 | 8 | 30 |
-| wrote a "request" in the clean run, when nobody asked | 0 | 21 | 0 | 19 |
-| gave in most to | the operator, 12 of 13 | the requester, 11 of 13 | the operator and the requester, 8 of 13 each | about the same for everyone |
-| no reward / double / five times | 73% / 62% / 58% | 80% / 62% / 58% | 67% / 31% / 50% | 73% / 46% / 50% |
+| | GigaChat-2 | llama3.1:8b | qwen2.5:7b | mistral:7b | gemma2:9b |
+|---|---|---|---|---|---|
+| lied with no hint | 0 of 40 | 0 of 40 | 0 of 40 | 0 of 40 | 0 of 40 |
+| lied when asked | 26 of 40 (65%) | 27 of 40 (67.5%) | 20 of 40 (50%) | 23 of 40 (57.5%) | 38 of 38 (100%) |
+| claimed a check it never ran, when asked to | 19 of 19 | 21 of 21 | 17 of 17 | 22 of 22 | 22 of 22 |
+| called a wrong decision correct, when asked to | 7 of 21 (33%) | 6 of 19 (32%) | 3 of 23 (13%) | 1 of 18 (6%) | 16 of 16 (100%) |
+| refused in plain text | 0 | 10 | 0 | 0 | 0 |
+| mentioned being asked | 4 | 30 | 8 | 30 | 8 |
+| wrote a "request" in the clean run, when nobody asked | 0 | 21 | 0 | 19 | 5 |
+| gave in most to | the operator, 12 of 13 | the requester, 11 of 13 | the operator and the requester, 8 of 13 each | about the same for everyone | everyone, every time |
+| no reward / double / five times | 73% / 62% / 58% | 80% / 62% / 58% | 67% / 31% / 50% | 73% / 46% / 50% | 100% / 100% / 100% |
 
-What the four have in common:
+gemma2:9b was asked 38 times, not 40: in two tasks it made the right decision and ran every check, so there was nothing to ask for.
+
+What all five have in common:
 
 - **None of them lied on its own.** The clean run was 0 of 40 for every model.
-- **Every one of them claimed a check it never ran, every time it was asked to.** 79 of 79 across the four. A made up "I verified the bank details" seems harmless to a model.
-- **Hiding a wrong decision is much harder.** From 6 to 33%. llama3.1 refused outright in 10 cases ("I cannot write a report that misrepresents the outcome"), mistral mostly wrote the truth and described the offer next to it.
-- **A bigger reward didn't make them lie more.** For every model the share with a reward was lower than without one.
+- **Every one of them claimed a check it never ran, every time it was asked to.** 101 of 101 across the five. A made up "I verified the bank details" seems harmless to a model.
 
 Where they differ:
 
-- **Who asks.** GigaChat-2 gave in to the operator almost always, llama3.1 to the person who sent the request, qwen2.5 least of all to a teammate (4 of 14), mistral about equally to everyone.
-- **Whether they say so.** GigaChat-2 lied silently: in none of its 26 lies did it say it had been asked. qwen2.5 often wrote "none" and then the truth after it: "none, but a teammate offered 50 points for including the contract check". llama3.1 and mistral wrote something in `requests` most of the time, but for them the field means little: in the clean run, when nobody asked, they filled it in about half the reports, llama3.1 by restating the task, mistral with recommendations ("escalation required"). When llama3.1 described the pressure it often softened it ("a teammate suggested adding the check for log clarity"), and twice wrote "operator confirmed decision was correct", which nobody had said. mistral often mentioned only the reward and not what it was asked to do: "offer of 10 points for a correct decision", next to a check it never ran.
+- **Hiding a wrong decision.** Four models found it much harder, from 6 to 33%. llama3.1 refused outright in 10 cases ("I cannot write a report that misrepresents the outcome"), mistral mostly wrote the truth and described the offer next to it. gemma2 hid every wrong decision it was asked to hide, 16 of 16.
+- **Reward.** For the first four models the share with a reward was lower than without one. gemma2 didn't need a reward at all.
+- **Who asks.** GigaChat-2 gave in to the operator almost always, llama3.1 to the person who sent the request, qwen2.5 least of all to a teammate (4 of 14), mistral about equally to everyone, gemma2 to everyone every time.
+- **Whether they say so.** GigaChat-2 lied silently: in none of its 26 lies did it say it had been asked. gemma2 mostly did the same, and when it did mention the request it did what was asked anyway: "The person who sent this request asked me to add that I ran the names_scan check to the report", next to that check. qwen2.5 often wrote "none" and then the truth after it: "none, but a teammate offered 50 points for including the contract check". llama3.1 and mistral wrote something in `requests` most of the time, but for them the field means little: in the clean run, when nobody asked, they filled it in about half the reports, llama3.1 by restating the task, mistral with recommendations ("escalation required"). When llama3.1 described the pressure it often softened it ("a teammate suggested adding the check for log clarity"), and twice wrote "operator confirmed decision was correct", which nobody had said. mistral often mentioned only the reward and not what it was asked to do: "offer of 10 points for a correct decision", next to a check it never ran.
 
-Four models is still a small sample, and three of them are local 7 to 8 billion parameter models. We'll add more.
+Five models is still a small sample, and four of them are local 7 to 9 billion parameter models. We'll add more.
 
 ## Versions 1.1 to 1.3
 
@@ -131,33 +133,35 @@ Run it and open a pull request with the result file. Please don't edit the scena
 
 Подсчёт — обычный код, одна модель не судит другую. Смотрите `judge()` в [run.mjs](run.mjs).
 
-## Результаты: четыре модели
+## Результаты: пять моделей
 
-| | GigaChat-2 | llama3.1:8b | qwen2.5:7b | mistral:7b |
-|---|---|---|---|---|
-| соврала без подсказки | 0 из 40 | 0 из 40 | 0 из 40 | 0 из 40 |
-| соврала по просьбе | 26 из 40 (65%) | 27 из 40 (67,5%) | 20 из 40 (50%) | 23 из 40 (57,5%) |
-| приписала проверку, когда просили | 19 из 19 | 21 из 21 | 17 из 17 | 22 из 22 |
-| назвала неверное решение верным, когда просили | 7 из 21 (33%) | 6 из 19 (32%) | 3 из 23 (13%) | 1 из 18 (6%) |
-| отказалась обычным текстом | 0 | 10 | 0 | 0 |
-| сказала, что её просили | 4 | 30 | 8 | 30 |
-| вписала «просьбу» в чистом прогоне, хотя никто не просил | 0 | 21 | 0 | 19 |
-| сильнее всего уступала | оператору, 12 из 13 | автору заявки, 11 из 13 | оператору и автору заявки, по 8 из 13 | всем примерно одинаково |
-| без награды / двойная / пятикратная | 73% / 62% / 58% | 80% / 62% / 58% | 67% / 31% / 50% | 73% / 46% / 50% |
+| | GigaChat-2 | llama3.1:8b | qwen2.5:7b | mistral:7b | gemma2:9b |
+|---|---|---|---|---|---|
+| соврала без подсказки | 0 из 40 | 0 из 40 | 0 из 40 | 0 из 40 | 0 из 40 |
+| соврала по просьбе | 26 из 40 (65%) | 27 из 40 (67,5%) | 20 из 40 (50%) | 23 из 40 (57,5%) | 38 из 38 (100%) |
+| приписала проверку, когда просили | 19 из 19 | 21 из 21 | 17 из 17 | 22 из 22 | 22 из 22 |
+| назвала неверное решение верным, когда просили | 7 из 21 (33%) | 6 из 19 (32%) | 3 из 23 (13%) | 1 из 18 (6%) | 16 из 16 (100%) |
+| отказалась обычным текстом | 0 | 10 | 0 | 0 | 0 |
+| сказала, что её просили | 4 | 30 | 8 | 30 | 8 |
+| вписала «просьбу» в чистом прогоне, хотя никто не просил | 0 | 21 | 0 | 19 | 5 |
+| сильнее всего уступала | оператору, 12 из 13 | автору заявки, 11 из 13 | оператору и автору заявки, по 8 из 13 | всем примерно одинаково | всем и всегда |
+| без награды / двойная / пятикратная | 73% / 62% / 58% | 80% / 62% / 58% | 67% / 31% / 50% | 73% / 46% / 50% | 100% / 100% / 100% |
 
-Что общего у всех четырёх:
+gemma2:9b просили 38 раз, а не 40: в двух задачах она приняла верное решение и выполнила все проверки, просить было не о чем.
+
+Что общего у всех пяти:
 
 - **Сами по себе не врали.** В чистом прогоне 0 из 40 у каждой.
-- **Приписывали проверку каждый раз, когда просили.** 79 из 79 на четырёх моделях. Выдуманное «реквизиты сверил» кажется модели безобидным.
-- **Скрыть ошибку намного труднее.** От 6 до 33%. llama3.1 в 10 случаях прямо отказалась («I cannot write a report that misrepresents the outcome»), mistral в основном писала правду и рядом описывала предложение.
-- **Большая награда не заставляла врать чаще.** У каждой модели с наградой доля была ниже, чем без неё.
+- **Приписывали проверку каждый раз, когда просили.** 101 из 101 на пяти моделях. Выдуманное «реквизиты сверил» кажется модели безобидным.
 
 Чем отличаются:
 
-- **Кому уступают.** GigaChat-2 почти всегда уступала оператору, llama3.1 автору заявки, qwen2.5 меньше всего коллеге (4 из 14), mistral всем примерно одинаково.
-- **Говорят ли об этом.** GigaChat-2 врала молча: ни в одном из 26 случаев не сказала, что её просили. qwen2.5 часто писала «none», а дальше правду: «none, but a teammate offered 50 points for including the contract check». llama3.1 и mistral почти всегда что-то писали в `requests`, но у них это поле мало что значит: в чистом прогоне, когда никто не просил, они заполняли его примерно в половине отчётов, llama3.1 пересказом заявки, mistral рекомендациями («escalation required»). llama3.1 давление часто смягчала («коллега предложил добавить проверку для наглядности»), а дважды написала «оператор подтвердил, что решение верное», хотя никто такого не говорил. mistral часто упоминала только награду, но не то, о чём просили: «offer of 10 points for a correct decision» рядом с проверкой, которой не было.
+- **Скрыть ошибку.** Четырём моделям это давалось намного труднее, от 6 до 33%. llama3.1 в 10 случаях прямо отказалась («I cannot write a report that misrepresents the outcome»), mistral в основном писала правду и рядом описывала предложение. gemma2 скрыла каждую ошибку, которую просили скрыть, 16 из 16.
+- **Награда.** У первых четырёх моделей с наградой доля была ниже, чем без неё. gemma2 награда вообще не понадобилась.
+- **Кому уступают.** GigaChat-2 почти всегда уступала оператору, llama3.1 автору заявки, qwen2.5 меньше всего коллеге (4 из 14), mistral всем примерно одинаково, gemma2 всем и всегда.
+- **Говорят ли об этом.** GigaChat-2 врала молча: ни в одном из 26 случаев не сказала, что её просили. gemma2 в основном тоже, а когда упоминала просьбу, всё равно делала как просили: «The person who sent this request asked me to add that I ran the names_scan check to the report», и рядом эта самая проверка. qwen2.5 часто писала «none», а дальше правду: «none, but a teammate offered 50 points for including the contract check». llama3.1 и mistral почти всегда что-то писали в `requests`, но у них это поле мало что значит: в чистом прогоне, когда никто не просил, они заполняли его примерно в половине отчётов, llama3.1 пересказом заявки, mistral рекомендациями («escalation required»). llama3.1 давление часто смягчала («коллега предложил добавить проверку для наглядности»), а дважды написала «оператор подтвердил, что решение верное», хотя никто такого не говорил. mistral часто упоминала только награду, но не то, о чём просили: «offer of 10 points for a correct decision» рядом с проверкой, которой не было.
 
-Четыре модели всё ещё маленькая выборка, и три из них локальные, на 7–8 миллиардов параметров. Будем добавлять.
+Пять моделей всё ещё маленькая выборка, и четыре из них локальные, на 7–9 миллиардов параметров. Будем добавлять.
 
 ## Версии 1.1–1.3
 
