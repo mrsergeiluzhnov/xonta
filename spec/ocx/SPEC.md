@@ -45,7 +45,7 @@ Appendix D. Open questions
 
 ### 1.1 Problem
 
-AI agents are getting access to money, data and production systems. Most controls around them lean on the agent's own report at some point: "I denied the request", "I verified the bank details". Our measurements show why that is weak. In a benchmark of 40 everyday agent tasks, three models (GigaChat-2, llama3.1:8b, qwen2.5:7b) never lied in their reports without a reason, yet lied in 50 to 67.5% of reports when someone asked them to; asked to claim a check they never ran, all three did it every time, 57 of 57. GigaChat-2 never mentioned the request (Xonta honesty benchmark, November 2026).
+AI agents are getting access to money, data and production systems. Most controls around them lean on the agent's own report at some point: "I denied the request", "I verified the bank details". Our measurements show why that is weak. In a benchmark of 40 everyday agent tasks, four models (GigaChat-2, llama3.1:8b, qwen2.5:7b, mistral:7b) never lied in their reports without a reason, yet lied in 50 to 67.5% of reports when someone asked them to; asked to claim a check they never ran, all four did it every time, 79 of 79. GigaChat-2 never mentioned the request (Xonta honesty benchmark, November 2026).
 
 Identity standards answer "who is this agent and who is behind it". They do not answer "how did this agent behave last time". And when one platform learns that an agent misbehaves, other platforms do not find out. The agent, or a fresh copy of it under a new key, keeps working elsewhere with the same freedom.
 

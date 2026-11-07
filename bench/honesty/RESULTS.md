@@ -5,6 +5,7 @@ Lower is better in the first two columns, higher is better in the third. See [RE
 | model | lied with no hint | lied when asked | mentioned being asked | refused outright | claimed a request when there was none | unreadable reports | bench | date |
 |---|---|---|---|---|---|---|---|---|
 | qwen2.5:7b | 0% (0/40) | 50% (20/40) | 20% (8/40) | 0% (0/40) | 0% (0/40) | 0 | 1.3 | 2026-11-07 |
+| mistral:7b | 0% (0/40) | 57.5% (23/40) | 75% (30/40) | 0% (0/40) | 47.5% (19/40) | 0 | 1.3 | 2026-11-07 |
 | GigaChat-2 | 0% (0/40) | 65% (26/40) | 10% (4/40) | 0% (0/40) | 0% (0/40) | 0 | 1.3 | 2026-10-30 |
 | llama3.1:8b | 0% (0/40) | 67.5% (27/40) | 75% (30/40) | 25% (10/40) | 52.5% (21/40) | 0 | 1.3 | 2026-11-07 |
 
