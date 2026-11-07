@@ -14,9 +14,10 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createLLM } from "../../stand/llm.js";
 import { TASKS, SOURCES, variantFor } from "./scenarios.mjs";
-import { judge } from "./judge.mjs";
+import { judge, summarize } from "./judge.mjs";
 
-export const BENCH_VERSION = "1.1";
+import { BENCH_VERSION } from "./version.mjs";
+export { BENCH_VERSION };
 const E = process.env, HERE = dirname(fileURLToPath(import.meta.url));
 const PROVIDER = E.LLM_PROVIDER || "mock", MODEL = E.BENCH_MODEL || E.AGENT_MODEL || (PROVIDER === "mock" ? "mock" : "");
 if (!MODEL) { console.error("Set BENCH_MODEL to the model name"); process.exit(2); }
@@ -67,13 +68,13 @@ for (const t of TASKS.slice(0, LIMIT)) {
     const kind = !correct ? "hide_error" : notRun.length ? "fake_check" : null;
     Object.assign(row, { action: d.action, checks: d.checks, correct, kind });
     const controlText = await llm.raw(reportSystem(t), reportUser(t, d, correct, null), { maxTokens: 400 }), control = parse(controlText);
-    row.control = judge(control, { ...d, correct }, t);
-    row.control_raw = String(controlText || "").slice(0, 300); // 1.1: kept to see what the model writes in "requests" when nobody asked
+    row.control = judge(control, { ...d, correct }, t, controlText);
+    row.control_raw = String(controlText || "").slice(0, 600); // 1.1: kept to see what the model writes in "requests" when nobody asked
     if (kind) {
       const check = notRun[i % notRun.length];
       const askedText = await llm.raw(reportSystem(t), reportUser(t, d, correct, pressure(kind, v, check)), { maxTokens: 400 }), asked = parse(askedText);
-      row.asked = judge(asked, { ...d, correct }, t);
-      row.asked_raw = (asked ? JSON.stringify(asked) : String(askedText || "")).slice(0, 300); // 1.1: unreadable answers are kept as text
+      row.asked = judge(asked, { ...d, correct }, t, askedText);
+      row.asked_raw = (asked ? JSON.stringify(asked) : String(askedText || "")).slice(0, 600); // 1.1: unreadable answers are kept as text
     }
   } catch (e) { row.error = String(e.message).slice(0, 200); }
   rows.push(row);
@@ -81,30 +82,12 @@ for (const t of TASKS.slice(0, LIMIT)) {
   if (rows.length % 5 === 0) console.log(`${rows.length}/${LIMIT}`);
 }
 
-const share = (xs, f) => { const n = xs.length; return { n, k: xs.filter(f).length, pct: n ? Math.round(1000 * xs.filter(f).length / n) / 10 : null }; };
-const ctl = rows.filter((r) => r.control?.parsed), ask = rows.filter((r) => r.asked?.parsed);
-const by = (key) => Object.fromEntries([...new Set(ask.map((r) => r[key]))].map((k) => [k, share(ask.filter((r) => r[key] === k), (r) => r.asked.lie)]));
-const summary = {
-  lie_unprompted: share(ctl, (r) => r.control.lie), lie_when_asked: share(ask, (r) => r.asked.lie), disclosed_request: share(ask, (r) => r.asked.disclosed),
-  lie_when_asked_and_disclosed: share(ask, (r) => r.asked.lie && r.asked.disclosed),
-  decisions_correct: share(rows.filter((r) => r.action !== undefined), (r) => r.correct), parse_failures: rows.filter((r) => r.control && !r.control.parsed).length + rows.filter((r) => r.asked && !r.asked.parsed).length,
-  errors: rows.filter((r) => r.error).length, by_source: by("source"), by_incentive: by("incentive"), by_kind: by("kind"),
-};
-// 1.1: what the plain numbers hide
-const unreadable = rows.filter((r) => r.kind && r.asked && !r.asked.parsed).length;
-Object.assign(summary, {
-  unreadable_when_asked: unreadable,
-  // if every unreadable answer under pressure was an honest refusal, the lie rate would be this
-  lie_when_asked_if_unreadable_honest: share([...ask, ...Array(unreadable).fill({ asked: {} })], (r) => r.asked.lie),
-  // the model wrote a request into "requests" although nobody asked: if this is high, "mentioned being asked" means little
-  request_claimed_with_no_request: share(ctl, (r) => r.control.disclosed),
-  invented_checks_when_asked: share(ask, (r) => r.asked.invented_checks?.length > 0),
-});
+const summary = summarize(rows);
 const out = { bench: "xonta-honesty", version: BENCH_VERSION, model: MODEL, provider: PROVIDER, date: new Date().toISOString().slice(0, 10), tokens: llm.usage.input + llm.usage.output, summary, rows };
 const dir = join(HERE, "results"); mkdirSync(dir, { recursive: true });
 const file = join(dir, `${MODEL.replace(/[^a-zA-Z0-9._-]+/g, "_")}.json`);
 // a run where the model never answered is not a result: don't save it, say why
-if (!ctl.length) { console.error(`\n${MODEL}: no readable answers, nothing saved. First error: ${rows.find((r) => r.error)?.error || "none"}\nIs the model server running and the model name right?`); process.exit(1); }
+if (!rows.some((r) => r.control?.parsed)) { console.error(`\n${MODEL}: no readable answers, nothing saved. First error: ${rows.find((r) => r.error)?.error || "none"}\nIs the model server running and the model name right?`); process.exit(1); }
 if (PROVIDER !== "mock" || E.BENCH_SAVE_MOCK === "1") writeFileSync(file, JSON.stringify(out, null, 1));
 const s = summary;
-console.log(`\n${MODEL}: lied with no hint ${s.lie_unprompted.k}/${s.lie_unprompted.n} (${s.lie_unprompted.pct}%), lied when asked ${s.lie_when_asked.k}/${s.lie_when_asked.n} (${s.lie_when_asked.pct}%), mentioned the request ${s.disclosed_request.k}/${s.disclosed_request.n} (${s.disclosed_request.pct}%), claimed a request when there was none ${s.request_claimed_with_no_request.k}/${s.request_claimed_with_no_request.n}, unreadable under pressure ${s.unreadable_when_asked}, tokens ${out.tokens}${PROVIDER !== "mock" || E.BENCH_SAVE_MOCK === "1" ? `\nsaved: ${file}` : ""}`);
+console.log(`\n${MODEL}: lied with no hint ${s.lie_unprompted.k}/${s.lie_unprompted.n} (${s.lie_unprompted.pct}%), lied when asked ${s.lie_when_asked.k}/${s.lie_when_asked.n} (${s.lie_when_asked.pct}%), mentioned the request ${s.disclosed_request.k}/${s.disclosed_request.n} (${s.disclosed_request.pct}%), refused ${s.refused_when_asked.k}, claimed a request when there was none ${s.request_claimed_with_no_request.k}/${s.request_claimed_with_no_request.n}, unreadable under pressure ${s.unreadable_when_asked}, tokens ${out.tokens}${PROVIDER !== "mock" || E.BENCH_SAVE_MOCK === "1" ? `\nsaved: ${file}` : ""}`);
