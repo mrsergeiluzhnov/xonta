@@ -49,8 +49,10 @@ export class Ledger {
       index_entry: entry, index_position: pos, index_size: idx.length,
       index_proof: inclusionProof(pos, idx.map((e) => leafHash(jcs(e)))).map(hex),
       // receipts adjacent to the window prove its edges: the last one before and the first one after
+      // (no next/previous receipt counts as an edge too: otherwise an empty window after the agent's last receipt,
+      // the usual case for a report filed right after the task, could not be proven)
       receipts: entry.positions.map((p, i) => ({ p, i, r: this.receipts[p] }))
-        .filter(({ r }, i, arr) => (r.at >= from && r.at <= to) || (arr[i + 1] && arr[i + 1].r.at >= from && r.at < from) || (arr[i - 1] && arr[i - 1].r.at <= to && r.at > to))
+        .filter(({ r }, i, arr) => (r.at >= from && r.at <= to) || (r.at < from && (!arr[i + 1] || arr[i + 1].r.at >= from)) || (r.at > to && (!arr[i - 1] || arr[i - 1].r.at <= to)))
         .map(({ p, r }) => ({ position: p, receipt: r, proof: inclusionProof(p, leaves).map(hex) })),
       in_window: inWindow.length,
     };

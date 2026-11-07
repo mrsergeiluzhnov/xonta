@@ -1,5 +1,13 @@
 # Changelog / Журнал изменений
 
+## Reference implementation, 2026-11-07
+
+- Fix: a window proof for an empty window after the agent's last receipt (or before its first) left the edge receipt out, so a correct proof failed with "empty window not proven". Found in bench run run-ocx-1, where 6 of 18 valid signals were rejected this way. A new check, 35 in total. The specification text is unchanged.
+
+Русским языком:
+
+- Исправлено: доказательство пустого окна после последней квитанции агента (или до первой) не содержало крайней квитанции, и верное доказательство не проходило проверку («empty window not proven»). Нашлось в прогоне стенда run-ocx-1: так отклонены 6 из 18 верных сигналов. Новая проверка, всего 35. Текст спецификации не менялся.
+
 ## 0.2.1 (2026-11-06)
 
 - The draft is open: specification, schemas and reference implementation are published in the Xonta repository.

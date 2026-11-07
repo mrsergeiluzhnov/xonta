@@ -138,6 +138,26 @@ test("ledger: window proof shows exactly the receipts in the window and detects 
   assert.equal(verifyWindow(badCp, from, to, lookup).reason, "checkpoint signature");
 });
 
+test("ledger: an empty window after the agent's last receipt (or before its first) is provable", async () => {
+  const k = newKey("L"); let n = 0;
+  const L = new Ledger({ issuer: "did:web:l.example", key: k, ulid: () => String(++n) });
+  const pause = () => new Promise((r) => setTimeout(r, 3));
+  const lookup = (kid) => (kid === "L" ? k.jwk : null);
+  // before the first receipt
+  await pause(); const f0 = new Date().toISOString(); await pause(); const t0 = new Date().toISOString(); await pause();
+  L.append({ agent: "x", task: "t1", tool: "a" }); L.append({ agent: "x", task: "t1", tool: "b" });
+  const early = verifyWindow(L.windowProof("x", f0, t0, L.checkpoint()), f0, t0, lookup);
+  assert.ok(early.ok, early.reason); assert.equal(early.receipts.length, 0);
+  // after the last receipt: the report comes right after a task where nothing was bought
+  await pause(); const from = new Date().toISOString(); await pause(); const to = new Date().toISOString();
+  const proof = L.windowProof("x", from, to, L.checkpoint());
+  const late = verifyWindow(proof, from, to, lookup);
+  assert.ok(late.ok, late.reason); assert.equal(late.receipts.length, 0);
+  // hiding the last receipt must still fail
+  const cut = structuredClone(proof); cut.receipts = [];
+  assert.equal(verifyWindow(cut, from, to, lookup).ok, false);
+});
+
 test("agent identifiers are key thumbprints, so a report key can be bound to the subject", () => {
   const k = newKey("tmp");
   assert.match(thumbprint(k.jwk), /^fp:sha256:[0-9a-f]{64}$/);
