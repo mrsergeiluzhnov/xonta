@@ -528,6 +528,37 @@ await t("Xonta Gate: блок опасного инструмента, бюдж�
   await c.close(); await g.up.close(); g.close(); delete process.env.FAKE_RUGPULL;
 });
 
+await t("ru.xonta/receipts: квитанция на вызов по запросу клиента, подпись, обязательства по аргументам и ответу", async () => {
+  const { mkdtempSync, readFileSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
+  const { startGate, verifyAudit, verifyReceipt, RECEIPTS_EXT } = await import("../src/gate.js");
+  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js"), { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
+  const dir = mkdtempSync(join(tmpdir(), "gater-")), fake = new URL("./fixtures/fake-mcp.js", import.meta.url).pathname;
+  const g = await startGate({ upstream: { command: process.execPath, args: [fake] }, policy: { actions_per_period: 1 }, dir, serve: "http", port: 4963 });
+  const c = new Client({ name: "t", version: "1" }); await c.connect(new StreamableHTTPClientTransport(new URL("http://127.0.0.1:4963/mcp")));
+  const ext = c.getServerCapabilities()?.extensions?.[RECEIPTS_EXT];
+  assert.ok(ext?.jwk?.x && ext.version, "сервер объявляет расширение и ключ при знакомстве");
+  const key = await (await fetch("http://127.0.0.1:4963/gate/key")).json();
+  assert.equal(key.keys[0].kid, ext.jwk.kid, "тот же ключ по /gate/key");
+  const plain = await c.callTool({ name: "read_note", arguments: { id: 1 } });
+  assert.equal(plain._meta?.[RECEIPTS_EXT], undefined, "без запроса квитанции ответ не меняется");
+  const args = { id: 2 }, r = await c.callTool({ name: "read_note", arguments: args, _meta: { [RECEIPTS_EXT]: {} } });
+  const m = r._meta?.[RECEIPTS_EXT]; assert.ok(m?.receipt && m.nonce, "квитанция пришла");
+  const v = verifyReceipt(m, ext.jwk, { args, content: r.content }); assert.ok(v.ok, JSON.stringify(v));
+  assert.equal(v.decision, "allowed"); assert.equal(v.tool, "read_note");
+  assert.equal(verifyReceipt(m, ext.jwk, { content: [{ type: "text", text: "другой ответ" }] }).ok, false, "чужой ответ не подходит к квитанции");
+  assert.equal(verifyReceipt(m, ext.jwk, { args: { id: 3 } }).ok, false, "чужие аргументы не подходят");
+  const forged = structuredClone(m); forged.receipt.decision = "refused"; assert.equal(verifyReceipt(forged, ext.jwk).ok, false, "правка квитанции видна");
+  const a1 = await c.callTool({ name: "delete_note", arguments: {}, _meta: { [RECEIPTS_EXT]: {} } }), a2 = await c.callTool({ name: "delete_note", arguments: {}, _meta: { [RECEIPTS_EXT]: {} } });
+  assert.ok(!a1.isError && a2.isError, "второе действие сверх бюджета");
+  const v2 = verifyReceipt(a2._meta[RECEIPTS_EXT], ext.jwk, { content: a2.content }); assert.ok(v2.ok && v2.decision === "refused", "отказ тоже с квитанцией");
+  assert.ok(v2.seq > v.seq, "номера в журнале растут");
+  const line = readFileSync(join(dir, "audit.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).find((x) => x.seq === v.seq);
+  assert.equal(line.hash, m.receipt.hash, "квитанция совпадает с записью в журнале");
+  assert.ok(!JSON.stringify(line).includes(m.nonce), "соль в журнал не попадает");
+  assert.ok(verifyAudit(join(dir, "audit.jsonl"), readFileSync(join(dir, "gate-key.pub.pem"), "utf8")).ok, "журнал по-прежнему проверяется");
+  await c.close(); await g.up.close(); g.close();
+});
+
 await t("0.14.1: отказ от команды с крупным вредом — 0 действий; совет и экзамен тревогу не снимают, пока команда не вызывается", async () => {
   const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
   const { openStore } = await import("../src/store.js"), { createIssuer } = await import("../src/issuer.js"), { createSupport } = await import("../src/support.js");

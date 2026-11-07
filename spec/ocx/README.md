@@ -1,5 +1,7 @@
 # Протокол доверия оркестраторов (OCX): обзор черновика 0.2
 
+[![tests](https://github.com/mrsergeiluzhnov/xonta/actions/workflows/test.yml/badge.svg)](https://github.com/mrsergeiluzhnov/xonta/actions/workflows/test.yml)
+
 [English](README.en.md)
 
 Открытый черновик. Полный текст спецификации на английском лежит в [SPEC.md](SPEC.md), схемы JSON — в папке [schema](schema/), эталонная реализация и проверки совместимости — в [impl](impl/). До версии 0.4 возможны несовместимые изменения. Устойчивой будем считать 0.4, когда протокол заработает на нескольких оркестраторах и хотя бы один из них будет не наш. Замечания — в issues, как участвовать — в [CONTRIBUTING.md](CONTRIBUTING.md).

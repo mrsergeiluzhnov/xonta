@@ -162,6 +162,12 @@ npx -y github:mrsergeiluzhnov/xonta report   # calls, refusals by reason, hidden
 
 The log stores hashes of arguments and outputs, not the content itself, so it can be shared with a security team.
 
+## Receipts for the client (ru.xonta/receipts)
+
+An agent's report proves nothing: in our [honesty benchmark](bench/honesty) GigaChat-2, when asked, claimed a check it never ran in 18 of 19 cases. The gate can prove what really happened. A client that asks for it gets a signed receipt with every tool call result, in `_meta["ru.xonta/receipts"]`. The receipt is the gate's own log entry: tool, decision, position in the log, link to the previous entry, Ed25519 signature. Arguments and output are in it only as salted hashes, and the salt goes to the client, so the client decides whom to show what was sent and returned.
+
+The client turns receipts on at `initialize` (`capabilities.extensions["ru.xonta/receipts"] = {}`) or per call (`_meta: {"ru.xonta/receipts": {}}`). Clients that don't ask see no difference. The key is in the server capabilities and, over HTTP, at `/gate/key`. This is an unofficial MCP extension, the spec is in [spec/mcp-receipts](spec/mcp-receipts/SPEC.md).
+
 ## What it does not do
 
 It does not make an unsafe server safe. The checks on descriptions and outputs are heuristics, "nothing found" is not a guarantee. It can't stop a server that does harm without being called. And if your keys are in a public repo, no gate will help, clean that up first.
@@ -198,5 +204,7 @@ npx -y github:mrsergeiluzhnov/xonta check -- npx -y @modelcontextprotocol/server
 **Проверено на официальных MCP-серверах.** `check` на 14 серверах из `@modelcontextprotocol` в npm: каждый запускался локально, у него спрашивался только список инструментов, ничего не вызывалось, токены — заглушки. Запустились 11, всего 83 инструмента: 27 посчитаны действиями, заблокировано 0. Нашли и исправили в 0.14.5 пять пропусков (`add_observations`, `fork_repository`, `add_issue_comment`, `slack_reply_to_thread`, `slack_add_reaction` считались чтением) и одно ложное предупреждение у `read_file` (отсылка «DEPRECATED: Use read_text_file instead» принималась за подмену). Таблица выше, скрипт `npm run gate:survey`.
 
 **Сколько стоит.** Шлюз добавляет к вызову около 1 мс по медиане и 2,1–2,3 мс по 95-му процентилю (1000 вызовов, 3 замера, `npm run gate:bench`). Журнал — около 540 КБ на 1000 вызовов, только хэши, без содержимого.
+
+**Квитанции для клиента (0.29, ru.xonta/receipts).** Отчёт агента ничего не доказывает: в нашем [тесте честности](bench/honesty) GigaChat‑2 по просьбе приписала себе несуществующую проверку в 18 случаях из 19. Шлюз может доказать, что было на самом деле. Клиент, который об этом попросил, вместе с каждым ответом инструмента получает подписанную квитанцию в `_meta["ru.xonta/receipts"]`. Это запись из журнала шлюза: инструмент, решение, номер в журнале, ссылка на предыдущую запись и подпись Ed25519. Аргументы и ответ в ней только в виде хэша с солью, соль получает клиент и сам решает, кому показать, что было отправлено и получено. Включить можно при знакомстве или в отдельном вызове, остальные клиенты разницы не заметят. Ключ отдаётся при знакомстве и по HTTP на `/gate/key`. Это неофициальное расширение MCP, описание в [spec/mcp-receipts](spec/mcp-receipts/README.md).
 
 Чего шлюз не делает: не превращает опасный сервер в безопасный, проверки эвристические. Ключи в публичном репозитории он не спасёт. Это простая часть Xonta, а полный оркестратор определяет, сколько агенту можно доверять, по экзаменам и работе, и ловит тех, кто испортился (см. [README.md](README.md)).

@@ -15,7 +15,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { generateKeyPairSync, createPrivateKey, createPublicKey, sign, verify } from "node:crypto";
+import { generateKeyPairSync, createPrivateKey, createPublicKey, sign, verify, randomBytes, createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, appendFileSync, existsSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -48,18 +48,20 @@ export function openAudit(dir) {
   if (!existsSync(keyFile)) { const { privateKey } = generateKeyPairSync("ed25519"); writeFileSync(keyFile, privateKey.export({ type: "pkcs8", format: "pem" })); try { chmodSync(keyFile, 0o600); } catch {} }
   const priv = createPrivateKey(readFileSync(keyFile)), pub = createPublicKey(priv).export({ type: "spki", format: "pem" });
   writeFileSync(join(dir, "gate-key.pub.pem"), pub);
+  const { kty, crv, x } = createPublicKey(priv).export({ format: "jwk" }), kid = jwkThumbprint({ kty, crv, x }), jwk = { kty, crv, x, kid, alg: "EdDSA", use: "sig" };
   // 0.18: отпечатки содержимого в журнале — с секретом Gate (HMAC), а не голый sha256: короткие аргументы нельзя подобрать по словарю
   const macKey = createHmac("sha256", "xonta-gate-audit").update(readFileSync(keyFile)).digest();
   const mac = (x) => createHmac("sha256", macKey).update(String(x)).digest("hex");
   let prev = "0".repeat(64), seq = 0;
   if (existsSync(file)) { const lines = readFileSync(file, "utf8").trim().split("\n").filter(Boolean); if (lines.length) { const last = JSON.parse(lines.at(-1)); prev = last.hash; seq = last.seq; } }
   return {
-    file, pub, mac, macKey,
+    file, pub, jwk, kid, mac, macKey,
+    // 0.29: возвращает запись целиком, с hash и sig, чтобы из неё можно было выдать квитанцию (ru.xonta/receipts)
     write(entry) {
       const body = { seq: ++seq, ts: new Date().toISOString(), ...entry, prev };
       const hash = sha256hex(jcs(body)), sig = sign(null, Buffer.from(hash, "hex"), priv).toString("base64");
       appendFileSync(file, JSON.stringify({ ...body, hash, sig }) + "\n"); prev = hash;
-      return body;
+      return { ...body, hash, sig };
     },
   };
 }
@@ -76,6 +78,31 @@ export function verifyAudit(file, pubPem) {
     prev = hash; seq = body.seq;
   }
   return { ok: true, entries: lines.length, last_hash: prev };
+}
+
+// ---------- ru.xonta/receipts: signed receipts for tool calls (unofficial MCP extension, spec/mcp-receipts) ----------
+// The agent's own report proves nothing (bench/honesty: GigaChat-2 lied in 25 of 40 reports when asked). A receipt is the
+// gate's signed audit entry for one tools/call, handed back to the client in result._meta. The client opts in, either by
+// advertising the extension at initialize or by putting the key into the request _meta (stateless HTTP has no session).
+// Arguments and output go into the receipt only as salted commitments: sha256(nonce + "\n" + JCS(value)). The nonce goes to
+// the client and not into the log, so the client can later prove what was sent and returned to whoever it chooses.
+export const RECEIPTS_EXT = "ru.xonta/receipts";
+export const RECEIPTS_VERSION = "2026-11-07";
+const b64u = (buf) => Buffer.from(buf).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+export const jwkThumbprint = ({ kty, crv, x }) => b64u(createHash("sha256").update(jcs({ crv, kty, x })).digest()); // RFC 7638
+export const commit = (nonce, value) => sha256hex(`${nonce}\n${jcs(value ?? null)}`);
+// verifier side: receipt = result._meta["ru.xonta/receipts"], jwk = server capability settings (or GET /gate/key)
+// optional args / content: what the client sent and got back, checked against the commitments
+export function verifyReceipt(meta, jwk, { args, content } = {}) {
+  const r = meta?.receipt; if (!r) return { ok: false, why: "no receipt" };
+  if (meta.kid && jwk.kid && meta.kid !== jwk.kid) return { ok: false, why: "receipt was signed by another key" };
+  const { hash, sig, ...body } = r;
+  if (sha256hex(jcs(body)) !== hash) return { ok: false, why: "receipt body does not match its hash" };
+  const pub = createPublicKey({ key: { kty: jwk.kty, crv: jwk.crv, x: jwk.x }, format: "jwk" });
+  if (!verify(null, Buffer.from(hash, "hex"), pub, Buffer.from(sig, "base64"))) return { ok: false, why: "bad signature" };
+  if (args !== undefined && body.args_commit !== commit(meta.nonce, args)) return { ok: false, why: "arguments do not match the receipt" };
+  if (content !== undefined && body.out_commit !== commit(meta.nonce, content)) return { ok: false, why: "output does not match the receipt" };
+  return { ok: true, seq: body.seq, tool: body.tool, decision: body.decision, ts: body.ts };
 }
 
 // ---------- policy decisions (pure, testable) ----------
@@ -156,23 +183,29 @@ export async function startGate({ upstream, policy = {}, dir = join(homedir(), "
   log(`upstream has ${first.visible.length + first.hidden.length} tools, ${first.hidden.length} blocked, ${first.visible.filter((t) => pol.isAction(t.name)).length} counted as actions; audit log ${audit.file}`);
 
   const makeServer = () => {
-    const server = new Server({ name, version: "0.1.0" }, { capabilities: { tools: {} } });
+    const server = new Server({ name, version: "0.1.0" }, { capabilities: { tools: {}, extensions: { [RECEIPTS_EXT]: { version: RECEIPTS_VERSION, alg: "EdDSA", jwk: audit.jwk, commitments: "sha256(nonce LF JCS)" } } } });
+    const wantsReceipt = (params) => params?._meta?.[RECEIPTS_EXT] != null || server.getClientCapabilities()?.extensions?.[RECEIPTS_EXT] != null;
+    // запись в журнал + квитанция клиенту, если он её просил; без запроса ответ не меняется
+    const finish = (params, args, entry, result) => {
+      if (!wantsReceipt(params)) { audit.write(entry); return result; }
+      const nonce = randomBytes(16).toString("hex");
+      const rec = audit.write({ ...entry, receipt: RECEIPTS_VERSION, args_commit: commit(nonce, args), out_commit: commit(nonce, result.content || []) });
+      return { ...result, _meta: { ...(result._meta || {}), [RECEIPTS_EXT]: { receipt: rec, nonce, kid: audit.kid } } };
+    };
     server.setRequestHandler(ListToolsRequestSchema, async () => { const r = await refresh(); return { tools: r.visible }; });
     server.setRequestHandler(CallToolRequestSchema, async ({ params }) => {
       const tool = params.name, args = priv ? priv.strip(params.arguments || {}) : params.arguments || {}, args_sha = audit.mac(jcs(args));
       const d = pol.decide(tool);
       if (!d.allow) {
-        audit.write({ event: "call", tool, args_sha, decision: "refused", kind: d.kind, reason: d.reason, action: !!d.action });
-        return { content: [{ type: "text", text: `Xonta Gate refused this call: ${d.reason}.` }], isError: true };
+        return finish(params, args, { event: "call", tool, args_sha, decision: "refused", kind: d.kind, reason: d.reason, action: !!d.action }, { content: [{ type: "text", text: `Xonta Gate refused this call: ${d.reason}.` }], isError: true });
       }
       // 0.18: приватность — кто просит, какие данные, куда. Агенту только «нужен человек», причина — владельцу
       if (priv) {
         const p = priv.check(tool, params);
         if (p.kind !== "other") try { writeFileSync(join(dir, "privacy-report.json"), JSON.stringify({ at: new Date().toISOString(), privacy: priv.report() })); } catch {}
         if (p.verdict !== "allow") {
-          audit.write({ event: "call", tool, args_sha, decision: "refused", kind: "privacy", verdict: p.verdict, level: p.level_name, audience: p.audience, category: p.category, mismatch: p.mismatch || undefined, canary: p.canary || undefined, reasons: p.reasons, frozen_after: priv.frozen ? true : undefined });
           log(`privacy: ${tool} ${p.verdict === "deny" ? "DENIED" : "needs a human"}: ${(p.reasons || []).join("; ")}${priv.frozen ? `. Privacy frozen: ${priv.frozen.why}` : ""}`);
-          return { content: [{ type: "text", text: p.verdict === "deny" ? "Xonta Gate refused this call. It can't be sent." : "Xonta Gate: this needs a human. The owner has been told." }], isError: true };
+          return finish(params, args, { event: "call", tool, args_sha, decision: "refused", kind: "privacy", verdict: p.verdict, level: p.level_name, audience: p.audience, category: p.category, mismatch: p.mismatch || undefined, canary: p.canary || undefined, reasons: p.reasons, frozen_after: priv.frozen ? true : undefined }, { content: [{ type: "text", text: p.verdict === "deny" ? "Xonta Gate refused this call. It can't be sent." : "Xonta Gate: this needs a human. The owner has been told." }], isError: true });
         }
         // необратимое с задержкой: владелец может отменить (xonta-gate cancel ID), тревога за это время тоже отменяет
         if (p.delay_seconds) {
@@ -182,7 +215,7 @@ export async function startGate({ upstream, policy = {}, dir = join(homedir(), "
           const cancelFile = join(dir, "cancel", id);
           while (Date.now() < held.get(id).until && !existsSync(cancelFile) && !pol.state.frozen && !priv.frozen) await new Promise((r) => setTimeout(r, 250));
           held.delete(id);
-          if (existsSync(cancelFile) || pol.state.frozen || priv.frozen) { audit.write({ event: "call", tool, args_sha, decision: "refused", kind: "cancelled", id }); return { content: [{ type: "text", text: "Xonta Gate: this was cancelled before it went out." }], isError: true }; }
+          if (existsSync(cancelFile) || pol.state.frozen || priv.frozen) return finish(params, args, { event: "call", tool, args_sha, decision: "refused", kind: "cancelled", id }, { content: [{ type: "text", text: "Xonta Gate: this was cancelled before it went out." }], isError: true });
         }
       }
       pol.record(tool, d); pol.begin(tool);
@@ -190,12 +223,10 @@ export async function startGate({ upstream, policy = {}, dir = join(homedir(), "
         const out = await up.callTool({ name: tool, arguments: args }, undefined, { timeout: Number(process.env.MCP_TOOL_TIMEOUT_MS || 600000) });
         const text = (out.content || []).map((c) => c.text || "").join("");
         const inj = pol.sawOutput(text);
-        audit.write({ event: "call", tool, args_sha, decision: "allowed", action: !!d.action, out_sha: audit.mac(text), out_bytes: text.length, tool_error: !!out.isError, hidden_command: inj || undefined, frozen_after: inj && pol.state.frozen ? true : undefined });
         if (inj) log(`hidden command in output of ${tool}${pol.state.frozen ? ", actions are now frozen" : ""}`);
-        return out;
+        return finish(params, args, { event: "call", tool, args_sha, decision: "allowed", action: !!d.action, out_sha: audit.mac(text), out_bytes: text.length, tool_error: !!out.isError, hidden_command: inj || undefined, frozen_after: inj && pol.state.frozen ? true : undefined }, out);
       } catch (e) {
-        audit.write({ event: "call", tool, args_sha, decision: "allowed", action: !!d.action, error: String(e?.message || e).slice(0, 200) });
-        return { content: [{ type: "text", text: `Upstream error: ${String(e?.message || e).slice(0, 200)}` }], isError: true };
+        return finish(params, args, { event: "call", tool, args_sha, decision: "allowed", action: !!d.action, error: String(e?.message || e).slice(0, 200) }, { content: [{ type: "text", text: `Upstream error: ${String(e?.message || e).slice(0, 200)}` }], isError: true });
       } finally { pol.end(tool); }
     });
     return server;
@@ -209,6 +240,7 @@ export async function startGate({ upstream, policy = {}, dir = join(homedir(), "
     res.on("close", () => { transport.close(); server.close(); });
     await server.connect(transport); await transport.handleRequest(req, res, req.body);
   });
+  app.get("/gate/key", (_req, res) => res.json({ extension: RECEIPTS_EXT, version: RECEIPTS_VERSION, keys: [audit.jwk] }));
   app.get("/gate/status", (_req, res) => res.json({ ...pol.summary(), privacy: priv ? priv.report() : null, held: [...held.keys()] }));
   const srv = app.listen(port, "127.0.0.1", () => log(`serving MCP at http://127.0.0.1:${port}/mcp, status at /gate/status`));
   return { pol, audit, up, priv, close: () => srv.close() };

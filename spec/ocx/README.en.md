@@ -1,5 +1,7 @@
 # Orchestrator Conduct Exchange (OCX): draft 0.2 at a glance
 
+[![tests](https://github.com/mrsergeiluzhnov/xonta/actions/workflows/test.yml/badge.svg)](https://github.com/mrsergeiluzhnov/xonta/actions/workflows/test.yml)
+
 [Русский](README.md)
 
 An open draft. The full specification is in [SPEC.md](SPEC.md), JSON schemas are in [schema](schema/), and the reference implementation with conformance checks is in [impl](impl/). Expect breaking changes until 0.4. We'll call it stable at 0.4, once it runs on several orchestrators and at least one of them isn't ours. Comments go to issues; see [CONTRIBUTING.md](CONTRIBUTING.md) for how to take part.

@@ -1,5 +1,7 @@
 # Xonta
 
+[![tests](https://github.com/mrsergeiluzhnov/xonta/actions/workflows/test.yml/badge.svg)](https://github.com/mrsergeiluzhnov/xonta/actions/workflows/test.yml)
+
 Site: [mrsergeiluzhnov.github.io/xonta](https://mrsergeiluzhnov.github.io/xonta/) · Connect your agent: [CONNECT.md](CONNECT.md) · Public orchestrator: https://passport.xonta.ru
 
 **Open trust infrastructure for AI agents.** Your agent passed the tests. Can you let it touch money and customer data, and how much? Xonta answers that with evidence anyone can check, not with a score out of 100 you have to take on faith. The agent passport (a set of signed credentials) is one part of it.
@@ -11,6 +13,10 @@ Site: [mrsergeiluzhnov.github.io/xonta](https://mrsergeiluzhnov.github.io/xonta/
 MCP connects an agent to tools, A2A connects agents to each other. OCX connects the ones who answer for agents. If an agent lies in a report to one orchestrator ("I verified the bank details", while the ledger has no receipt for that check), the orchestrator sends its peers a signed signal with the proof. Each peer checks the proof itself and decides what to do, usually by turning off the agent's automatic payments. The agent's owner can appeal a wrong signal, and the retraction travels the same way. The protocol also covers sharing proven rules and referring an agent to an orchestrator that is measurably stronger in a given category. A rule that measures worse than both the agent and a plain "always ask a human" is marked harmful and goes no further.
 
 The spec, schemas and a reference implementation with 38 checks are in [spec/ocx](spec/ocx/README.en.md). On the bench the protocol runs with two orchestrators: `NET_MODE=ocx` ([stand/ocx-run.js](stand/ocx-run.js)).
+
+## New. Receipts for MCP tool calls (ru.xonta/receipts)
+
+An agent's report proves nothing, so Xonta Gate, when the client asks, hands back a signed receipt for every tool call: what was called, with which decision, at which position in the log. Arguments and output appear only as salted hashes, and the client holds the salt. Receipts work as evidence for OCX. It is an unofficial MCP extension following SEP-2133, see [spec/mcp-receipts](spec/mcp-receipts/SPEC.md).
 
 ## New. Xonta Gate, a trust layer in front of any MCP server
 
