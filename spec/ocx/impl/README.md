@@ -14,9 +14,9 @@
 | `lib/ledger.js` | журнал квитанций, подписанные контрольные точки, индекс действий каждого агента, доказательство окна: какие квитанции агента есть за период и что других нет | §9.2, §9.3, §9.5 |
 | `lib/orchestrator.js` | карточка оркестратора, знакомство с согласованием версии, доставка, пересылка и отзыв сигналов, запрос статуса, выдача доказательств, проверка доказательства у получателя, вес отправителя; обмен опытом, направление к профильному оркестратору и компетентность, апелляции | §5, §7, §10, §11, §12 |
 | `test/core.test.mjs` | 19 проверок профилей Core и Evidence | §18 |
-| `test/profiles.test.mjs` | 19 проверок профилей Experience, Referral и Appeal | §18 |
+| `test/profiles.test.mjs` | 21 проверка профилей Experience, Referral и Appeal | §18 |
 
-Запуск проверок: `node --test spec/ocx/impl/test/core.test.mjs spec/ocx/impl/test/profiles.test.mjs`. Сейчас проходят все 38.
+Запуск проверок: `node --test spec/ocx/impl/test/core.test.mjs spec/ocx/impl/test/profiles.test.mjs`. Сейчас проходят все 40.
 
 ## Проверка чужих реализаций
 
@@ -75,9 +75,9 @@ An open draft, like the specification. Node 22, no external dependencies. The Xo
 | `lib/ledger.js` | receipt ledger, signed checkpoints, per-agent index, window proofs: which receipts an agent has in a period and that there are no others | §9.2, §9.3, §9.5 |
 | `lib/orchestrator.js` | Orchestrator Card, peering with version negotiation, delivery, relay and retraction of signals, status queries, evidence serving, receiver-side evidence verification, issuer weight; experience exchange, referral and competence, appeals | §5, §7, §10, §11, §12 |
 | `test/core.test.mjs` | 19 checks for the Core and Evidence profiles | §18 |
-| `test/profiles.test.mjs` | 19 checks for the Experience, Referral and Appeal profiles | §18 |
+| `test/profiles.test.mjs` | 21 checks for the Experience, Referral and Appeal profiles | §18 |
 
-Run: `node --test spec/ocx/impl/test/core.test.mjs spec/ocx/impl/test/profiles.test.mjs`. All 38 pass.
+Run: `node --test spec/ocx/impl/test/core.test.mjs spec/ocx/impl/test/profiles.test.mjs`. All 40 pass.
 
 ## Checking other implementations
 

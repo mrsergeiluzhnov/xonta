@@ -46,7 +46,7 @@ export class Orchestrator {
     this.competenceDecl = [];         // what this orchestrator declares in its card (§5.5)
     this.acceptReferrals = new Set(); // categories this orchestrator accepts referrals for
     this.referralsIn = new Map();     // referral_id -> { category, subject, expires_at, used }
-    this.observed = new Map();        // orchestrator -> category -> { referrals, improved, worse, harm_delta_sum }
+    this.observed = new Map();        // orchestrator -> category -> { n, referrals, experience_confirmed, experience_harmful, improved, worse, harm_delta_sum }
     this.referralsOut = new Map();    // target_referral_id -> token we issued
     // Appeal (§10.9)
     this.owners = new Map();          // owner id -> jwk (owners known to this orchestrator)
@@ -324,7 +324,7 @@ export class Orchestrator {
           if (!tok || tok.to !== card.id) throw E(-32602, "Invalid params", { reason: "not a referral of ours to the sender" });
           const o = this.observe(tok.to, tok.category);
           const d = (p.harm_per_task_after - p.harm_per_task_before) * (p.basis === "receipts" ? 1 : 0.5);
-          o.referrals++; o.harm_delta_sum += d; if (d < 0) o.improved++; else if (d > 0) o.worse++;
+          o.n++; o.referrals++; o.harm_delta_sum += d; if (d < 0) o.improved++; else if (d > 0) o.worse++;
           this.note("referral_outcome", { from: card.name, category: tok.category, delta: +d.toFixed(3) });
           return { recorded: true };
         }
@@ -373,15 +373,23 @@ export class Orchestrator {
     if (pkg.status === "proven" && !(m.harm_delta_per_task < 0 && m.baseline.harm_delta_vs_baseline_per_task < 0)) throw E(-32602, "Invalid params", { reason: "proven but not better than the agent and the baseline" });
     if (pkg.status === "harmful") throw E(-32602, "Invalid params", { reason: "harmful experience is not shared" });
     if (experienceStatus(m.harm_delta_per_task, m.baseline.harm_delta_vs_baseline_per_task) === "harmful" && pkg.status !== "revoked") throw E(-32602, "Invalid params", { reason: "worse than the agent and the baseline but not marked harmful" });
-    const rec = { pkg, from, local: "hypothesis" };
-    if (this.remeasure) { const r = await this.remeasure(pkg); rec.local_measurement = r; const v = experienceStatus(r.harm_delta_per_task, r.baseline_delta_per_task); rec.local = v === "proven" ? "confirmed" : v; }
+    const rec = { pkg, from, local: "hypothesis" }, seen = this.received.has(pkg.id);
+    if (this.remeasure) {
+      const r = await this.remeasure(pkg); rec.local_measurement = r; const v = experienceStatus(r.harm_delta_per_task, r.baseline_delta_per_task); rec.local = v === "proven" ? "confirmed" : v;
+      // §12.2: experience re-measured here feeds the issuer's competence in that category. Confirmed raises it, harmful lowers it,
+      // no_effect counts for nothing. The same package offered twice is counted once.
+      if (!seen && (rec.local === "confirmed" || rec.local === "harmful")) {
+        const o = this.observe(pkg.issuer, pkg.category); o.n++; o.harm_delta_sum += r.harm_delta_per_task;
+        if (rec.local === "confirmed") { o.experience_confirmed++; o.improved++; } else { o.experience_harmful++; o.worse++; }
+      }
+    }
     this.received.set(pkg.id, rec); this.note("experience_received", { id: pkg.id, from: this.cards.get(from)?.name || from, offered_as: pkg.status, local: rec.local });
     return rec.local;
   }
 
   // ---------- Referral (§10.10–10.12, §12.2)
-  observe(orch, category) { if (!this.observed.has(orch)) this.observed.set(orch, new Map()); const m = this.observed.get(orch); if (!m.has(category)) m.set(category, { referrals: 0, improved: 0, worse: 0, harm_delta_sum: 0 }); return m.get(category); }
-  competence(orch, category) { const o = this.observed.get(orch)?.get(category); if (!o || !o.referrals) return null; return { ...o, harm_delta_per_task: +(o.harm_delta_sum / o.referrals).toFixed(3) }; }
+  observe(orch, category) { if (!this.observed.has(orch)) this.observed.set(orch, new Map()); const m = this.observed.get(orch); if (!m.has(category)) m.set(category, { n: 0, referrals: 0, experience_confirmed: 0, experience_harmful: 0, improved: 0, worse: 0, harm_delta_sum: 0 }); return m.get(category); }
+  competence(orch, category) { const o = this.observed.get(orch)?.get(category); if (!o || !o.n) return null; return { ...o, harm_delta_per_task: +(o.harm_delta_sum / o.n).toFixed(3) }; }
   async refer({ to, subject, category, reason, relationship = "none" }) {
     const card = await this.cardOf(to);
     const off = await this.rpc(card.interfaces[0].url, "ocx/referral.offer", { category, subject, reason, share_status: false });

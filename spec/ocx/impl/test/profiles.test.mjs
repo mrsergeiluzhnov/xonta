@@ -63,6 +63,18 @@ test("experience: a rule proven at the sender but harmful on the receiver's data
   assert.equal(r.received[0].local, "harmful");
 });
 
+test("experience: re-measured experience feeds the issuer's competence, harmful lowers it, counted once (§12.2)", async () => {
+  // so far X re-measured three packages from Y in "support": chargeback confirmed (-0.2), hello no_effect, invoice harmful (+0.3)
+  const c = X.competence(Y.id, "support");
+  assert.equal(c.experience_confirmed, 1); assert.equal(c.experience_harmful, 1); assert.equal(c.referrals, 0);
+  assert.equal(c.improved, 1); assert.equal(c.worse, 1);
+  assert.equal(c.harm_delta_per_task, +((-0.2 + 0.3) / 2).toFixed(3), "no_effect counts for nothing");
+  const again = [...X.received.values()].find((r) => r.local === "harmful").pkg;
+  await Y.rpc(X.url, "ocx/experience.offer", { packages: [again] });
+  assert.equal(X.competence(Y.id, "support").experience_harmful, 1, "the same package offered twice is counted once");
+  X.observed.delete(Y.id); // the referral tests below start from a clean slate
+});
+
 test("experience: a package claiming proven without beating the baseline is refused", async () => {
   const p = { ...Y.publishExperience({ category: "support", rule: { kind: "x" }, measurement: { ...base, harm_delta_per_task: -0.2, baseline: { policy: "always", harm_delta_vs_baseline_per_task: 0.3 } } }) };
   p.status = "proven"; p.signature = signDetached(Y.key, p);
@@ -95,6 +107,14 @@ test("referral: token is signed, states reason and relationship, offers learn_he
   const adm = await Y.admitReferred(tok);
   assert.equal(adm.admitted, true);
   await assert.rejects(Y.admitReferred(tok), (e) => e.rpc?.code === -32041, "a token is used once");
+});
+
+test("referral: learn_here is not offered when the target has experience in the category but none of it proven (§10.11)", async () => {
+  Y.acceptReferrals.add("billing");
+  const p = Y.publishExperience({ category: "billing", rule: { kind: "words", words: ["late"], then: "escalate" }, measurement: { ...base, harm_delta_per_task: -0.1, baseline: { policy: "always escalate", harm_delta_vs_baseline_per_task: 0.2 } } });
+  assert.equal(p.status, "no_effect");
+  const tok = await X.refer({ to: Y.id, subject: { ...agent, agent: "fp:sha256:" + "b".repeat(64) }, category: "billing", reason: "category_outside_competence" });
+  assert.equal(tok.alternatives.learn_here, false); assert.deepEqual(tok.alternatives.experience, []);
 });
 
 test("referral: outcomes from the target build competence at the referrer; receipts count more than self-reports", async () => {

@@ -1,6 +1,6 @@
 # Orchestrator Conduct Exchange (OCX)
 
-**Version:** 2026-11-06 (draft 0.2.2)
+**Version:** 2026-11-06 (draft 0.2.3)
 **Status:** open working draft. Comments and issues are welcome; expect breaking changes until 0.4
 **Editors:** Sergei Luzhnov (Xonta)
 **Reference implementation:** `impl/` in this repository (JavaScript, all five profiles); the Xonta test bench runs two orchestrators on it (`stand/ocx-run.js`), https://github.com/mrsergeiluzhnov/xonta
@@ -649,7 +649,7 @@ Issuers MUST respond to an appeal within 72 hours with `upheld` or `retracted`. 
 Asks a peer which orchestrators it knows to be strong in a category.
 
 Params: `{ "category": "payments", "limit": 5 }`.
-Result (signed): `{ "category": "payments", "candidates": [ { "orchestrator": "did:web:pay-orch.example", "card": "https://pay-orch.example/.well-known/orchestrator-card.json", "competence_by_me": { "referrals": 31, "improved": 22, "worse": 3, "harm_delta_per_task": -0.4 }, "verified_experience": ["did:web:pay-orch.example#exp-01JD..."] } ] }`.
+Result (signed): `{ "category": "payments", "candidates": [ { "orchestrator": "did:web:pay-orch.example", "card": "https://pay-orch.example/.well-known/orchestrator-card.json", "competence_by_me": { "n": 33, "referrals": 31, "experience_confirmed": 2, "experience_harmful": 0, "improved": 24, "worse": 3, "harm_delta_per_task": -0.4 }, "verified_experience": ["did:web:pay-orch.example#exp-01JD..."] } ] }`.
 
 `competence_by_me` contains only what the answering orchestrator observed itself, from referral outcomes (§10.12) or from experience it re-measured. Answers MUST NOT repeat other orchestrators' claims as own observations.
 
@@ -658,7 +658,7 @@ Result (signed): `{ "category": "payments", "candidates": [ { "orchestrator": "d
 An orchestrator that sees it serves an agent poorly in a category, or that knows a peer measurably serves that category better, MAY advise the agent to work with that peer. The agent, or its owner, decides. There are three outcomes, and the protocol supports all three:
 
 1. **Go there.** The agent takes the referral and works with the other orchestrator for that category.
-2. **Learn here.** The agent declines and asks its own orchestrator to obtain the other orchestrator's experience instead (`ocx/experience.get`, re-measured locally per §10.7).
+2. **Learn here.** The agent declines and asks its own orchestrator to obtain the other orchestrator's proven experience instead (`ocx/experience.get`, re-measured locally per §10.7).
 3. **Stay.** The agent declines both.
 
 **`ocx/referral.offer`** is sent by the referring orchestrator to the target to check that it will accept:
@@ -691,7 +691,7 @@ Rules:
 
 - The referral MUST state the reason, and SHOULD carry the referring orchestrator's own evidence for it.
 - `relationship` MUST disclose any commercial or ownership tie between the two orchestrators (`none`, `same_owner`, `paid`, `partner`). Undisclosed paid steering is a protocol violation and a valid reason to lower the referrer's weight.
-- `alternatives.learn_here` MUST be offered whenever the target offers experience for that category, so the agent is not forced to move.
+- `alternatives.learn_here` MUST be offered whenever the target offers experience with status `proven` for that category, so the agent is not forced to move. `alternatives.experience` lists only `proven` packages. Experience that is `no_effect`, `hypothesis` or `harmful` does not make `learn_here` available: a rule that does not beat the baseline would leave the agent no better off, or worse.
 - The referral MUST NOT carry the agent's conduct history. With the owner's consent (`share_status: true` in the offer and an owner signature in the token), the referring orchestrator MAY let the target query its status for that agent (§10.6) without peering.
 - A referral never transfers limits. The target sets its own limits from its own policy and any signals it holds (§11).
 - Active `proven` violation signals MUST NOT be laundered by referral: the target SHOULD query status for referred agents as for any other.
@@ -775,13 +775,15 @@ Each relying orchestrator keeps its own weight for every issuer it hears from. T
 Competence answers a different question from weight: not "does this orchestrator tell the truth" but "do agents do better with it in this category". A receiver keeps competence per orchestrator and per category, from:
 
 - referral outcomes it observed itself (§10.12), counted by harm per task relative to the baseline;
-- experience packages from that orchestrator that it re-measured on its own data (§10.7), counted only if they beat the baseline locally;
+- experience packages from that orchestrator that it re-measured on its own data (§10.7): a package confirmed locally raises competence, a package that turns out `harmful` locally lowers it, and `no_effect` counts for nothing;
 - competence answers from peers (§10.10), counted at the weight of the peer that gave them and never above its own observations.
 
 Requirements:
 
 - Competence MUST be per category. Strength in payments says nothing about access requests.
 - Self-declared `outcomes` in a card (§5.5) MUST NOT raise competence by themselves.
+- A package that turns out `harmful` on the receiver's data MUST lower the issuer's competence in that category, whatever status the issuer gave it. It does not by itself lower the issuer's weight (§12.1): the issuer may have measured honestly on different data.
+- Each package counts once, however many times it is offered.
 - An orchestrator SHOULD NOT refer agents to a peer whose competence it has not observed or verified, except with `reason: category_outside_competence`, where it says only "I am not the right place", not "they are better".
 - Referrals between orchestrators with a disclosed `relationship` other than `none` SHOULD count less in competence.
 
@@ -912,7 +914,7 @@ An orchestrator that issues `proven` signals MUST implement Evidence.
 
 ### 18.2 Test suite
 
-The conformance suite has two parts. `impl/conformance.mjs` plays a peer against any implementation over the network and checks the Core profile and, where the card declares them, Evidence, Experience, Referral and Appeal: card and schema, version negotiation, request signatures and replay, signal verification, expiry, loops, duplicates, signed status answers, retraction. `impl/test/` contains deeper checks run against the reference implementation, including ledger window proofs. Passing the network suite is required to call an implementation conformant. Results are written as a JSON report that can be published next to the implementation.
+The conformance suite has two parts. `impl/conformance.mjs` plays a peer against any implementation over the network and checks the Core profile and, where the card declares them, Evidence, Experience, Referral and Appeal: card and schema, version negotiation, request signatures and replay, signal verification, expiry, loops, duplicates, signed status answers, retraction, and for Experience that nothing `harmful` is served and that packages marked `harmful`, worse than the agent and the baseline but labelled otherwise, or claiming `proven` without beating the baseline are refused with `-32602`. `impl/test/` contains deeper checks run against the reference implementation, including ledger window proofs. Passing the network suite is required to call an implementation conformant. Results are written as a JSON report that can be published next to the implementation.
 
 ---
 

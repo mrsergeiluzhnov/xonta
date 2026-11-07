@@ -1,5 +1,19 @@
 # Changelog / Журнал изменений
 
+## 0.2.3 (2026-11-07)
+
+- §10.11: `learn_here` is offered only when the target has `proven` experience in the category, and `alternatives.experience` lists only `proven` packages. Before, the text required it for any experience, while the reference implementation already used only `proven`.
+- §12.2: experience re-measured on the receiver's data feeds the issuer's competence both ways. Confirmed raises it, `harmful` lowers it, `no_effect` counts for nothing, each package once. Before, the text counted only the good case and the reference implementation counted neither. A harmful result does not lower the issuer's weight, it may have measured honestly on other data.
+- §18.2: `impl/conformance.mjs` checks the Experience profile from the outside: nothing `harmful` is served, and packages marked `harmful`, worse than both but labelled otherwise, or claiming `proven` without beating the baseline are refused. 24 checks against the reference implementation.
+- Reference implementation: competence counts re-measured experience (`experience_confirmed`, `experience_harmful`, `n` in `competence_by_me`), two new checks, 40 in total. Wire compatibility unchanged, the protocol version string stays 2026-11-06.
+
+Русским языком:
+
+- §10.11: вариант «остаться и взять опыт» предлагается, только если у того оркестратора есть доказанный (`proven`) опыт по категории, и в направлении перечисляются только такие пакеты. Раньше текст требовал этого при любом опыте, хотя эталонная реализация уже брала только доказанный.
+- §12.2: опыт соседа, перемеренный у себя, влияет на его компетентность в обе стороны. Подтвердился — повышает, оказался вредным — снижает, «без эффекта» не считается, каждый пакет один раз. Раньше текст учитывал только хороший случай, а эталонная реализация не учитывала ни один. Вредный результат не снижает вес отправителя: он мог честно мерить на других данных.
+- §18.2: внешняя проверка `impl/conformance.mjs` теперь проверяет профиль Experience: вредное не отдаётся, а пакеты со статусом `harmful`, с цифрами хуже обоих и другим статусом или с `proven` без победы над простейшей политикой отклоняются. Против эталонной реализации 24 проверки из 24.
+- Эталонная реализация: компетентность учитывает перемеренный опыт (`experience_confirmed`, `experience_harmful`, `n` в `competence_by_me`), две новые проверки, всего 40. Совместимость не меняется, строка версии протокола остаётся 2026-11-06.
+
 ## 0.2.2 (2026-11-07)
 
 - New experience status `harmful` (§10.7, `experience.schema.json`): a rule measured as worse than the agent without it and worse than the baseline. Before, such a rule got `no_effect`, which from the outside reads as "harmless, just useless". A `harmful` rule is not given to agents, not offered to peers and not returned by `ocx/experience.get`. A receiver refuses a package marked `harmful`, and a package whose numbers are worse than both but marked otherwise; its own re-measurement can also end in `harmful`. The status table for experience packages is now in the text.

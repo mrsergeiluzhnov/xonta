@@ -110,6 +110,21 @@
                 },
                 "harm_delta_per_task": {
                   "type": "number"
+                },
+                "n": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "observations counted: referral outcomes plus re-measured experience packages"
+                },
+                "experience_confirmed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "packages from the target confirmed on the referrer's data"
+                },
+                "experience_harmful": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "packages from the target that turned out harmful on the referrer's data"
                 }
               }
             }

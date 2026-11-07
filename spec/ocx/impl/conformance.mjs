@@ -7,9 +7,9 @@
 // The target must be able to reach the tester's card, so for a remote target run the tester behind a public URL.
 // Output: a table in the terminal and conformance-<host>.json next to this file.
 import { writeFileSync, readFileSync } from "node:fs";
-import { Orchestrator, VERSION } from "./lib/orchestrator.js";
+import { Orchestrator, VERSION, experienceStatus } from "./lib/orchestrator.js";
 import { signRequest } from "./lib/httpsig.js";
-import { verifyDetached } from "./lib/crypto.js";
+import { verifyDetached, signDetached } from "./lib/crypto.js";
 
 const target = (process.argv[2] || "").replace(/\/$/, "");
 if (!target) { console.error("usage: node conformance.mjs <target base url>"); process.exit(2); }
@@ -76,7 +76,20 @@ await check("Core", "retraction accepted", async () => {
   const res = await T.rpc(ocxUrl, "ocx/signals.push", { signals: [r] }); return res.accepted?.includes(r.id) || JSON.stringify(res);
 });
 if (card.capabilities?.evidence) await check("Evidence", "unknown signal evidence refused with -32023", () => expectCode(T.rpc(ocxUrl, "ocx/evidence.get", { signal: `${card.id}#does-not-exist` }), -32023));
-if (card.capabilities?.experience) await check("Experience", "experience.get answers", async () => Array.isArray((await T.rpc(ocxUrl, "ocx/experience.get", {})).packages) || false);
+if (card.capabilities?.experience) {
+  await check("Experience", "experience.get answers", async () => Array.isArray((await T.rpc(ocxUrl, "ocx/experience.get", {})).packages) || false);
+  // §10.7: harmful experience is never served, and a receiver refuses it however it is labelled
+  await check("Experience", "experience.get serves nothing harmful", async () => {
+    const bad = (await T.rpc(ocxUrl, "ocx/experience.get", {})).packages.filter((p) => p.status === "harmful" || (p.status !== "revoked" && experienceStatus(p.measurement?.harm_delta_per_task, p.measurement?.baseline?.harm_delta_vs_baseline_per_task) === "harmful"));
+    return !bad.length || `served ${bad.map((p) => p.id).join(", ")}`;
+  });
+  const m = { design: "paired", pairs: 120, better: 10, worse: 30, holdout: true };
+  const pkg = (measurement, status) => { const p = { ...T.publishExperience({ category: "operations", rule: { kind: "conformance" }, measurement: { ...m, ...measurement } }) }; delete p.signature; p.status = status; p.signature = signDetached(T.key, p); return p; };
+  const worse = { harm_delta_per_task: 0.5, baseline: { policy: "always escalate", harm_delta_vs_baseline_per_task: 0.7 } };
+  await check("Experience", "package marked harmful refused with -32602", () => expectCode(T.rpc(ocxUrl, "ocx/experience.offer", { packages: [pkg(worse, "harmful")] }), -32602));
+  await check("Experience", "package worse than agent and baseline but marked no_effect refused with -32602", () => expectCode(T.rpc(ocxUrl, "ocx/experience.offer", { packages: [pkg(worse, "no_effect")] }), -32602));
+  await check("Experience", "package marked proven without beating the baseline refused with -32602", () => expectCode(T.rpc(ocxUrl, "ocx/experience.offer", { packages: [pkg({ harm_delta_per_task: -0.2, baseline: { policy: "always escalate", harm_delta_vs_baseline_per_task: 0.3 } }, "proven")] }), -32602));
+}
 if (card.capabilities?.referral) await check("Referral", "competence.query answer is signed", async () => {
   const a = await T.rpc(ocxUrl, "ocx/competence.query", { category: "operations" });
   return verifyDetached((kid) => (card.keys.jwks?.keys || []).find((k) => k.kid === kid), a, a.signature).ok || "bad signature";
