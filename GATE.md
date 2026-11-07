@@ -32,6 +32,15 @@ npx -y github:mrsergeiluzhnov/xonta check -- npx -y @modelcontextprotocol/server
 budget: 20 actions per 3600s
 ```
 
+No server at hand? Try the gate in front of a small demo notes server that ships with the repo. It has a tool with a hidden instruction, a page with a hidden command and a delete action, so you can see all three checks at work:
+
+```bash
+git clone https://github.com/mrsergeiluzhnov/xonta && cd xonta && npm ci
+node bin/xonta-gate.js -- node examples/demo-notes-mcp.js
+```
+
+The same setup runs in Docker with `Dockerfile.glama`.
+
 ## Claude Desktop, Cursor and other stdio clients
 
 Put the gate in front of the server in your client config. Before:
@@ -196,6 +205,8 @@ Gate is the simple part of Xonta. The full orchestrator learns how much an agent
 ```bash
 npx -y github:mrsergeiluzhnov/xonta check -- npx -y @modelcontextprotocol/server-filesystem ~/Documents
 ```
+
+Попробовать без своего сервера: `node bin/xonta-gate.js -- node examples/demo-notes-mcp.js` после `npm ci` в репозитории. Это маленький демо-сервер заметок с инструментом со скрытой инструкцией, страницей со скрытой командой и удалением, видно все три проверки. То же в Docker: `Dockerfile.glama`.
 
 Подключить к Claude Desktop или Cursor — в настройках MCP-сервера добавить перед его командой `npx -y github:mrsergeiluzhnov/xonta --budget 10 --`, примеры выше. Удалённый сервер — `--url https://…/mcp --http 4950`. Настройки — файл `--policy`, журнал и ключ — в `~/.xonta-gate`, проверка журнала — `verify`, сводка — `report`.
 
