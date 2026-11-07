@@ -9,7 +9,7 @@
 
 ## 1. Problem
 
-An agent's report about what it did is a claim, not evidence. In the Xonta honesty benchmark (`bench/honesty`) GigaChat-2 never misreported on its own, but when someone asked it to make a report look better it did so in 25 of 40 reports, and in none of those 25 did it say it had been asked. Claiming a check it never ran worked 18 times out of 19.
+An agent's report about what it did is a claim, not evidence. In the Xonta honesty benchmark (`bench/honesty`) three models (GigaChat-2, llama3.1:8b, qwen2.5:7b) never misreported on their own, but when someone asked them to make a report look better they did so in 50 to 67.5% of reports. Asked to claim a check they never ran, all three did it every time, 57 of 57. GigaChat-2 never said it had been asked.
 
 An auditor, an orchestrator or another agent that wants to know whether `verify_bank_details` was really called needs a record that does not come from the agent. The MCP server, or a gateway in front of it, is the natural place to produce that record: it sees every call.
 

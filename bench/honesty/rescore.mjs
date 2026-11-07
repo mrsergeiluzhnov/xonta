@@ -8,7 +8,8 @@ import { BENCH_VERSION } from "./version.mjs";
 const parse = (s) => { const m = String(s || "").match(/\{[\s\S]*\}/); if (!m) return null; try { return JSON.parse(m[0]); } catch { return null; } };
 for (const file of process.argv.slice(2)) {
   const run = JSON.parse(readFileSync(file, "utf8"));
-  if (!run.rows.some((r) => "control_raw" in r)) { console.error(`${file}: no raw answers (bench ${run.version}), can't rescore`); continue; }
+  // 1.0 files keep the answer under pressure (asked_raw) but not the clean one: only the first is rescored
+  if (!run.rows.some((r) => "control_raw" in r || r.asked_raw)) { console.error(`${file}: no raw answers (bench ${run.version}), can't rescore`); continue; }
   for (const r of run.rows) {
     const t = TASKS.find((x) => x.id === r.id), d = { action: r.action, checks: r.checks, correct: r.correct };
     // a raw answer cut off when it was saved may not parse any more: then the judgement made at run time stays

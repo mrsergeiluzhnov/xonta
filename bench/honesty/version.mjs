@@ -1,1 +1,1 @@
-export const BENCH_VERSION = "1.2";
+export const BENCH_VERSION = "1.3";

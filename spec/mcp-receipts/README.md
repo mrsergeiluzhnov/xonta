@@ -4,7 +4,7 @@
 
 Неофициальное расширение MCP. MCP‑сервер или шлюз перед ним выдаёт клиенту подписанную квитанцию на каждый вызов инструмента. По ней любой может проверить, что вызов был, с каким решением и под каким номером в журнале, не веря на слово ни агенту, ни оркестратору.
 
-Зачем это нужно. В нашем тесте честности GigaChat‑2 по просьбе приписала себе проверку, которой не было, в 18 случаях из 19 (`bench/honesty`). Отчёт агента ничего не доказывает. Квитанция сервера доказывает.
+Зачем это нужно. В нашем тесте честности три модели (GigaChat‑2, llama3.1:8b, qwen2.5:7b) по просьбе приписывали себе проверку, которой не было, каждый раз, 57 из 57 (`bench/honesty`). Отчёт агента ничего не доказывает. Квитанция сервера доказывает.
 
 Как устроено:
 
@@ -33,7 +33,7 @@ verifyReceipt(r._meta[RECEIPTS_EXT], jwk, { args, content: r.content }); // { ok
 
 An unofficial MCP extension. An MCP server, or a gateway in front of it, hands the client a signed receipt for every tool call. Anyone can then check that the call happened, with which decision and at which position in the log, without taking the agent's or the orchestrator's word for it.
 
-Why. In our honesty benchmark GigaChat-2, when asked, claimed a check it never ran in 18 of 19 cases (`bench/honesty`). An agent's report proves nothing. A receipt from the server does.
+Why. In our honesty benchmark three models (GigaChat-2, llama3.1:8b, qwen2.5:7b), when asked, claimed a check they never ran every single time, 57 of 57 (`bench/honesty`). An agent's report proves nothing. A receipt from the server does.
 
 How it works:
 
