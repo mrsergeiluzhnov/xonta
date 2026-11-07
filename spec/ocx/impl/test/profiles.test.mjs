@@ -32,12 +32,35 @@ test("experience: better than the agent but not than the baseline is published a
 test("experience: receiver verifies, re-measures on its own data and keeps its own verdict", async () => {
   const good = Y.publishExperience({ category: "support", rule: { kind: "words", words: ["chargeback"], then: "escalate" }, measurement: { ...base, harm_delta_per_task: -0.43, baseline: { policy: "always escalate", harm_delta_vs_baseline_per_task: -0.63 } } });
   assert.equal(good.status, "proven");
-  X.remeasure = async (pkg) => (pkg.rule.words.includes("chargeback") ? { harm_delta_per_task: -0.2, baseline_delta_per_task: -0.1 } : { harm_delta_per_task: 0.05, baseline_delta_per_task: 0.2 });
+  X.remeasure = async (pkg) => (pkg.rule.words.includes("chargeback") ? { harm_delta_per_task: -0.2, baseline_delta_per_task: -0.1 } : pkg.rule.words.includes("hello") ? { harm_delta_per_task: 0.05, baseline_delta_per_task: -0.2 } : { harm_delta_per_task: 0.3, baseline_delta_per_task: 0.4 });
   const r = await Y.rpc(X.url, "ocx/experience.offer", { packages: [good] });
   assert.deepEqual(r.received, [{ id: good.id, local: "confirmed" }]);
   const other = Y.publishExperience({ category: "support", rule: { kind: "words", words: ["hello"], then: "escalate" }, measurement: { ...base, harm_delta_per_task: -0.1, baseline: { policy: "always escalate", harm_delta_vs_baseline_per_task: -0.05 } } });
   const r2 = await Y.rpc(X.url, "ocx/experience.offer", { packages: [other] });
   assert.equal(r2.received[0].local, "no_effect", "proven at the sender, no effect on the receiver's data");
+});
+
+test("experience: worse than both the agent and the baseline is published as harmful, not offered and not served", async () => {
+  // numbers from bench run run-ocx-1: 100 165 RUB per task with the rule, 3 313 without, 400 for "always ask a human"
+  const p = Y.publishExperience({ category: "support", rule: { kind: "text", text: "callback on changed details" }, measurement: { ...base, harm_delta_per_task: 96852, baseline: { policy: "always escalate", harm_delta_vs_baseline_per_task: 99765 } } });
+  assert.equal(p.status, "harmful");
+  await assert.rejects(Y.offerExperience(X.id, p.id), /harmful/);
+  const r = await X.fetchExperience(Y.base, "support");
+  assert.ok(!r.packages.some((x) => x.id === p.id), "experience.get must not return a harmful package");
+});
+
+test("experience: a package marked harmful, or worse than both but marked no_effect, is refused", async () => {
+  const p = Y.publishExperience({ category: "support", rule: { kind: "words", words: ["wire"], then: "pay" }, measurement: { ...base, harm_delta_per_task: 0.5, baseline: { policy: "always", harm_delta_vs_baseline_per_task: 0.7 } } });
+  await assert.rejects(Y.rpc(X.url, "ocx/experience.offer", { packages: [p] }), (e) => e.rpc?.code === -32602 && /not shared/.test(e.rpc?.data?.reason || e.message));
+  const q = { ...p }; delete q.signature; q.status = "no_effect"; q.signature = signDetached(Y.key, q);
+  await assert.rejects(Y.rpc(X.url, "ocx/experience.offer", { packages: [q] }), (e) => e.rpc?.code === -32602);
+});
+
+test("experience: a rule proven at the sender but harmful on the receiver's data stays harmful locally", async () => {
+  const p = Y.publishExperience({ category: "support", rule: { kind: "words", words: ["invoice"], then: "pay" }, measurement: { ...base, harm_delta_per_task: -0.3, baseline: { policy: "always escalate", harm_delta_vs_baseline_per_task: -0.2 } } });
+  assert.equal(p.status, "proven");
+  const r = await Y.rpc(X.url, "ocx/experience.offer", { packages: [p] });
+  assert.equal(r.received[0].local, "harmful");
 });
 
 test("experience: a package claiming proven without beating the baseline is refused", async () => {

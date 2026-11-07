@@ -8,9 +8,9 @@ Site: [mrsergeiluzhnov.github.io/xonta](https://mrsergeiluzhnov.github.io/xonta/
 
 ## New. OCX, a protocol for orchestrators to talk to each other (draft 0.2)
 
-MCP connects an agent to tools, A2A connects agents to each other. OCX connects the ones who answer for agents. If an agent lies in a report to one orchestrator ("I verified the bank details", while the ledger has no receipt for that check), the orchestrator sends its peers a signed signal with the proof. Each peer checks the proof itself and decides what to do, usually by turning off the agent's automatic payments. The agent's owner can appeal a wrong signal, and the retraction travels the same way. The protocol also covers sharing proven rules and referring an agent to an orchestrator that is measurably stronger in a given category.
+MCP connects an agent to tools, A2A connects agents to each other. OCX connects the ones who answer for agents. If an agent lies in a report to one orchestrator ("I verified the bank details", while the ledger has no receipt for that check), the orchestrator sends its peers a signed signal with the proof. Each peer checks the proof itself and decides what to do, usually by turning off the agent's automatic payments. The agent's owner can appeal a wrong signal, and the retraction travels the same way. The protocol also covers sharing proven rules and referring an agent to an orchestrator that is measurably stronger in a given category. A rule that measures worse than both the agent and a plain "always ask a human" is marked harmful and goes no further.
 
-The spec, schemas and a reference implementation with 34 checks are in [spec/ocx](spec/ocx/README.en.md). On the bench the protocol runs with two orchestrators: `NET_MODE=ocx` ([stand/ocx-run.js](stand/ocx-run.js)).
+The spec, schemas and a reference implementation with 38 checks are in [spec/ocx](spec/ocx/README.en.md). On the bench the protocol runs with two orchestrators: `NET_MODE=ocx` ([stand/ocx-run.js](stand/ocx-run.js)).
 
 ## New. Xonta Gate, a trust layer in front of any MCP server
 

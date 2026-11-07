@@ -1,6 +1,6 @@
 # Orchestrator Conduct Exchange (OCX)
 
-**Version:** 2026-11-06 (draft 0.2)
+**Version:** 2026-11-06 (draft 0.2.2)
 **Status:** open working draft. Comments and issues are welcome; expect breaking changes until 0.4
 **Editors:** Sergei Luzhnov (Xonta)
 **Reference implementation:** `impl/` in this repository (JavaScript, all five profiles); the Xonta test bench runs two orchestrators on it (`stand/ocx-run.js`), https://github.com/mrsergeiluzhnov/xonta
@@ -611,6 +611,20 @@ Exchange of proven rules for a category: a rule as data, plus how it was measure
 ```
 
 `measurement.baseline` is REQUIRED. A rule that is better than the agent but not better than the simplest fixed policy MUST NOT be offered as `proven`. Receivers SHOULD re-measure an offered rule on their own data before using it, and MUST NOT relay experience they have not re-measured.
+
+`status` is one of:
+
+| Status | Meaning |
+|---|---|
+| `proven` | Better than the agent without the rule and better than the baseline: `harm_delta_per_task < 0` and `harm_delta_vs_baseline_per_task < 0` |
+| `harmful` | Worse than the agent without the rule and worse than the baseline: `harm_delta_per_task > 0` and `harm_delta_vs_baseline_per_task > 0` |
+| `no_effect` | Measured, but neither of the above |
+| `hypothesis` | Not measured yet, or not enough pairs |
+| `revoked` | Was offered earlier and withdrawn by the issuer |
+
+A rule measured as worse than both the agent and the baseline MUST be marked `harmful`, not `no_effect`: from the outside `no_effect` reads as "harmless, just useless". An orchestrator MUST NOT give a `harmful` rule to its agents, MUST NOT offer it with `ocx/experience.offer` and MUST NOT return it from `ocx/experience.get`. A receiver MUST refuse with `-32602` a package marked `harmful`, and a package whose measurement is worse than both but marked anything other than `harmful` or `revoked`. If a receiver's own re-measurement finds an offered rule harmful on its data, it MUST NOT use the rule and keeps the local verdict `harmful`.
+
+Why: in a Xonta bench run with two orchestrators (run-ocx-1) a rule cost 100 165 RUB per task, against 3 313 RUB without it and 400 RUB for "always ask a human". It was marked `no_effect`, was still handed out, and every wrong payment in the run went through it.
 
 ### 10.8 `ocx/evidence.get`
 

@@ -14,6 +14,13 @@ const didFor = (port) => `did:web:127.0.0.1%3A${port}`;
 export const didToBase = (did) => { const host = decodeURIComponent(did.replace(/^did:web:/, "").split("#")[0]); return (/^(127\.0\.0\.1|localhost)(:|$)/.test(host) ? "http://" : "https://") + host; };
 const didFromBase = (base) => "did:web:" + encodeURIComponent(new URL(base).host);
 
+// §10.7: proven — better than the agent and the baseline; harmful — worse than both; otherwise no_effect
+export function experienceStatus(vsAgent, vsBaseline) {
+  if (vsAgent < 0 && vsBaseline < 0) return "proven";
+  if (vsAgent > 0 && vsBaseline > 0) return "harmful";
+  return "no_effect";
+}
+
 export class Orchestrator {
   constructor({ name, port, publicBase = null, roles = ["governing"], trust = {}, actOnLevels = ["proven"], maxHops = 2, log = () => {},
     openLimits = { max_payment: { amount: "100", currency: "USD" }, human_confirmation: false }, closedLimits = { max_payment: { amount: "0", currency: "USD" }, human_confirmation: true } }) {
@@ -33,7 +40,7 @@ export class Orchestrator {
     this.events = [];
     // Experience (§10.7): own packages, received packages with local re-measurement status
     this.experience = new Map();      // id -> package (own, signed)
-    this.received = new Map();        // id -> { pkg, from, local: "hypothesis" | "confirmed" | "no_effect" }
+    this.received = new Map();        // id -> { pkg, from, local: "hypothesis" | "confirmed" | "no_effect" | "harmful" }
     this.remeasure = null;            // async (pkg) => { harm_delta_per_task, baseline_delta_per_task } on own data
     // Referral (§10.10–10.12, §12.2)
     this.competenceDecl = [];         // what this orchestrator declares in its card (§5.5)
@@ -297,7 +304,7 @@ export class Orchestrator {
           for (const pkg of p.packages || []) out.push({ id: pkg.id, local: await this.acceptPackage(pkg, card.id) });
           return { received: out };
         }
-        case "ocx/experience.get": return { packages: [...this.experience.values()].filter((x) => !p.category || x.category === p.category) };
+        case "ocx/experience.get": return { packages: [...this.experience.values()].filter((x) => x.status !== "harmful" && (!p.category || x.category === p.category)) };
         case "ocx/competence.query": {
           const cands = [];
           for (const [orch, cats] of this.observed) { const c = this.competence(orch, p.category); if (c && cats.has(p.category)) cands.push({ orchestrator: orch, card: `${didToBase(orch)}/.well-known/orchestrator-card.json`, competence_by_me: c,
@@ -348,12 +355,15 @@ export class Orchestrator {
   // ---------- Experience (§10.7)
   publishExperience({ category, rule, measurement }) {
     if (!measurement?.baseline || typeof measurement.baseline.harm_delta_vs_baseline_per_task !== "number") throw new Error("measurement.baseline is required");
-    const proven = measurement.harm_delta_per_task < 0 && measurement.baseline.harm_delta_vs_baseline_per_task < 0;
-    const pkg = { id: `${this.id}#exp-${ulid()}`, category, rule, measurement, status: proven ? "proven" : "no_effect", issuer: this.id };
+    const pkg = { id: `${this.id}#exp-${ulid()}`, category, rule, measurement, status: experienceStatus(measurement.harm_delta_per_task, measurement.baseline.harm_delta_vs_baseline_per_task), issuer: this.id };
     pkg.signature = signDetached(this.key, pkg);
     this.experience.set(pkg.id, pkg); return pkg;
   }
-  async offerExperience(peerId, pkgId) { const p = this.peers.get(peerId); return this.rpc(p.push_url, "ocx/experience.offer", { packages: [this.experience.get(pkgId)] }); }
+  async offerExperience(peerId, pkgId) {
+    const pkg = this.experience.get(pkgId);
+    if (pkg?.status === "harmful") throw new Error("harmful experience is not offered (§10.7)");
+    const p = this.peers.get(peerId); return this.rpc(p.push_url, "ocx/experience.offer", { packages: [pkg] });
+  }
   async fetchExperience(base, category) { return this.rpc(`${base}/ocx`, "ocx/experience.get", { category }); }
   async acceptPackage(pkg, from) {
     const lookup = await this.issuerLookup(pkg.issuer);
@@ -361,8 +371,10 @@ export class Orchestrator {
     const m = pkg.measurement || {};
     if (!m.baseline || typeof m.baseline.harm_delta_vs_baseline_per_task !== "number") throw E(-32602, "Invalid params", { reason: "measurement.baseline is required" });
     if (pkg.status === "proven" && !(m.harm_delta_per_task < 0 && m.baseline.harm_delta_vs_baseline_per_task < 0)) throw E(-32602, "Invalid params", { reason: "proven but not better than the agent and the baseline" });
+    if (pkg.status === "harmful") throw E(-32602, "Invalid params", { reason: "harmful experience is not shared" });
+    if (experienceStatus(m.harm_delta_per_task, m.baseline.harm_delta_vs_baseline_per_task) === "harmful" && pkg.status !== "revoked") throw E(-32602, "Invalid params", { reason: "worse than the agent and the baseline but not marked harmful" });
     const rec = { pkg, from, local: "hypothesis" };
-    if (this.remeasure) { const r = await this.remeasure(pkg); rec.local_measurement = r; rec.local = r.harm_delta_per_task < 0 && r.baseline_delta_per_task < 0 ? "confirmed" : "no_effect"; }
+    if (this.remeasure) { const r = await this.remeasure(pkg); rec.local_measurement = r; const v = experienceStatus(r.harm_delta_per_task, r.baseline_delta_per_task); rec.local = v === "proven" ? "confirmed" : v; }
     this.received.set(pkg.id, rec); this.note("experience_received", { id: pkg.id, from: this.cards.get(from)?.name || from, offered_as: pkg.status, local: rec.local });
     return rec.local;
   }

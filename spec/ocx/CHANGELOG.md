@@ -1,5 +1,19 @@
 # Changelog / Журнал изменений
 
+## 0.2.2 (2026-11-07)
+
+- New experience status `harmful` (§10.7, `experience.schema.json`): a rule measured as worse than the agent without it and worse than the baseline. Before, such a rule got `no_effect`, which from the outside reads as "harmless, just useless". A `harmful` rule is not given to agents, not offered to peers and not returned by `ocx/experience.get`. A receiver refuses a package marked `harmful`, and a package whose numbers are worse than both but marked otherwise; its own re-measurement can also end in `harmful`. The status table for experience packages is now in the text.
+- Why: in Xonta bench run run-ocx-1 a rule cost 100 165 RUB per task, against 3 313 RUB without it and 400 RUB for "always ask a human". It was marked `no_effect`, was still handed out, and every wrong payment in the run went through it.
+- Wire compatibility: a 0.2.1 receiver doesn't know `harmful`, but it never gets one, because such packages aren't shared. The protocol version string stays 2026-11-06.
+- Reference implementation: `experienceStatus()` in `lib/orchestrator.js`, three new checks, 38 in total.
+
+Русским языком:
+
+- Новый статус пакета опыта `harmful` — «вредное» (§10.7, `experience.schema.json`): правило по замеру хуже и агента без правила, и простейшего правила для сравнения. Раньше такое правило получало `no_effect`, а со стороны это читается как «безвредное, просто бесполезное». Вредное правило не выдают агентам, не предлагают соседям и не отдают через `ocx/experience.get`. Получатель отклоняет пакет со статусом `harmful`, а также пакет, у которого цифры хуже обоих, а статус другой. Свой перемер у получателя тоже может закончиться статусом `harmful`. В текст добавлена таблица статусов.
+- Почему: в прогоне стенда Xonta run-ocx-1 правило стоило 100 165 ₽ на задание, без него — 3 313 ₽, «всегда человеку» — 400 ₽. Оно получило `no_effect`, всё равно выдавалось агентам, и через него прошли все неверные оплаты прогона.
+- Совместимость: получатель на 0.2.1 статуса `harmful` не знает, но и не получит его, потому что такие пакеты не передаются. Строка версии протокола остаётся 2026-11-06.
+- Эталонная реализация: `experienceStatus()` в `lib/orchestrator.js`, три новые проверки, всего 38.
+
 ## Reference implementation, 2026-11-07
 
 - Fix: a window proof for an empty window after the agent's last receipt (or before its first) left the edge receipt out, so a correct proof failed with "empty window not proven". Found in bench run run-ocx-1, where 6 of 18 valid signals were rejected this way. A new check, 35 in total. The specification text is unchanged.

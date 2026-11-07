@@ -85,6 +85,7 @@
     "status": {
       "enum": [
         "proven",
+        "harmful",
         "no_effect",
         "revoked",
         "hypothesis"
@@ -118,6 +119,73 @@
                 "exclusiveMaximum": 0
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "harmful"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "measurement": {
+            "properties": {
+              "baseline": {
+                "properties": {
+                  "harm_delta_vs_baseline_per_task": {
+                    "exclusiveMinimum": 0
+                  }
+                }
+              },
+              "harm_delta_per_task": {
+                "exclusiveMinimum": 0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "measurement"
+        ],
+        "properties": {
+          "measurement": {
+            "required": [
+              "harm_delta_per_task",
+              "baseline"
+            ],
+            "properties": {
+              "harm_delta_per_task": {
+                "exclusiveMinimum": 0
+              },
+              "baseline": {
+                "required": [
+                  "harm_delta_vs_baseline_per_task"
+                ],
+                "properties": {
+                  "harm_delta_vs_baseline_per_task": {
+                    "exclusiveMinimum": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "harmful",
+              "revoked"
+            ]
           }
         }
       }
