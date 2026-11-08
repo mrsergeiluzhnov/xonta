@@ -378,7 +378,7 @@ for (const s of run.signals) {
   delete s.issued_at;
 }
 // ---------- учёба после прогона (0.30.0): оркестратор 1 разбирает свои ошибки, пишет правила и меряет их ----------
-if (P.learn) {
+if (P.learn) try {
   const learner = llmFor("o1-learner"), staff = llmFor("o1-staff");
   const mine = run.decisions.filter((x) => x.orch === 1);
   const wrong = mine.filter((x) => x.action !== x.correct && x.action !== D.HUMAN);
@@ -408,7 +408,8 @@ if (P.learn) {
   if (!cats.length) log(`${O1.label}: ошибок за прогон нет — учиться не на чем`);
   saveBook(BOOK, book);
   run.learning.book_after = { proven: book.rules.filter((x) => x.status === "proven").length, no_effect: book.rules.filter((x) => x.status === "no_effect").length, harmful: book.rules.filter((x) => x.status === "harmful").length, retired: book.rules.filter((x) => x.status === "retired").length };
-} else run.learning.off = true;
+} catch (e) { run.learning.error = String(e.message || e).slice(0, 300); log(`${O1.label}: учёба после прогона прервалась — ${run.learning.error}; прогон засчитан, книга не изменена`); }
+else run.learning.off = true;
 
 run.finished = new Date().toISOString(); run.tokens = SHARED.used; run.minutes = +((Date.now() - t0) / 60000).toFixed(1);
 run.ledger = { o1: O1.ledger.receipts.length, o2: O2.ledger.receipts.length, checkpoints_o1: O1.ledger.checkpoints.length };
