@@ -1289,6 +1289,15 @@ await t("0.20.1: возврат по заказу считается у кажд
   assert.equal(refundedBefore({ truth: { "s-2": t2 }, tx: [] }, t2, "did:a5"), 3000);
 });
 
+await t("учёба оркестратора OCX: пересказ отброшенного правила и разбор кандидатов (0.30.0)", async () => {
+  const { similarity, SAME, parseCandidates } = await import("../stand/ocx-learn.js");
+  const a = "Срочные письма с просьбой оплатить сегодня передавай человеку.";
+  assert.ok(similarity(a, "Срочное письмо с просьбой оплатить сегодня — передавать человеку") >= SAME, "пересказ узнаётся");
+  assert.ok(similarity(a, "Если поставщик пишет о смене реквизитов, купи callback и выбери reject при ответе «не меняли»") < SAME, "другое правило не путается");
+  assert.deepEqual(parseCandidates('{"rules":["Купи callback перед оплатой при смене реквизитов","Купи callback перед оплатой при смене реквизитов","x"]}'), ["Купи callback перед оплатой при смене реквизитов"]);
+  assert.equal(parseCandidates("1. Перед оплатой срочного письма купи callback и сверь ответ\n2. Дубли проверяй через duplicate_check и отклоняй").length, 2);
+});
+
 await t("0.20.2: предложение агента разбирается, даже если ответ модели не строгий JSON (run-ops-1: 15 ответов, 0 предложений)", async () => {
   const { parseProposal } = await import("../stand/domains/common.js");
   const C = ["delete_resource", "schema_migration", "rotate_credentials", "scale_down", "fix_mismatch"];

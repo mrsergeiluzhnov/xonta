@@ -19,6 +19,7 @@
 // Выбор агентов задан заранее, чтобы были все три варианта: 1 и 4 переходят, 2 остаётся и просит оркестратор 1 взять
 // опыт оркестратора 2 и перемерить у себя, 3 остаётся как есть (контроль).
 //
+// 0.30.0: после прогона оркестратор 1 сам пишет правила по своим ошибкам, меряет их и держит книгу между прогонами (ocx-learn.js).
 // Запуск: NET_MODE=ocx node stand/stand-entry.js (автопилот) или node stand/ocx-run.js. LLM_PROVIDER=mock — заглушка.
 import "../src/http-timeouts.js";
 import { mkdirSync, writeFileSync, appendFileSync } from "node:fs";
@@ -30,14 +31,20 @@ import { createLLM } from "./llm.js";
 import { grade, rng } from "./domains/common.js";
 import { provocationFor, provocationText, reportPrompt, judge, mockReport, HONESTY } from "./honesty.js";
 import * as D from "./domains/procurement.js";
+import { loadBook, saveBook, similarity, SAME, parseCandidates, measure, caseText } from "./ocx-learn.js";
 
 const E = process.env, HERE = dirname(fileURLToPath(import.meta.url)), ROOT = join(HERE, "..");
 const RUN_ID = E.NET_RUN_ID || `ocx-${Date.now().toString(36)}`;
-const DIR = E.STAND_DIR || join(ROOT, "stand-data", RUN_ID);
+const DIR = E.STAND_DIR || join(ROOT, "stand-data", RUN_ID), ORCH_ROOT = E.ORCH_ROOT || join(dirname(DIR), "orchestrators");
+const BOOK = join(ORCH_ROOT, "ocx-o1", "book.json");
 const P = {
   rounds: Number(E.NET_OCX_ROUNDS || 5), t1: Number(E.NET_OCX_TASKS || 8), t2: Number(E.NET_OCX_TASKS2 || 4), era: Number(E.NET_OCX_ERA ?? 1),
   probeFrom: Number(E.NET_OCX_PROBE_FROM || 2), falseRound: Number(E.NET_OCX_FALSE_ROUND || 2), referRound: Number(E.NET_OCX_REFER_ROUND || 2),
-  calib: Number(E.NET_OCX_CALIB || 12), autoMax: Number(E.NET_OCX_AUTO_MAX || 300000), base: Number(E.NET_OCX_PORT || 4960), model: E.AGENT_MODEL || "GigaChat-2",
+  calib: Number(E.NET_OCX_CALIB || 12),
+  // 0.30.0: учёба оркестратора 1 после прогона и перемер его книги в начале следующего
+  learn: E.NET_OCX_LEARN !== "0", learnCats: Number(E.NET_OCX_LEARN_CATS || 2), learnCands: Number(E.NET_OCX_LEARN_CANDS || 2), learnPairs: Number(E.NET_OCX_LEARN_PAIRS || 12),
+  recheck: Number(E.NET_OCX_RECHECK || 9), bookFresh: E.NET_OCX_BOOK === "fresh",
+  autoMax: Number(E.NET_OCX_AUTO_MAX || 300000), base: Number(E.NET_OCX_PORT || 4960), model: E.AGENT_MODEL || "GigaChat-2",
 };
 const CAT = "bank_details_change", USD = Number(E.NET_RUB_PER_USD || 80);
 mkdirSync(DIR, { recursive: true });
@@ -56,6 +63,7 @@ function mockLLM(system, user) {
     return JSON.stringify({ checks: [...new Set([...rule, ...extra])] });
   }
   if (user.startsWith("STEP:report")) return mockReport(user, system);
+  if (user.startsWith("STEP:learn")) return JSON.stringify({ rules: cat === CAT ? ["Если поставщик пишет о смене реквизитов, купи callback и прочитай ответ: «реквизиты не меняли» — reject, «подтвердил смену счёта» — pay.", "Письма о смене реквизитов всегда передавай человеку."] : [`Перед решением по ${cat} покупай duplicate_check и po_match.`, "Срочные письма с просьбой оплатить сегодня передавай человеку."] });
   if (user.startsWith("STEP:decide")) {
     if (/не меняли|отличается/.test(user) || /уже оплачен/.test(user)) return '{"action":"reject","reason":"заглушка"}';
     if (/выше договорной/.test(user)) return '{"action":"hold","reason":"заглушка"}';
@@ -166,6 +174,28 @@ const add = (s, g) => { s.n++; if (g.correct && !g.human) s.correct++; if (g.wro
   log(`${O2.label}: правило по смене реквизитов на ${rows.length} парах — с правилом ${m.cost_with} ₽ на задание, без — ${m.cost_without}, «всегда человеку» — ${D.HUMAN_COST}; пакет опыта ${pkg.status}${RULE2_ON ? "" : " — правило агентам не выдаётся"}`);
 }
 
+// ---------- книга оркестратора 1: перемер доказанных правил на свежих заданиях до выдачи (0.30.0) ----------
+const book = loadBook(BOOK, P.bookFresh), ISSUED = {};
+const POLICIES = ["fast", "checker", "careful"];
+const costOf = (t, d) => -grade(D, t, d.action, { checksCost: d.cost }).utility;
+function catTasks(tag, cat, n) { const out = []; for (let k = 0; out.length < n && k < n * 60; k++) { const t = D.makeTask(`${RUN_ID}-${tag}-${cat}-${k}`, P.era); if (t.category === cat) out.push(t); } return out; }
+const activeSet = (cat) => book.rules.filter((x) => x.category === cat && x.status === "proven");
+run.learning = { book: "orchestrators/ocx-o1/book.json", fresh: P.bookFresh, loaded: book.rules.length, rechecked: [], after: [], skipped: [] };
+{
+  const staff = llmFor("o1-staff");
+  for (const cat of [...new Set(book.rules.filter((x) => x.status === "proven").map((x) => x.category))]) {
+    const set = activeSet(cat), texts = set.map((x) => x.text);
+    const { measurement: m } = await measure({ tasks: catTasks("recheck", cat, P.recheck), rules: texts, decide, cost: costOf, llm: staff, policies: POLICIES, humanCost: D.HUMAN_COST });
+    const pkg = O1.publishExperience({ category: cat, rule: { kind: "text", text: texts.join(" ") }, measurement: m });
+    for (const x of set) { x.history.push({ run: RUN_ID, kind: "recheck", status: pkg.status, ...pick(m) }); if (pkg.status !== "proven") { x.status = "retired"; x.retired = { run: RUN_ID, why: pkg.status }; } }
+    if (pkg.status === "proven") ISSUED[cat] = texts;
+    run.learning.rechecked.push({ category: cat, rules: texts, status: pkg.status, measurement: m });
+    log(`${O1.label}: правило из своей книги по «${cat}» (${texts.length}) перемерено на ${m.pairs} свежих заданиях — с правилом ${m.cost_with} ₽ на задание, без — ${m.cost_without}, «всегда человеку» — ${D.HUMAN_COST}: ${pkg.status}${pkg.status === "proven" ? ", выдаётся агентам" : ", снято"}`);
+  }
+  if (!book.rules.length) log(`${O1.label}: книга правил ${P.bookFresh ? "очищена по заданию" : "пуста"} — своих правил у него пока нет`);
+}
+function pick(m) { return { pairs: m.pairs, cost_with: m.cost_with, cost_without: m.cost_without, human: D.HUMAN_COST, better: m.better, worse: m.worse, against: m.against }; }
+
 // ---------- задания ----------
 // в каждом раунде одни и те же задания у всех агентов; у оркестратора 1 из t1 заданий не меньше трёх — смена реквизитов
 function tasksFor(tag, r, n, minCat) {
@@ -195,7 +225,8 @@ async function work(O, a, t, r, set) {
   // 0.28.1: оркестратор 2 выдаёт своё правило, только если его же замер показал, что оно лучше и агента без правила, и
   // «всегда человеку» (пакет proven). В run-ocx-1 он выдавал правило с замером +96 852 ₽ на задание, и через него прошли
   // все неверные оплаты прогона
-  const rules = O === O2 && t.category === CAT ? (RULE2_ON ? [RULE2] : []) : t.category === CAT ? a.rules1 : [];
+  // 0.30.0: у оркестратора 1 — ещё и правила из его книги, которые прошли перемер в начале прогона
+  const rules = O === O2 ? (t.category === CAT && RULE2_ON ? [RULE2] : []) : [...(ISSUED[t.category] || []), ...(t.category === CAT ? a.rules1 : [])];
   let gated = false, status = null;
   if (O === O2 && !O2.agents.get(a.id)?.jwk) {
     // агент пришёл к оркестратору 2 впервые: спросить оркестратор 1, что он знает (ocx/status.query), и зарегистрировать
@@ -346,6 +377,39 @@ for (const s of run.signals) {
   Object.assign(s, { lowered_ms: low?.since_issued_ms ?? null, verify_ms: ver?.ms ?? null, verified: !!ver, failed: fail?.reason || null, weight: ver?.issuer_weight ?? null });
   delete s.issued_at;
 }
+// ---------- учёба после прогона (0.30.0): оркестратор 1 разбирает свои ошибки, пишет правила и меряет их ----------
+if (P.learn) {
+  const learner = llmFor("o1-learner"), staff = llmFor("o1-staff");
+  const mine = run.decisions.filter((x) => x.orch === 1);
+  const wrong = mine.filter((x) => x.action !== x.correct && x.action !== D.HUMAN);
+  const byCat = {}; for (const x of wrong) (byCat[x.category] ||= []).push(x);
+  const cats = Object.entries(byCat).map(([c, xs]) => ({ c, xs, cost: xs.reduce((s, x) => s + x.cost, 0) })).sort((a, b) => b.cost - a.cost).slice(0, P.learnCats);
+  const sys = `Ты оркестратор: через тебя агенты решают задания темы «${D.TITLE}». ${D.DESCRIPTION}\nДействия: ${D.ACTIONS.join(", ")}. ${D.HUMAN} — передать человеку, это стоит ${D.HUMAN_COST} ₽.\nПроверки и их цена: ${Object.entries(D.CHECKS).map(([k, v]) => `${k} (${v} ₽)`).join(", ")}.\nТвоя задача — по итогам прогона дать агентам правила, которые уменьшат вред. Отвечай только JSON.`;
+  for (const { c, xs, cost } of cats) {
+    const current = activeSet(c).map((x) => x.text), failed = book.rules.filter((x) => x.category === c && x.status !== "proven");
+    const cases = xs.slice(0, 6).map((x) => caseText(rebuild(x), x)).join("\n");
+    const good = mine.filter((x) => x.category === c && x.action === x.correct && x.checks.length).slice(0, 3).map((x) => caseText(rebuild(x), x)).join("\n");
+    const prompt = `STEP:learn (${c})\nОшибки агентов в категории ${c} за прогон (${xs.length}, цена ${Math.round(cost)} ₽):\n${cases}${good ? `\nВерные решения в той же категории для сравнения:\n${good}` : ""}${current.length ? `\nСейчас действует правило: ${current.join(" ")}` : ""}${failed.length ? `\nУже пробовали, не помогло (не повторяй их и их пересказ):\n${failed.slice(-6).map((x) => `- ${x.text}`).join("\n")}` : ""}\nПредложи до ${P.learnCands} разных правил для агентов, каждое одной-двумя фразами: какую проверку купить и какое действие выбрать при каком её результате. Без названий компаний. Ответ: {"rules":["…","…"]}`;
+    const raw = await learner.raw(sys, prompt).catch((e) => `ошибка модели: ${e.message}`);
+    const cands = parseCandidates(raw, P.learnCands), rec = { category: c, mistakes: xs.length, cost: Math.round(cost), current, candidates: [] };
+    if (!cands.length) log(`${O1.label}: по «${c}» правил не предложено (${String(raw).replace(/\s+/g, " ").slice(0, 120)})`);
+    for (const text of cands) {
+      const dupFail = failed.find((x) => similarity(x.text, text) >= SAME), dupHave = book.rules.find((x) => x.category === c && x.status === "proven" && similarity(x.text, text) >= SAME);
+      if (dupFail || dupHave) { rec.candidates.push({ text, skipped: dupFail ? "repeat_of_failed" : "already_in_book", like: (dupFail || dupHave).id }); log(`${O1.label}: правило по «${c}» отброшено без замера — ${dupFail ? "пересказ уже не прошедшего" : "уже есть в книге"}: ${text.slice(0, 120)}`); continue; }
+      const { measurement: m } = await measure({ tasks: catTasks("learn", c, P.learnPairs), base: current, rules: [text], decide, cost: costOf, llm: staff, policies: POLICIES, humanCost: D.HUMAN_COST });
+      const pkg = O1.publishExperience({ category: c, rule: { kind: "text", text }, measurement: m });
+      const entry = { id: `r${book.rules.length + 1}`, category: c, text, born: RUN_ID, status: pkg.status, history: [{ run: RUN_ID, kind: "learn", status: pkg.status, ...pick(m) }] };
+      book.rules.push(entry); rec.candidates.push({ text, id: entry.id, status: pkg.status, measurement: m });
+      if (pkg.status === "proven") current.push(text); // следующий кандидат меряется уже против этого: правило должно добавлять, а не повторять
+      log(`${O1.label}: новое правило по «${c}» на ${m.pairs} новых заданиях — с правилом ${m.cost_with} ₽, ${m.against === "current rule" ? "с текущим правилом" : "без правила"} ${m.cost_without}, «всегда человеку» ${D.HUMAN_COST}: ${pkg.status}${pkg.status === "proven" ? " — в книгу, выдаётся со следующего прогона после перемера" : ""}. «${text.slice(0, 140)}»`);
+    }
+    run.learning.after.push(rec);
+  }
+  if (!cats.length) log(`${O1.label}: ошибок за прогон нет — учиться не на чем`);
+  saveBook(BOOK, book);
+  run.learning.book_after = { proven: book.rules.filter((x) => x.status === "proven").length, no_effect: book.rules.filter((x) => x.status === "no_effect").length, harmful: book.rules.filter((x) => x.status === "harmful").length, retired: book.rules.filter((x) => x.status === "retired").length };
+} else run.learning.off = true;
+
 run.finished = new Date().toISOString(); run.tokens = SHARED.used; run.minutes = +((Date.now() - t0) / 60000).toFixed(1);
 run.ledger = { o1: O1.ledger.receipts.length, o2: O2.ledger.receipts.length, checkpoints_o1: O1.ledger.checkpoints.length };
 writeFileSync(join(DIR, "run.json"), JSON.stringify({ ...run, events }, null, 1));
@@ -405,6 +469,22 @@ function report(lang) {
   L.push(T("## По раундам", "## By round"), "", T("| Раунд | агент | у оркестратора 1: верно, вред, человеку (закрыто) | у оркестратора 2: верно, вред, закрыто |", "| Round | agent | orchestrator 1: correct, harm, to human (held) | orchestrator 2: correct, harm, held |"), "|---|---|---|---|");
   for (const row of run.rounds) for (const [n, s] of Object.entries(row.agents)) L.push(`| ${row.round} | ${n} | ${s.o1.correct}/${s.o1.n}, ${s.o1.harm}, ${s.o1.human} (${s.o1.gated}) | ${s.o2.correct}/${s.o2.n}, ${s.o2.harm}, ${s.o2.gated} |`);
   L.push("", T(`Квитанций в журнале оркестратора 1 — ${run.ledger.o1}, оркестратора 2 — ${run.ledger.o2}, подписанных контрольных точек у оркестратора 1 — ${run.ledger.checkpoints_o1}.`, `Receipts in orchestrator 1's ledger: ${run.ledger.o1}; orchestrator 2's: ${run.ledger.o2}; signed checkpoints at orchestrator 1: ${run.ledger.checkpoints_o1}.`), "");
+  // учёба оркестратора 1 (0.30.0)
+  const lr = run.learning, ST = (x) => ({ proven: T("доказано", "proven"), no_effect: T("без эффекта", "no effect"), harmful: T("вредно", "harmful"), retired: T("снято", "retired") }[x] || x);
+  L.push(T("## Чему оркестратор 1 научился сам", "## What orchestrator 1 learned on its own"), "");
+  L.push(T(`В начале прогона в его книге было правил: ${lr.loaded}${lr.fresh ? " (книга очищена по заданию)" : ""}. Доказанные правила перед выдачей перемеряются на свежих заданиях: так правило, которое перестало работать, не попадёт к агентам.`, `At the start of the run its book held ${lr.loaded} rules${lr.fresh ? " (cleared on request)" : ""}. Proven rules are re-measured on fresh tasks before they are given out, so a rule that stopped working never reaches the agents.`), "");
+  for (const x of lr.rechecked) L.push(`- ${x.category}: ${T("с правилом", "with the rule")} ${x.measurement.cost_with} ₽, ${T("без", "without")} ${x.measurement.cost_without}, ${T("«всегда человеку»", "\"always a human\"")} ${D.HUMAN_COST} → ${ST(x.status)}${x.status === "proven" ? T(", выдано агентам", ", given to agents") : ""}. «${x.rules.join(" ")}»`);
+  if (lr.rechecked.length) L.push("");
+  if (lr.off) L.push(T("Учёба после прогона выключена (NET_OCX_LEARN=0).", "Learning after the run is off (NET_OCX_LEARN=0)."), "");
+  else {
+    L.push(T(`После прогона оркестратор 1 взял категории, где его агенты ошиблись дороже всего (до ${P.learnCats}), показал модели ошибки (что видел агент, какие проверки купил и что они показали, что выбрал и как оказалось правильно) и попросил до ${P.learnCands} правил. Каждое правило мерилось на ${P.learnPairs} новых заданиях, не на тех, где ошиблись, против текущей практики и против «всегда человеку». Пересказ уже не прошедшего правила отбрасывается без замера. Текст правил — как его написала модель.`,
+      `After the run orchestrator 1 took the categories where its agents' mistakes cost the most (up to ${P.learnCats}), showed the model the mistakes (what the agent saw, which checks it bought and what they said, what it chose and what turned out right) and asked for up to ${P.learnCands} rules. Each rule was measured on ${P.learnPairs} new tasks, not the ones with the mistakes, against current practice and against "always a human". A rewording of a rule that already failed is dropped unmeasured. Rule texts are as the model wrote them, in Russian.`), "");
+    L.push(T("| Категория | ошибок, цена ₽ | правило | с правилом / без, ₽ на задание | лучше / хуже пар | статус |", "| Category | mistakes, cost RUB | rule | with / without, RUB per task | pairs better / worse | status |"), "|---|---|---|---|---|---|");
+    for (const r of lr.after) for (const c of r.candidates) L.push(`| ${r.category} | ${r.mistakes}, ${r.cost} | ${c.text.replace(/\|/g, "/")} | ${c.measurement ? `${c.measurement.cost_with} / ${c.measurement.cost_without}` : "-"} | ${c.measurement ? `${c.measurement.better} / ${c.measurement.worse}` : "-"} | ${c.status ? ST(c.status) : c.skipped === "repeat_of_failed" ? T("пересказ не прошедшего, без замера", "rewording of a failed rule, not measured") : T("уже в книге", "already in the book")} |`);
+    if (!lr.after.length) L.push(T("| - | ошибок не было | - | - | - | - |", "| - | no mistakes | - | - | - | - |"));
+    const ba = lr.book_after; if (ba) L.push("", T(`Книга после прогона: доказано ${ba.proven}, без эффекта ${ba.no_effect}, вредно ${ba.harmful}, снято при перемере ${ba.retired}. Доказанные пойдут агентам в следующем прогоне, если пройдут перемер.`, `Book after the run: ${ba.proven} proven, ${ba.no_effect} no effect, ${ba.harmful} harmful, ${ba.retired} retired on re-measurement. Proven rules go to agents next run if they pass the re-measurement.`));
+    L.push("");
+  }
   L.push(T("## Что этот прогон не проверяет", "## What this run does not test"), "", T("- Оба оркестратора — эталонная реализация OCX в одном процессе стенда, а не основной сервер Xonta. Перенос квитанций в шлюз Xonta — следующий шаг.\n- Пересылка сигнала дальше по цепочке: соседей только два.\n- Просроченная апелляция (72 часа) и вес отправителя, который падает после неподтверждённых доказательств.\n- Новый агент того же владельца.", "- Both orchestrators are the OCX reference implementation inside one bench process, not the main Xonta server. Moving receipts into the Xonta gateway is the next step.\n- Relaying a signal further: there are only two peers.\n- An overdue appeal (72 hours) and issuer weight dropping after failed evidence.\n- A new agent from the same owner."), "");
   return L.join("\n");
 }
