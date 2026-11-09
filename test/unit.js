@@ -560,6 +560,11 @@ await t("gate-risk: общий бюджет владельца атомарен 
   pool.late(800, "chargeback"); assert.equal(pool.status().free, 200, "поздний вред уменьшает остаток для всех");
   const f2 = join(mkdtempSync(join(tmpdir(), "pool-")), "o.json"), p2 = openPool({ file: f2, budget: 5000, reserve_ttl_seconds: 0 });
   p2.reserve("crash", 3000); assert.equal(p2.status().spent, 3000, "резерв упавшего процесса по истечении считается потраченным, а не исчезает");
+  // найдено при публичном разборе: резерв не должен пережить сброс периода, иначе зависший держатель ест бюджет бесконечно
+  const f3 = join(mkdtempSync(join(tmpdir(), "pool-")), "o.json"), p3 = openPool({ file: f3, budget: 5000, period_seconds: 1, reserve_ttl_seconds: 900 });
+  p3.reserve("straddle", 2000); assert.equal(p3.status().reserved, 2000);
+  await new Promise((r) => setTimeout(r, 1100));
+  const st3 = p3.status(); assert.equal(st3.reserved, 0, "резерв не переносится через границу периода"); assert.equal(st3.spent, 0); assert.equal(st3.free, 5000, "новый период стартует с полным бюджетом");
 });
 
 await t("ru.xonta/receipts: квитанция на вызов по запросу клиента, подпись, обязательства по аргументам и ответу", async () => {

@@ -45,8 +45,14 @@ export function exposureOf(cfg, args = {}) {
 }
 
 // One pool per owner, in a file every gate of that owner opens. A lock directory makes each change atomic across processes.
+// Two clocks, on purpose: the lock's staleness (10s) is how long a dead LOCK holder blocks others, a lock is held for
+// microseconds so 10s is slack; the reservation TTL is how long one in-flight action may stay open before the holder is
+// presumed dead, so it must be at least the longest real action. But the TTL can't outlive the budget period, or a crash
+// in a short period would eat headroom past the reset. So the TTL is clamped to the period, and a reservation never
+// crosses a period boundary: on reset the pool starts with no holds (the closing period already counted that exposure).
 export function openPool({ file, budget, period_seconds = 86400, reserve_ttl_seconds = 900 }) {
   mkdirSync(dirname(file), { recursive: true });
+  const ttlMs = Math.min(reserve_ttl_seconds, period_seconds) * 1000;
   const lock = `${file}.lock`;
   const withLock = (fn) => {
     for (let i = 0; ; i++) {
@@ -61,8 +67,8 @@ export function openPool({ file, budget, period_seconds = 86400, reserve_ttl_sec
       const now = Date.now();
       let s = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : null;
       if (!s || !s.period_start) s = { period_start: now, spent: 0, reserved: {}, late: [], log: [] };
-      if (now - s.period_start >= period_seconds * 1000) s = { period_start: now - ((now - s.period_start) % (period_seconds * 1000)), spent: 0, reserved: s.reserved, late: [], log: [] };
-      for (const [id, r] of Object.entries(s.reserved)) if (now - r.at > reserve_ttl_seconds * 1000) { s.spent += r.amount; delete s.reserved[id]; s.log.push({ t: now, ev: "expired_as_spent", id, amount: r.amount }); }
+      if (now - s.period_start >= period_seconds * 1000) { const dropped = Object.keys(s.reserved).length; s = { period_start: now - ((now - s.period_start) % (period_seconds * 1000)), spent: 0, reserved: {}, late: [], log: dropped ? [{ t: now, ev: "period_reset", dropped_reservations: dropped }] : [] }; }
+      for (const [id, r] of Object.entries(s.reserved)) if (now - r.at >= ttlMs) { s.spent += r.amount; delete s.reserved[id]; s.log.push({ t: now, ev: "expired_as_spent", id, amount: r.amount }); }
       const out = fn(s, now);
       s.log = s.log.slice(-500);
       writeFileSync(`${file}.tmp`, JSON.stringify(s)); renameSync(`${file}.tmp`, file);
