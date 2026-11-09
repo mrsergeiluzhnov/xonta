@@ -67,7 +67,7 @@ export function openPool({ file, budget, period_seconds = 86400, reserve_ttl_sec
       const now = Date.now();
       let s = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : null;
       if (!s || !s.period_start) s = { period_start: now, spent: 0, reserved: {}, late: [], log: [] };
-      if (now - s.period_start >= period_seconds * 1000) { const dropped = Object.keys(s.reserved).length; s = { period_start: now - ((now - s.period_start) % (period_seconds * 1000)), spent: 0, reserved: {}, late: [], log: dropped ? [{ t: now, ev: "period_reset", dropped_reservations: dropped }] : [] }; }
+      if (now - s.period_start >= period_seconds * 1000) { const ids = Object.keys(s.reserved), held = Object.values(s.reserved); s = { period_start: now - ((now - s.period_start) % (period_seconds * 1000)), spent: 0, reserved: {}, late: [], log: held.length ? [{ t: now, ev: "period_reset", dropped_reservations: held.length, dropped_amount: held.reduce((a, r) => a + r.amount, 0), ids: ids.slice(0, 20) }] : [] }; }
       for (const [id, r] of Object.entries(s.reserved)) if (now - r.at >= ttlMs) { s.spent += r.amount; delete s.reserved[id]; s.log.push({ t: now, ev: "expired_as_spent", id, amount: r.amount }); }
       const out = fn(s, now);
       s.log = s.log.slice(-500);
