@@ -39,7 +39,7 @@ export async function measure({ tasks, rules, base = [], decide, cost, llm, poli
   for (let k = 0; k < tasks.length; k++) {
     const t = tasks[k], policy = policies[k % policies.length], noop = async () => {};
     const a = await decide(llm, policy, t, { rules: base, buy: noop }), b = await decide(llm, policy, t, { rules: [...base, ...rules], buy: noop });
-    rows.push({ task: t.id, policy, correct: t.truth.correct, without: a.action, with: b.action, cost_without: cost(t, a), cost_with: cost(t, b) });
+    rows.push({ task: t.id, policy, correct: t.truth.correct, without: a.action, with: b.action, cost_without: cost(t, a), cost_with: cost(t, b), checks_without: a.checks, checks_with: b.checks, reason_with: b.reason });
   }
   const avg = (f) => rows.reduce((s, r) => s + f(r), 0) / Math.max(1, rows.length);
   return { rows, measurement: { pairs: rows.length, design: "paired", holdout: true, cost_with: +avg((r) => r.cost_with).toFixed(1), cost_without: +avg((r) => r.cost_without).toFixed(1),

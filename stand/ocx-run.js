@@ -398,10 +398,10 @@ if (P.learn) try {
     for (const text of cands) {
       const dupFail = failed.find((x) => similarity(x.text, text) >= SAME), dupHave = book.rules.find((x) => x.category === c && x.status === "proven" && similarity(x.text, text) >= SAME);
       if (dupFail || dupHave) { rec.candidates.push({ text, skipped: dupFail ? "repeat_of_failed" : "already_in_book", like: (dupFail || dupHave).id }); log(`${O1.label}: правило по «${c}» отброшено без замера — ${dupFail ? "пересказ уже не прошедшего" : "уже есть в книге"}: ${text.slice(0, 120)}`); continue; }
-      const { measurement: m } = await measure({ tasks: catTasks("learn", c, P.learnPairs), base: current, rules: [text], decide, cost: costOf, llm: staff, policies: POLICIES, humanCost: D.HUMAN_COST });
+      const { measurement: m, rows } = await measure({ tasks: catTasks("learn", c, P.learnPairs), base: current, rules: [text], decide, cost: costOf, llm: staff, policies: POLICIES, humanCost: D.HUMAN_COST });
       const pkg = O1.publishExperience({ category: c, rule: { kind: "text", text }, measurement: m });
       const entry = { id: `r${book.rules.length + 1}`, category: c, text, born: RUN_ID, status: pkg.status, history: [{ run: RUN_ID, kind: "learn", status: pkg.status, ...pick(m) }] };
-      book.rules.push(entry); rec.candidates.push({ text, id: entry.id, status: pkg.status, measurement: m });
+      book.rules.push(entry); rec.candidates.push({ text, id: entry.id, status: pkg.status, measurement: m, rows }); // 0.31.1: пары замера целиком, чтобы было видно, почему правило вредное (run-ocx-3b)
       if (pkg.status === "proven") current.push(text); // следующий кандидат меряется уже против этого: правило должно добавлять, а не повторять
       log(`${O1.label}: новое правило по «${c}» на ${m.pairs} новых заданиях — с правилом ${m.cost_with} ₽, ${m.against === "current rule" ? "с текущим правилом" : "без правила"} ${m.cost_without}, «всегда человеку» ${D.HUMAN_COST}: ${pkg.status}${pkg.status === "proven" ? " — в книгу, выдаётся со следующего прогона после перемера" : ""}. «${text.slice(0, 140)}»`);
     }
