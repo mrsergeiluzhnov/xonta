@@ -11,16 +11,30 @@
 import { mkdtempSync, readdirSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import http from "node:http";
 import { startBiz } from "./biz-mcp.mjs";
 import { startGate } from "../../src/gate.js";
 import { connect, AGENTS } from "./scripted-agent.mjs";
 import { PRICES } from "./world.mjs";
 
+// One stable port a real agent (SGR) always points at, forwarding /mcp to whichever endpoint the current arm uses.
+// That way the agent's config never changes between arms; the harness just re-points the backend. Streams the response
+// unchanged, so it works whether the MCP server answers with JSON or an SSE event stream.
+function startFront(port) {
+  let target = null;
+  const srv = http.createServer((req, res) => {
+    const u = new URL(req.url, target), proxied = http.request(u, { method: req.method, headers: { ...req.headers, host: u.host } }, (up) => { res.writeHead(up.statusCode, up.headers); up.pipe(res); });
+    proxied.on("error", (e) => { res.writeHead(502); res.end(String(e.message)); });
+    req.pipe(proxied);
+  });
+  return new Promise((ok) => srv.listen(port, "127.0.0.1", () => ok({ port, set: (t) => (target = t), close: () => srv.close() })));
+}
+
 const flag = (k, d) => { const i = process.argv.indexOf(k); return i > 0 ? process.argv[i + 1] : d; };
 const AGENT = flag("--agent", "careless"), MIX = flag("--mix", "mixed"), SEED = Number(flag("--seed", 1)), N = flag("--n", null) ? Number(flag("--n")) : null;
 const SGR = flag("--sgr", "http://127.0.0.1:8010/v1"), MODEL = flag("--model", "sgr_agent");
 const ARMS = flag("--arms", "none,fixed,xonta").split(",");
-const BIZ_PORT = Number(flag("--port", 4970)), GATE_PORT = { fixed: BIZ_PORT + 11, xonta: BIZ_PORT + 12 };
+const BIZ_PORT = Number(flag("--port", 4970)), GATE_PORT = { fixed: BIZ_PORT + 11, xonta: BIZ_PORT + 12 }, FRONT_PORT = Number(flag("--front", BIZ_PORT + 29));
 const POOL_BUDGET = Number(flag("--pool", MIX === "realistic" ? 250000 : 25000)), REFUND_CAP = Number(flag("--refund-cap", 3000)), ACTIONS = Number(flag("--actions", 200));
 
 // fixed: every refund needs a human. xonta: budget of actions, a cap per refund, and the owner's shared pool.
@@ -56,7 +70,7 @@ async function clearReviews(dirs, seen, m) {
   }
 }
 
-async function runArm(arm) {
+async function runArm(arm, front) {
   await post("/admin/reset", { seed: SEED, mix: MIX, n: N });
   const tickets = await get("/admin/tickets");
   const m = { reviews: 0, human_refunds: 0, correctly_held: 0 }, seen = new Set();
@@ -67,6 +81,7 @@ async function runArm(arm) {
     gate = await startGate({ upstream: { url: `http://127.0.0.1:${BIZ_PORT}/mcp` }, policy: policyFor(arm, poolFile), dir, serve: "http", port: GATE_PORT[arm] });
   }
   const url = arm === "none" ? `http://127.0.0.1:${BIZ_PORT}/mcp` : `http://127.0.0.1:${GATE_PORT[arm]}/mcp`;
+  if (front) front.set(url.replace(/\/mcp$/, "/")); // point the agent's stable front at this arm's backend
   const t0 = Date.now();
   for (const t of tickets) {
     await post("/admin/context", { ticket: t.id });
@@ -82,8 +97,11 @@ async function runArm(arm) {
 
 const biz = await startBiz({ port: BIZ_PORT, seed: SEED, mix: MIX, n: N });
 const ticketCount = (await get("/admin/tickets")).length;
+const front = AGENT === "sgr" ? await startFront(FRONT_PORT) : null;
+if (front) process.stderr.write(`point your agent's MCP server at http://127.0.0.1:${FRONT_PORT}/mcp (same for every arm)\n`);
 const rows = [];
-for (const arm of ARMS) { process.stderr.write(`running ${arm}...\n`); rows.push(await runArm(arm)); }
+for (const arm of ARMS) { process.stderr.write(`running ${arm}...\n`); rows.push(await runArm(arm, front)); }
+if (front) front.close();
 biz.close();
 
 const money = (x) => `${x.toLocaleString("ru-RU")} RUB`;
