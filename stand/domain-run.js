@@ -47,6 +47,7 @@ const metaFile = join(META, "meta.json"), meta = existsSync(metaFile) ? JSON.par
 const saveMeta = () => writeFileSync(metaFile, JSON.stringify(meta, null, 1));
 const runIndex = meta.runs.filter((r) => r.done).length, era = Math.min(runIndex, D.MAX_ERA);
 log(`тема «${D.TITLE}», прогон ${runIndex + 1} этой темы, эпоха ${era}: ${D.ERA_NOTE[era]}`);
+if (D.DATA_NOTE) log(`данные: ${D.DATA_NOTE}`); // 0.31: тема market — откуда цены (Мосбиржа или синтетика)
 
 // ---------- модель ----------
 const MOCK = (E.LLM_PROVIDER || "mock") === "mock";
@@ -168,7 +169,7 @@ async function exam(ag, e, { category = null } = {}) {
 }
 
 // ---------- прогон ----------
-const run = { id: RUN_ID, theme: THEME, index: runIndex + 1, era, started: new Date().toISOString(), exams: {}, rounds: [], proposals: [], decisions: [], children: [], recipes_before: [], recipes_after: [], honesty: HON ? {} : null, honesty_cases: [], mined: [], teach: TEACH ? { from_round: TEACH, taught: [] } : null };
+const run = { id: RUN_ID, theme: THEME, index: runIndex + 1, era, started: new Date().toISOString(), exams: {}, rounds: [], proposals: [], decisions: [], children: [], recipes_before: [], recipes_after: [], honesty: HON ? {} : null, honesty_cases: [], mined: [], ...(D.DATA_NOTE ? { data: { note: D.DATA_NOTE, source: D.MARKET?.source, fallback: !!D.MARKET?.fallback } } : {}), teach: TEACH ? { from_round: TEACH, taught: [] } : null };
 const seenTasks = [];
 meta.runs.push({ id: RUN_ID, era, started: run.started, done: false }); saveMeta();
 run.recipes_before = (await api("GET", `/v1/recipes?domain=${THEME}`)).map((r) => ({ id: r.id, technique: r.technique, category: r.category, status: r.status, rule: r.payload?.rule }));
@@ -325,6 +326,7 @@ function report(run, s, prev, lang) {
   const pc = (x, n) => (n ? `${Math.round((100 * x) / n)}%` : "-");
   L.push(T(`# ${D.TITLE}: прогон ${run.index} темы`, `# ${D.TITLE_EN || (THEME === "ops" ? "Dangerous infrastructure operations" : "Invoice payments")}: run ${run.index} of the theme`), "");
   L.push(T(`Прогон ${run.id}, эпоха ${run.era} (${D.ERA_NOTE[run.era]}). Раундов ${P.rounds}, по ${P.tasks} заданий: половина старых (одни и те же в каждом прогоне темы), половина новых. Модель ${P.model}${MOCK ? " (заглушка, проверка механики)" : ""}. Оркестратор помнит книгу рецептов и потомков между прогонами темы.`, `Run ${run.id}, era ${run.era}. ${P.rounds} rounds of ${P.tasks} tasks, half old (the same in every run of the theme), half new. Model ${P.model}${MOCK ? " (mock, mechanics only)" : ""}. The orchestrator keeps its recipe book and children between runs of the theme.`), "");
+  if (run.data) L.push(T(`Данные: ${run.data.note}`, `Data: ${run.data.source === "moex" ? "real daily MOEX candles (TQBR)" : "synthetic prices (random walk), mechanics only"}${run.data.fallback ? ". WARNING: MOEX was unreachable, so this run used synthetic prices" : ""}.`), "");
   L.push(T("## Агенты", "## Agents"), "", T("| Агент | экзамен в начале | экзамен в конце | старые: верно | новые: верно | раунд 1 → последний, верно | неверно принято | человеку сам / по мандату | вред, ₽ | итог, ₽ |", "| Agent | exam at start | exam at end | old: correct | new: correct | round 1 → last, correct | wrong accepted | to human by itself / by mandate | harm, RUB | net, RUB |"), "|---|---|---|---|---|---|---|---|---|---|");
   for (const [ag, a] of Object.entries(s.agents)) L.push(`| ${ag} | ${a.exam_start ?? "-"}% | ${a.exam_end ?? "-"}% | ${pc(a.old.correct, a.old.n)} | ${pc(a.new.correct, a.new.n)} | ${a.first_round_correct ?? "-"} → ${a.last_round_correct ?? "-"} из ${P.tasks} | ${a.old.wrong + a.new.wrong} | ${a.old.human + a.new.human} / ${a.old.gated + a.new.gated} | ${a.old.harm + a.new.harm} | ${a.old.utility + a.new.utility} |`);
   if (prev) {
