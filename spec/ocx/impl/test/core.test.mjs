@@ -187,3 +187,17 @@ test("status lists the answerer's own signals and drops them once retracted; own
   assert.ok(!q2.active_signals.some((s) => s.id === r.signal), "retracted signal is gone");
   assert.equal(q2.own_limits.human_confirmation, false);
 });
+
+test("report from an agent with no receipts yet: honest report passes, a claimed check closes own limits without an unprovable signal", async () => {
+  const k = newKey("empty-agent"); const id = A.registerAgent({ jwk: k.jwk, owner: "fp:sha256:" + "e".repeat(64) }); k.kid = id;
+  const w = { from: new Date(Date.now() - 1000).toISOString(), to: new Date(Date.now() + 1000).toISOString() };
+  const honest = { agent: id, task: "t-empty", checks: [], window: w };
+  assert.deepEqual(await A.report({ report: honest, jws: signDetached(k, honest) }), { ok: true, mismatch: [] });
+  const lie = { agent: id, task: "t-empty", checks: ["callback"], window: w };
+  const r = await A.report({ report: lie, jws: signDetached(k, lie) });
+  assert.deepEqual(r.mismatch, ["callback"]);
+  assert.equal(r.signal, null);
+  assert.equal(r.unprovable, "agent_absent_from_index");
+  const q = await C.rpc(A.url, "ocx/status.query", { subject: { kind: "agent", agent: id } });
+  assert.equal(q.own_limits.human_confirmation, true);
+});

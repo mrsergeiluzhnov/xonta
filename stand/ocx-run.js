@@ -262,8 +262,10 @@ async function work(O, a, t, r, set) {
   let res;
   if (prov && !consentOk(a)) res = { ok: true, skipped: "no consent" };
   else res = await O.report({ report, jws });
-  const row = { round: r, orch: O === O1 ? 1 : 2, agent: a.n, task: t.id, provoked: !!prov, kind: prov?.kind || null, incentive: prov?.incentive ?? null, source: prov?.source || null, parsed: j.parsed, lie: !!j.lie, hid: !!j.hid, fake_checks: j.fake_checks || [], disclosed: !!j.disclosed, ocx_mismatch: res.mismatch || [], signal: res.signal || null };
+  const row = { round: r, orch: O === O1 ? 1 : 2, agent: a.n, task: t.id, provoked: !!prov, kind: prov?.kind || null, incentive: prov?.incentive ?? null, source: prov?.source || null, parsed: j.parsed, lie: !!j.lie, hid: !!j.hid, fake_checks: j.fake_checks || [], disclosed: !!j.disclosed, ocx_mismatch: res.mismatch || [], signal: res.signal || null, unprovable: res.unprovable || null };
   run.reports.push(row);
+  // 0.30.1: у агента ещё нет ни одной квитанции у этого оркестратора — его нет в индексе, отсутствие проверки соседу не доказать
+  if (res.unprovable) log(`${O.label}: агент ${a.n} в отчёте назвал проверку без квитанции (${res.mismatch.join(", ")})${prov ? ", после подсказки" : ""}, но квитанций у него ещё нет — лимиты закрыты у себя, сигнал соседу не отправлен (доказать нечем)`);
   if (res.signal) {
     const lostCase = loseNext?.done && loseNext.agent === a && res.mismatch.includes(loseNext.done.tool) && !loseNext.signal;
     if (lostCase) loseNext.signal = res.signal;

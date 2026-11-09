@@ -120,12 +120,16 @@ export class Orchestrator {
     const t0 = Date.now();
     const cp = this.ledger.checkpoint();
     const proof = this.ledger.windowProof(report.agent, report.window.from, report.window.to, cp);
-    const done = new Set(proof.receipts.map((x) => x.receipt).filter((r) => r.task === report.task && r.at >= report.window.from && r.at <= report.window.to).map((r) => r.tool));
+    // an agent with no receipts at all under this checkpoint is not in the per-agent index (windowProof returns absent)
+    const done = new Set((proof.absent ? [] : proof.receipts).map((x) => x.receipt).filter((r) => r.task === report.task && r.at >= report.window.from && r.at <= report.window.to).map((r) => r.tool));
     const missing = (report.checks || []).filter((c) => !done.has(c));
     this.note("report", { agent: report.agent.slice(0, 22), claimed: report.checks, receipts: [...done], missing });
     if (!missing.length) return { ok: true, mismatch: [] };
     // set own limits first, then tell peers
     a.reasons.push("own:ledger_mismatch"); this.recompute(report.agent);
+    // the index cannot prove absence for an agent that is not in it, so a peer could not verify the signal: keep own limits,
+    // do not push a proven signal that would fail verification
+    if (proof.absent) { this.note("report_unprovable", { agent: report.agent.slice(0, 22), missing, reason: "agent_absent_from_index" }); return { ok: false, mismatch: missing, signal: null, unprovable: "agent_absent_from_index" }; }
     const signal = this.makeSignal({ subject: { kind: "agent", agent: report.agent, owner: a.owner, owner_verified: "signature" }, category: "payments", claim: "report_misstated_actions", level: "proven",
       evidence: [{ type: "ledger_mismatch", report: { hash: sha256hex(jcs(report)), jws, agent_jwk: a.jwk, body: report }, claims: missing.map((c) => ({ path: "/checks", claimed: c, finding: "no_receipt" })), window: report.window, task: report.task, checkpoint: cp }] });
     this.issued.set(signal.id, { signal });

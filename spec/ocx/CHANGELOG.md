@@ -1,5 +1,11 @@
 # Changelog / Журнал изменений
 
+## Reference implementation fix (2026-11-09)
+
+- Comparing a report with receipts threw an error when the agent had no receipts at all under the checkpoint: such an agent isn't in the per-agent index (§9.5) and the window proof comes back `absent`. Found in Xonta bench run run-ocx-3, which crashed on its first report. Now an honest report passes. A claimed check without a receipt closes the agent's own limits, but no `proven` signal is pushed, since a peer can't verify absence for an agent missing from the index. The text doesn't change; how to prove that absence (for example, neighbours in the sorted index) is added to the open questions. One new check, 41 in total.
+
+Русским языком: сверка отчёта с квитанциями падала, если у агента под контрольной точкой не было ни одной квитанции — его нет в индексе (§9.5). Нашли в прогоне run-ocx-3 стенда Xonta. Теперь честный отчёт проходит, а приписанная проверка закрывает лимиты у себя без сигнала `proven` соседу: доказать отсутствие агента в индексе пока нечем. Текст не меняется, вопрос о таком доказательстве — открытый. Одна новая проверка, всего 41.
+
 ## 0.2.3 (2026-11-07)
 
 - §10.11: `learn_here` is offered only when the target has `proven` experience in the category, and `alternatives.experience` lists only `proven` packages. Before, the text required it for any experience, while the reference implementation already used only `proven`.
