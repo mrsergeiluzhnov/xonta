@@ -528,6 +528,40 @@ await t("Xonta Gate: блок опасного инструмента, бюдж�
   await c.close(); await g.up.close(); g.close(); delete process.env.FAKE_RUGPULL;
 });
 
+await t("gate-risk: худший случай вызова по аргументам, предел на операцию, отказ при непонятной сумме", async () => {
+  const { exposureOf, createRisk } = await import("../src/gate-risk.js");
+  assert.equal(exposureOf({ amount_arg: "amount" }, { amount: 2500 }), 2500);
+  assert.equal(exposureOf({ amount_arg: "amount" }, { amount: "2 500" }), 2500, "сумма строкой с пробелом");
+  assert.equal(exposureOf({ amount_arg: "amount" }, {}), Infinity, "нет суммы — это не 0, а неизвестно сколько");
+  assert.equal(exposureOf({ amount_arg: "order.total" }, { order: { total: 900 } }), 900);
+  assert.equal(exposureOf({ count_arg: "limit", per_item: 50, default_count: 1000 }, {}), 50000, "выгрузка без лимита считается по умолчанию");
+  assert.equal(exposureOf({ count_arg: "limit", per_item: 50 }, { limit: 10 }), 500);
+  const r = createRisk({ tools: { refund: { amount_arg: "amount", max_per_action: 3000 }, bank: { exposure: 250000, max_per_action: 0 } } });
+  assert.ok(r.check("refund", { amount: 3000 }).allow);
+  const big = r.check("refund", { amount: 3001 }); assert.equal(big.allow, false); assert.equal(big.kind, "exposure");
+  assert.equal(r.check("refund", {}).allow, false, "возврат без суммы не проходит");
+  assert.match(r.check("bank", { iban: "x" }).reason, /always needs a human/);
+  assert.ok(r.check("read_ticket", {}).allow, "инструменты вне списка не ограничиваются");
+  const r2 = createRisk({ unknown_action_exposure: 1000, tools: {} });
+  assert.equal(r2.check("delete_thing", {}, { action: true }).exposure, 1000, "неизвестное действие получает экспозицию по умолчанию");
+});
+
+await t("gate-risk: общий бюджет владельца атомарен для параллельных процессов, срыв процесса не обнуляет резерв", async () => {
+  const { mkdtempSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path"), { spawn } = await import("node:child_process");
+  const { openPool } = await import("../src/gate-risk.js");
+  const file = join(mkdtempSync(join(tmpdir(), "pool-")), "owner.pool.json"), mod = new URL("../src/gate-risk.js", import.meta.url).href;
+  const one = (i) => new Promise((res) => { const p = spawn(process.execPath, ["--input-type=module", "-e", `import { openPool } from ${JSON.stringify(mod)}; const p = openPool({ file: ${JSON.stringify(file)}, budget: 10000 }); const r = p.reserve("c${i}", 1500, { agent: "child${i}" }); if (r.ok) p.settle("c${i}"); process.stdout.write(r.ok ? "1" : "0");`]); let o = ""; p.stdout.on("data", (d) => (o += d)); p.on("close", () => res(o)); });
+  const out = await Promise.all(Array.from({ length: 20 }, (_, i) => one(i)));
+  assert.equal(out.filter((x) => x === "1").length, 6, `двадцать агентов по 1500 из 10000: прошло ровно шесть (${out.join("")})`);
+  const pool = openPool({ file, budget: 10000 }), st = pool.status();
+  assert.equal(st.spent, 9000); assert.equal(st.free, 1000); assert.equal(st.reserved, 0);
+  assert.ok(!pool.reserve("x", 1001).ok, "больше остатка не резервируется"); assert.ok(pool.reserve("y", 1000).ok);
+  pool.release("y"); assert.equal(pool.status().free, 1000, "отменённый вызов возвращает резерв");
+  pool.late(800, "chargeback"); assert.equal(pool.status().free, 200, "поздний вред уменьшает остаток для всех");
+  const f2 = join(mkdtempSync(join(tmpdir(), "pool-")), "o.json"), p2 = openPool({ file: f2, budget: 5000, reserve_ttl_seconds: 0 });
+  p2.reserve("crash", 3000); assert.equal(p2.status().spent, 3000, "резерв упавшего процесса по истечении считается потраченным, а не исчезает");
+});
+
 await t("ru.xonta/receipts: квитанция на вызов по запросу клиента, подпись, обязательства по аргументам и ответу", async () => {
   const { mkdtempSync, readFileSync } = await import("node:fs"), { tmpdir } = await import("node:os"), { join } = await import("node:path");
   const { startGate, verifyAudit, verifyReceipt, RECEIPTS_EXT } = await import("../src/gate.js");

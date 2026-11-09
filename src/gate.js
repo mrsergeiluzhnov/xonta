@@ -24,6 +24,7 @@ import { hasInjection } from "./guardian.js";
 import { jcs, sha256hex } from "./crypto.js";
 import { createHmac } from "node:crypto";
 import { createPrivacy } from "./gate-privacy.js";
+import { createRisk } from "./gate-risk.js";
 
 // Слова в имени инструмента, по которым вызов считается действием. Список проверен на официальных MCP-серверах
 // (stand/gate-survey.js): add, fork, reply, comment, react, toggle добавлены после пропусков add_observations,
@@ -170,7 +171,17 @@ async function connectUpstream({ url = null, command = null, args = [], env = {}
 export async function startGate({ upstream, policy = {}, dir = join(homedir(), ".xonta-gate"), serve = "stdio", port = 4950, name = "xonta-gate" } = {}) {
   const pol = createPolicy(policy), audit = openAudit(dir), up = await connectUpstream(upstream);
   const priv = policy.privacy ? createPrivacy(policy.privacy, { secret: audit.macKey.toString("hex") }) : null;
+  // 0.30: worst case of one call and the owner's shared pool, next to the expected-harm action budget (src/gate-risk.js)
+  const risk = createRisk(policy.risk, { agent: policy.risk?.agent || name });
   const held = new Map(); let heldSeq = 0;
+  // 0.30: "needs a human" leaves a request the owner can act on: review/<id>.json next to the audit log, never sent anywhere
+  let reviewSeq = 0;
+  const toReview = (tool, args, kind, reason) => {
+    if (!policy.review_queue) return null;
+    const id = `r${Date.now().toString(36)}-${++reviewSeq}`;
+    try { mkdirSync(join(dir, "review"), { recursive: true }); writeFileSync(join(dir, "review", `${id}.json`), JSON.stringify({ id, at: new Date().toISOString(), tool, args, kind, reason })); } catch {}
+    return id;
+  };
   const refresh = async () => {
     const { tools } = await up.listTools(undefined, { timeout: 300000 });
     const r = pol.setTools(tools);
@@ -197,7 +208,8 @@ export async function startGate({ upstream, policy = {}, dir = join(homedir(), "
       const tool = params.name, args = priv ? priv.strip(params.arguments || {}) : params.arguments || {}, args_sha = audit.mac(jcs(args));
       const d = pol.decide(tool);
       if (!d.allow) {
-        return finish(params, args, { event: "call", tool, args_sha, decision: "refused", kind: d.kind, reason: d.reason, action: !!d.action }, { content: [{ type: "text", text: `Xonta Gate refused this call: ${d.reason}.` }], isError: true });
+        const review = d.kind === "budget" ? toReview(tool, args, d.kind, d.reason) : null;
+        return finish(params, args, { event: "call", tool, args_sha, decision: "refused", kind: d.kind, reason: d.reason, action: !!d.action, review: review || undefined }, { content: [{ type: "text", text: `Xonta Gate refused this call: ${d.reason}.` }], isError: true });
       }
       // 0.18: приватность — кто просит, какие данные, куда. Агенту только «нужен человек», причина — владельцу
       if (priv) {
@@ -218,21 +230,29 @@ export async function startGate({ upstream, policy = {}, dir = join(homedir(), "
           if (existsSync(cancelFile) || pol.state.frozen || priv.frozen) return finish(params, args, { event: "call", tool, args_sha, decision: "refused", kind: "cancelled", id }, { content: [{ type: "text", text: "Xonta Gate: this was cancelled before it went out." }], isError: true });
         }
       }
+      const rk = risk ? risk.check(tool, args, { action: d.action }) : null;
+      if (rk && !rk.allow) {
+        log(`risk: ${tool} refused, ${rk.reason}`);
+        const review = toReview(tool, args, rk.kind, rk.reason);
+        return finish(params, args, { event: "call", tool, args_sha, decision: "refused", kind: rk.kind, exposure: Number.isFinite(rk.exposure) ? rk.exposure : "unknown", reason: rk.reason, action: !!d.action, review: review || undefined }, { content: [{ type: "text", text: `Xonta Gate refused this call: ${rk.reason}.` }], isError: true });
+      }
       pol.record(tool, d); pol.begin(tool);
       try {
         const out = await up.callTool({ name: tool, arguments: args }, undefined, { timeout: Number(process.env.MCP_TOOL_TIMEOUT_MS || 600000) });
+        if (rk) risk.done(rk, { error: !!out.isError }); // the tool said it failed: release; otherwise the worst case is booked
         const text = (out.content || []).map((c) => c.text || "").join("");
         const inj = pol.sawOutput(text);
         if (inj) log(`hidden command in output of ${tool}${pol.state.frozen ? ", actions are now frozen" : ""}`);
-        return finish(params, args, { event: "call", tool, args_sha, decision: "allowed", action: !!d.action, out_sha: audit.mac(text), out_bytes: text.length, tool_error: !!out.isError, hidden_command: inj || undefined, frozen_after: inj && pol.state.frozen ? true : undefined }, out);
+        return finish(params, args, { event: "call", tool, args_sha, decision: "allowed", action: !!d.action, exposure: rk?.exposure || undefined, out_sha: audit.mac(text), out_bytes: text.length, tool_error: !!out.isError, hidden_command: inj || undefined, frozen_after: inj && pol.state.frozen ? true : undefined }, out);
       } catch (e) {
+        if (rk) risk.done(rk, { error: false }); // no answer (timeout, dropped connection): the call may have gone through, so it stays booked
         return finish(params, args, { event: "call", tool, args_sha, decision: "allowed", action: !!d.action, error: String(e?.message || e).slice(0, 200) }, { content: [{ type: "text", text: `Upstream error: ${String(e?.message || e).slice(0, 200)}` }], isError: true });
       } finally { pol.end(tool); }
     });
     return server;
   };
 
-  if (serve === "stdio") { await makeServer().connect(new StdioServerTransport()); log("serving over stdio"); return { pol, audit, up, priv }; }
+  if (serve === "stdio") { await makeServer().connect(new StdioServerTransport()); log("serving over stdio"); return { pol, audit, up, priv, risk }; }
   const { default: express } = await import("express");
   const app = express(); app.use(express.json({ limit: "4mb" }));
   app.post("/mcp", async (req, res) => {
@@ -241,7 +261,9 @@ export async function startGate({ upstream, policy = {}, dir = join(homedir(), "
     await server.connect(transport); await transport.handleRequest(req, res, req.body);
   });
   app.get("/gate/key", (_req, res) => res.json({ extension: RECEIPTS_EXT, version: RECEIPTS_VERSION, keys: [audit.jwk] }));
-  app.get("/gate/status", (_req, res) => res.json({ ...pol.summary(), privacy: priv ? priv.report() : null, held: [...held.keys()] }));
+  app.get("/gate/status", (_req, res) => res.json({ ...pol.summary(), privacy: priv ? priv.report() : null, held: [...held.keys()], risk_pool: risk?.pool ? risk.pool.status() : null }));
+  // harm found later (chargeback, leak noticed next week): booked against the owner's pool for the current period
+  app.post("/gate/late-harm", (req, res) => { if (!risk?.pool) return res.status(404).json({ error: "no risk pool configured" }); const a = Number(req.body?.amount); if (!(a > 0)) return res.status(400).json({ error: "amount" }); audit.write({ event: "late_harm", amount: a, note: String(req.body?.note || "").slice(0, 200) }); res.json(risk.pool.late(a, String(req.body?.note || "").slice(0, 200))); });
   const srv = app.listen(port, "127.0.0.1", () => log(`serving MCP at http://127.0.0.1:${port}/mcp, status at /gate/status`));
-  return { pol, audit, up, priv, close: () => srv.close() };
+  return { pol, audit, up, priv, risk, close: () => srv.close() };
 }
