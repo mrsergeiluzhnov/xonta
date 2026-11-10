@@ -22,6 +22,15 @@ export function similarity(a, b) {
 }
 export const SAME = 0.6;
 
+// 0.31.3: пересказ не прошедшего правила отбрасывается без замера, только если у того замера сохранились пары.
+// Правила, отвергнутые до 0.31.1 (пар нет), можно перемерить один раз: иначе причину вреда уже не узнать
+// (run-ocx-4: звонок поставщику, вредный в ocx-3b, вернулся другими словами и был отброшен).
+export const blocksRepeat = (rule) => (rule?.history || []).some((h) => h.kind === "learn" && h.pairs_saved);
+export function findRepeat(failed, text) {
+  const like = failed.filter((x) => similarity(x.text, text) >= SAME);
+  return { block: like.find(blocksRepeat) || null, remeasure: like.find((x) => !blocksRepeat(x)) || null };
+}
+
 // разбор ответа модели: {"rules":["…","…"]}; если JSON не разобрался — строки, похожие на правила
 export function parseCandidates(text, max = 3) {
   const s = String(text || ""); let arr = null;

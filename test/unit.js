@@ -1337,6 +1337,19 @@ await t("учёба оркестратора OCX: пересказ отброш�
   assert.equal(parseCandidates("1. Перед оплатой срочного письма купи callback и сверь ответ\n2. Дубли проверяй через duplicate_check и отклоняй").length, 2);
 });
 
+await t("учёба OCX: пересказ правила, отвергнутого без сохранённых пар, меряется ещё раз (0.31.3, run-ocx-4)", async () => {
+  const { findRepeat } = await import("../stand/ocx-learn.js");
+  const old = { id: "r1", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; иначе reject", status: "harmful", history: [{ run: "run-ocx-3b", kind: "learn", status: "harmful" }] };
+  const again = "купить callback; если результат = поставщик не подтверждал смену счёта, выбрать reject; иначе pay";
+  let r = findRepeat([old], again);
+  assert.equal(r.block, null, "пар нет — не отбрасываем"); assert.equal(r.remeasure?.id, "r1");
+  const fresh = { id: "r7", text: again, status: "harmful", history: [{ run: "run-ocx-5", kind: "learn", status: "harmful", pairs_saved: true }] };
+  r = findRepeat([old, fresh], again);
+  assert.equal(r.block?.id, "r7", "после замера с парами пересказ отбрасывается");
+  r = findRepeat([fresh], "Дубли проверяй через duplicate_check и отклоняй");
+  assert.equal(r.block, null); assert.equal(r.remeasure, null);
+});
+
 await t("0.20.2: предложение агента разбирается, даже если ответ модели не строгий JSON (run-ops-1: 15 ответов, 0 предложений)", async () => {
   const { parseProposal } = await import("../stand/domains/common.js");
   const C = ["delete_resource", "schema_migration", "rotate_credentials", "scale_down", "fix_mismatch"];
