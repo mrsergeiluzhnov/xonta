@@ -81,3 +81,17 @@ test("без пар и крупных лотов ловушки не выдум�
   for (const t of Array.from({ length: 200 }, (_, k) => M.makeTask(`np-${k}`, 0))) assert.ok(!["wrong_ticker", "lot_units"].includes(t.category));
   M.useMarket(synth);
 });
+
+test("0.31.2: лоты вместо акций не видны по тексту, только по проверке lot_size", () => {
+  const shape = (b) => b.replace(/\d[\d\s ]*/g, "#").replace(/[A-Z]{4,5}/g, "T").replace(/«[^»]*»/, (q) => q.replace(/[А-Яа-яЁё-]+(?= по рынку)/, "И"));
+  const ts = tasks(0, 900), lots = ts.filter((t) => t.category === "lot_units"), plain = ts.filter((t) => t.category === "regular_order" && /покупка/.test(t.brief));
+  assert.ok(lots.length > 10 && plain.length > 10);
+  const plainShapes = new Set(plain.map((t) => shape(t.brief).replace(/\d{4}-\d\d-\d\d/, "D")));
+  for (const t of lots) {
+    assert.match(t.brief, /Черновик: [A-Z]+, покупка, \d+ лот\., по рынку\./);
+    assert.ok(plainShapes.has(shape(t.brief).replace(/\d{4}-\d\d-\d\d/, "D")), t.brief);
+  }
+  assert.match(M.DESCRIPTION, /fix \([^)]*клиента не спрашивая/);
+  assert.match(M.DESCRIPTION, /hold \(не отправлять, сначала спросить клиента\)/);
+  assert.ok(M.DESCRIPTION.length <= 600, "описание поля — не больше 600 символов");
+});
