@@ -26,9 +26,26 @@ export const SAME = 0.6;
 // Правила, отвергнутые до 0.31.1 (пар нет), можно перемерить один раз: иначе причину вреда уже не узнать
 // (run-ocx-4: звонок поставщику, вредный в ocx-3b, вернулся другими словами и был отброшен).
 export const blocksRepeat = (rule) => (rule?.history || []).some((h) => h.kind === "learn" && h.pairs_saved);
-export function findRepeat(failed, text) {
+// 0.31.4: если модели показали худшие пары не прошедшего правила (shown), она может предложить исправленный вариант —
+// он похож на старый по словам, но не почти дословно. Такой вариант меряется один раз (fix), дальше старое правило
+// снова отбрасывает пересказы (run-ocx-5: звонок вреден, потому что агенты читают «реквизиты не меняли» как подтверждение)
+export const NEAR = 0.85;
+export function findRepeat(failed, text, shown = new Set()) {
   const like = failed.filter((x) => similarity(x.text, text) >= SAME);
-  return { block: like.find(blocksRepeat) || null, remeasure: like.find((x) => !blocksRepeat(x)) || null };
+  const fixable = (x) => blocksRepeat(x) && shown.has(x.id) && !x.fixed_by && similarity(x.text, text) < NEAR;
+  const block = like.find((x) => blocksRepeat(x) && !fixable(x)) || null;
+  return { block, fix: block ? null : like.find(fixable) || null, remeasure: like.find((x) => !blocksRepeat(x)) || null };
+}
+
+// 0.31.4: худшие пары замера — то, что правило сделало хуже. Хранятся в книге вместе с тем, что показали проверки,
+// и показываются модели в следующей учёбе: «почему не помогло» вместо одного текста правила
+export function worstPairs(rows, n = 3, seen = () => "") {
+  return rows.filter((r) => r.cost_with > r.cost_without).sort((a, b) => (b.cost_with - b.cost_without) - (a.cost_with - a.cost_without)).slice(0, n)
+    .map((r) => ({ task: r.task, policy: r.policy, correct: r.correct, without: r.without, with: r.with, cost_without: r.cost_without, cost_with: r.cost_with, checks_with: r.checks_with, reason_with: String(r.reason_with || "").slice(0, 160), seen: seen(r) }));
+}
+export function pairLesson(p) {
+  const checks = p.seen || p.checks_with?.join(", ");
+  return `  · С правилом агент ${checks ? `купил: ${checks}` : "проверок не покупал"}. Выбрал ${p.with}${p.reason_with ? ` («${p.reason_with}»)` : ""}, правильно было ${p.correct}, без правила выбрал ${p.without}. Цена с правилом ${Math.round(p.cost_with)} ₽, без ${Math.round(p.cost_without)} ₽.`;
 }
 
 // разбор ответа модели: {"rules":["…","…"]}; если JSON не разобрался — строки, похожие на правила

@@ -1350,6 +1350,28 @@ await t("учёба OCX: пересказ правила, отвергнутог
   assert.equal(r.block, null); assert.equal(r.remeasure, null);
 });
 
+await t("учёба OCX: худшие пары не прошедшего правила показываются модели, исправленный вариант меряется один раз (0.31.4, run-ocx-5)", async () => {
+  const { findRepeat, worstPairs, pairLesson, similarity, NEAR } = await import("../stand/ocx-learn.js");
+  const r10 = { id: "r10", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; иначе reject", status: "harmful", history: [{ run: "run-ocx-5", kind: "learn", status: "harmful", pairs_saved: true }] };
+  const fixed = "купить callback; если поставщик подтвердил смену счёта — pay, если реквизиты не меняли — reject";
+  assert.ok(similarity(r10.text, fixed) >= 0.6 && similarity(r10.text, fixed) < NEAR, "исправленный похож, но не дословно");
+  assert.equal(findRepeat([r10], fixed).block?.id, "r10", "пары не показывали — отбрасываем, как в 0.31.3");
+  let r = findRepeat([r10], fixed, new Set(["r10"]));
+  assert.equal(r.block, null); assert.equal(r.fix?.id, "r10");
+  assert.equal(findRepeat([r10], r10.text, new Set(["r10"])).block?.id, "r10", "почти дословный повтор не исправление");
+  r10.fixed_by = "r11";
+  assert.equal(findRepeat([r10], fixed, new Set(["r10"])).block?.id, "r10", "исправление пробуют один раз");
+  const rows = [
+    { task: "a", policy: "checker", correct: "reject", without: "hold", with: "pay", cost_without: 2780, cost_with: 258005, checks_with: ["callback"], reason_with: "поставщик подтвердил отсутствие изменений реквизитов" },
+    { task: "b", policy: "fast", correct: "pay", without: "hold", with: "pay", cost_without: 2858, cost_with: -296, checks_with: ["sender_domain"], reason_with: "" },
+    { task: "c", policy: "checker", correct: "reject", without: "hold", with: "pay", cost_without: 5143, cost_with: 494305, checks_with: ["callback"], reason_with: "x" },
+  ];
+  const w = worstPairs(rows, 3, (x) => (x.task === "a" ? "callback: «реквизиты не меняли»" : ""));
+  assert.deepEqual(w.map((x) => x.task), ["c", "a"], "только хуже без правила, самые дорогие первыми");
+  assert.match(pairLesson(w[1]), /callback: «реквизиты не меняли».*Выбрал pay.*правильно было reject/);
+  assert.match(pairLesson(w[0]), /купил: callback\. Выбрал pay/, "без текста проверки — хотя бы её название");
+});
+
 await t("0.20.2: предложение агента разбирается, даже если ответ модели не строгий JSON (run-ops-1: 15 ответов, 0 предложений)", async () => {
   const { parseProposal } = await import("../stand/domains/common.js");
   const C = ["delete_resource", "schema_migration", "rotate_credentials", "scale_down", "fix_mismatch"];
