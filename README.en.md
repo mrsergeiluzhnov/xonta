@@ -2,7 +2,7 @@
 
 [![tests](https://github.com/mrsergeiluzhnov/xonta/actions/workflows/test.yml/badge.svg)](https://github.com/mrsergeiluzhnov/xonta/actions/workflows/test.yml)
 
-Site: [mrsergeiluzhnov.github.io/xonta](https://mrsergeiluzhnov.github.io/xonta/) · Connect your agent: [CONNECT.md](CONNECT.md) · Public orchestrator: https://passport.xonta.ru
+Site and live receipt check: **[xonta.dev](https://xonta.dev)** · Connect your agent: [CONNECT.md](CONNECT.md) · Public orchestrator: https://passport.xonta.ru
 
 **Open trust infrastructure for AI agents.** Your agent passed the tests. Can you let it touch money and customer data, and how much? Xonta answers that with evidence anyone can check, not with a score out of 100 you have to take on faith. The agent passport (a set of signed credentials) is one part of it.
 
@@ -16,7 +16,7 @@ The spec, schemas and a reference implementation with 38 checks are in [spec/ocx
 
 ## New. Receipts for MCP tool calls (ru.xonta/receipts)
 
-An agent's report proves nothing, so Xonta Gate, when the client asks, hands back a signed receipt for every tool call: what was called, with which decision, at which position in the log. Arguments and output appear only as salted hashes, and the client holds the salt. Receipts work as evidence for OCX. It is an unofficial MCP extension following SEP-2133, see [spec/mcp-receipts](spec/mcp-receipts/SPEC.md).
+An agent's report proves nothing, so Xonta Gate, when the client asks, hands back a signed receipt for every tool call: what was called, with which decision, at which position in the log. Arguments and output appear only as salted hashes, and the client holds the salt. Receipts work as evidence for OCX. It is an unofficial MCP extension following SEP-2133, see [spec/mcp-receipts](spec/mcp-receipts/SPEC.md). You can verify a receipt in your browser at [xonta.dev](https://xonta.dev), where there is also a live demo: the signature and the chain are checked on the spot, and a button alters one amount so you can watch a forgery get caught.
 
 ## New. Xonta Gate, a trust layer in front of any MCP server
 
