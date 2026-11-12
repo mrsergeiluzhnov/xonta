@@ -7,7 +7,13 @@ import { dirname } from "node:path";
 
 export function loadBook(path, fresh = false) {
   if (fresh || !existsSync(path)) return { version: 1, rules: [] };
-  try { const b = JSON.parse(readFileSync(path, "utf8")); return Array.isArray(b.rules) ? b : { version: 1, rules: [] }; } catch { return { version: 1, rules: [] }; }
+  try { const b = JSON.parse(readFileSync(path, "utf8")); return Array.isArray(b.rules) ? markBroken(b) : { version: 1, rules: [] }; } catch { return { version: 1, rules: [] }; }
+}
+// 0.31.6: правило, у которого потерялся текст (r14 из run-ocx-7, «[object Object]»), не считается ни вредным, ни пробованным:
+// агентам на замере выдали пустышку. Запись остаётся в книге со статусом invalid
+export function markBroken(book) {
+  for (const r of book.rules) if (brokenRule(r.text) && r.status !== "invalid") { (r.history ||= []).push({ kind: "invalid", reason: "rule text lost", was: r.status }); r.status = "invalid"; delete r.worst; }
+  return book;
 }
 export function saveBook(path, book) { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, JSON.stringify(book, null, 1)); }
 
@@ -87,8 +93,20 @@ export function parseCandidates(text, max = 3) {
   const at = s.indexOf("{");
   if (at >= 0) for (let end = s.lastIndexOf("}"); end > at && !arr; end = s.lastIndexOf("}", end - 1)) { try { const o = JSON.parse(s.slice(at, end + 1)); if (Array.isArray(o.rules)) arr = o.rules; } catch {} }
   if (!arr) arr = s.split(/\n+/).map((x) => x.replace(/^[\s\-*\d.)"«]+|["»,\s]+$/g, "")).filter((x) => x.length > 25);
-  return [...new Set(arr.map((x) => String(x).replace(/\s+/g, " ").trim()).filter((x) => x.length > 10))].map((x) => x.slice(0, 400)).slice(0, max);
+  return [...new Set(arr.map((x) => ruleText(x).replace(/\s+/g, " ").trim()).filter((x) => x.length > 10 && !brokenRule(x)))].map((x) => x.slice(0, 400)).slice(0, max);
 }
+
+// 0.31.6: модель иногда кладёт в "rules" не строку, а объект — {"rule": "…"} или {"ответ": "действие", …}.
+// В run-ocx-7 такой ответ превратился в текст «[object Object]», его и мерили. Теперь достаём текст из объекта
+export function ruleText(x) {
+  if (x == null) return "";
+  if (typeof x === "string") return x;
+  if (typeof x !== "object") return String(x);
+  if (Array.isArray(x)) return x.map(ruleText).filter(Boolean).join("; ");
+  for (const k of ["rule", "text", "правило", "текст"]) if (typeof x[k] === "string" && x[k].trim()) return x[k];
+  return Object.entries(x).map(([k, v]) => { const t = ruleText(v); return t ? `${k} — ${t}` : k; }).join("; ");
+}
+export const brokenRule = (text) => /\[object Object\]/.test(String(text || ""));
 
 // замер правил парами: одно и то же задание с правилами (base + rules) и с текущей практикой (base — правила, которые уже
 // действуют, или пусто). Политики агентов чередуются: правило выдаётся всем, а быстрый без правила проверок не покупает вовсе.

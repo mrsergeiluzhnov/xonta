@@ -1337,6 +1337,19 @@ await t("учёба оркестратора OCX: пересказ отброш�
   assert.equal(parseCandidates("1. Перед оплатой срочного письма купи callback и сверь ответ\n2. Дубли проверяй через duplicate_check и отклоняй").length, 2);
 });
 
+await t("учёба OCX: правило-объект от модели не превращается в «[object Object]» (0.31.6, run-ocx-7)", async () => {
+  const { parseCandidates, ruleText, markBroken, brokenRule } = await import("../stand/ocx-learn.js");
+  assert.deepEqual(parseCandidates('{"rules":[{"rule":"купить callback; «реквизиты не меняли, письма не отправляли» — reject; «поставщик подтвердил смену счёта» — pay"}]}', 1), ["купить callback; «реквизиты не меняли, письма не отправляли» — reject; «поставщик подтвердил смену счёта» — pay"]);
+  const [r] = parseCandidates('{"rules":[{"callback: поставщик подтвердил смену счёта":"pay","callback: реквизиты не меняли, письма не отправляли":"reject"}]}', 1);
+  assert.ok(r.includes("реквизиты не меняли") && r.includes("— reject") && r.includes("— pay"), r);
+  assert.ok(!brokenRule(r));
+  assert.equal(ruleText(["а", { text: "б" }]), "а; б");
+  assert.deepEqual(parseCandidates('{"rules":["[object Object]"]}'), [], "пустышку не берём");
+  const book = markBroken({ rules: [{ id: "r14", text: "[object Object]", status: "harmful", history: [], worst: [{}] }, { id: "r12", text: "купить callback", status: "harmful" }] });
+  assert.equal(book.rules[0].status, "invalid"); assert.equal(book.rules[0].worst, undefined); assert.equal(book.rules[1].status, "harmful");
+  markBroken(book); assert.equal(book.rules[0].history.length, 1, "второй раз не помечаем");
+});
+
 await t("учёба OCX: пересказ правила, отвергнутого без сохранённых пар, меряется ещё раз (0.31.3, run-ocx-4)", async () => {
   const { findRepeat } = await import("../stand/ocx-learn.js");
   const old = { id: "r1", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; иначе reject", status: "harmful", history: [{ run: "run-ocx-3b", kind: "learn", status: "harmful" }] };
