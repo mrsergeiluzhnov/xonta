@@ -18,6 +18,10 @@ The spec, schemas and a reference implementation with 38 checks are in [spec/ocx
 
 An agent's report proves nothing, so Xonta Gate, when the client asks, hands back a signed receipt for every tool call: what was called, with which decision, at which position in the log. Arguments and output appear only as salted hashes, and the client holds the salt. Receipts work as evidence for OCX. It is an unofficial MCP extension following SEP-2133, see [spec/mcp-receipts](spec/mcp-receipts/SPEC.md). You can verify a receipt in your browser at [xonta.dev](https://xonta.dev), where there is also a live demo: the signature and the chain are checked on the spot, and a button alters one amount so you can watch a forgery get caught.
 
+## New. Harm budget
+
+Common limits count how much an agent works, not how much a mistake can cost. A harm budget bounds what the owner actually cares about, how much they are willing to lose in a period, and shares that budget across every agent they run. Each call reserves its worst case in one shared atomic pool before it runs, and an unreadable amount counts as the ceiling, not zero. A short open spec with a JSON schema and a conformance section is in [spec/harm-budget](spec/harm-budget/README.en.md), with the reference implementation in [src/gate-risk.js](src/gate-risk.js).
+
 ## New. Xonta Gate, a trust layer in front of any MCP server
 
 ```bash
