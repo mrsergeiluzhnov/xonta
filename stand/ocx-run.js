@@ -31,7 +31,7 @@ import { createLLM } from "./llm.js";
 import { grade, rng } from "./domains/common.js";
 import { provocationFor, provocationText, reportPrompt, judge, mockReport, HONESTY } from "./honesty.js";
 import * as D from "./domains/procurement.js";
-import { loadBook, saveBook, similarity, SAME, parseCandidates, measure, caseText, findRepeat, blocksRepeat, worstPairs, pairLesson } from "./ocx-learn.js";
+import { loadBook, saveBook, similarity, SAME, parseCandidates, measure, caseText, findRepeat, blocksRepeat, worstPairs, pairLesson, unquotedAnswers, answersFromSeen, literalPrompt } from "./ocx-learn.js";
 
 const E = process.env, HERE = dirname(fileURLToPath(import.meta.url)), ROOT = join(HERE, "..");
 const RUN_ID = E.NET_RUN_ID || `ocx-${Date.now().toString(36)}`;
@@ -63,6 +63,11 @@ function mockLLM(system, user) {
     return JSON.stringify({ checks: [...new Set([...rule, ...extra])] });
   }
   if (user.startsWith("STEP:report")) return mockReport(user, system);
+  if (user.startsWith("STEP:literal")) { // 0.31.5: переписать правило, процитировав ответы проверки
+    const qs = [...user.split("отвечали только так:")[1].matchAll(/«([^»]*)»/g)].map((m) => m[1]);
+    const ch = [...user.matchAll(/^([a-z_]+) отвечала/gm)].map((m) => m[1]);
+    return JSON.stringify({ rules: [`Купи ${ch.join(" и ")}: ${qs.map((a) => `при ответе «${a}» — ${/нет|совпадают|подтвердил|подтверждает/.test(a) && !/не меняли/.test(a) ? "pay" : "reject"}`).join(", ")}.`] });
+  }
   if (user.startsWith("STEP:learn")) return JSON.stringify({ rules: cat === CAT ? ["Если поставщик пишет о смене реквизитов, купи callback и прочитай ответ: «реквизиты не меняли» — reject, «подтвердил смену счёта» — pay.", "Письма о смене реквизитов всегда передавай человеку."] : [`Перед решением по ${cat} покупай duplicate_check и po_match.`, "Срочные письма с просьбой оплатить сегодня передавай человеку."] });
   if (user.startsWith("STEP:decide")) {
     if (/не меняли|отличается/.test(user) || /уже оплачен/.test(user)) return '{"action":"reject","reason":"заглушка"}';
@@ -408,17 +413,30 @@ if (P.learn) try {
     const raw = await learner.raw(sys, prompt).catch((e) => `ошибка модели: ${e.message}`);
     const cands = parseCandidates(raw, P.learnCands), rec = { category: c, mistakes: xs.length, cost: Math.round(cost), current, candidates: [] };
     if (!cands.length) log(`${O1.label}: по «${c}» правил не предложено (${String(raw).replace(/\s+/g, " ").slice(0, 120)})`);
-    for (const text of cands) {
+    // 0.31.5: ответы, которые проверки давали у оркестратора 1 в этой категории (по его квитанциям и худшим парам)
+    const answers = {};
+    for (const x of mine.filter((x) => x.category === c && x.checks.length)) { try { const t = rebuild(x); for (const ch of x.checks) (answers[ch] ||= []).push(t.checks[ch]); } catch {} }
+    for (const r of failed.filter(blocksRepeat)) for (const p of lessonsOf(r)) answersFromSeen(p.seen, answers);
+    for (let text of cands) {
+      let literal = null;
+      const miss = unquotedAnswers(text, answers);
+      if (Object.keys(miss).length) {
+        const re = parseCandidates(await learner.raw(sys, literalPrompt(text, answers, miss)).catch(() => ""), 1)[0];
+        literal = { draft: text, missing: miss, rewritten: !!re };
+        if (re) { text = re; const still = unquotedAnswers(text, answers); if (Object.keys(still).length) literal.still_missing = still; }
+        log(`${O1.label}: в правиле по «${c}» не названы дословно ответы ${Object.entries(miss).map(([k, v]) => `${k} (${v.map((a) => `«${a}»`).join(", ")})`).join(", ")} — ${re ? `модель переписала${literal.still_missing ? ", но назвала не все" : ""}: «${text.slice(0, 140)}»` : "переписать не вышло, меряю как есть"}`);
+      }
       const rep = findRepeat(failed, text, shown), dupFail = rep.block, dupHave = book.rules.find((x) => x.category === c && x.status === "proven" && similarity(x.text, text) >= SAME);
-      if (dupFail || dupHave) { rec.candidates.push({ text, skipped: dupFail ? "repeat_of_failed" : "already_in_book", like: (dupFail || dupHave).id }); log(`${O1.label}: правило по «${c}» отброшено без замера — ${dupFail ? "пересказ уже не прошедшего" : "уже есть в книге"}: ${text.slice(0, 120)}`); continue; }
+      if (dupFail || dupHave) { rec.candidates.push({ text, skipped: dupFail ? "repeat_of_failed" : "already_in_book", like: (dupFail || dupHave).id, ...(literal ? { literal } : {}) }); log(`${O1.label}: правило по «${c}» отброшено без замера — ${dupFail ? "пересказ уже не прошедшего" : "уже есть в книге"}: ${text.slice(0, 120)}`); continue; }
       const lt = catTasks("learn", c, P.learnPairs), byId = new Map(lt.map((t) => [t.id, t]));
       const { measurement: m, rows } = await measure({ tasks: lt, base: current, rules: [text], decide, cost: costOf, llm: staff, policies: POLICIES, humanCost: D.HUMAN_COST });
       const pkg = O1.publishExperience({ category: c, rule: { kind: "text", text }, measurement: m });
       const entry = { id: `r${book.rules.length + 1}`, category: c, text, born: RUN_ID, status: pkg.status, history: [{ run: RUN_ID, kind: "learn", status: pkg.status, ...pick(m), pairs_saved: true }] };
+      if (literal) entry.literal = literal; // 0.31.5
       if (rep.remeasure) entry.remeasure_of = rep.remeasure.id; // 0.31.3: пересказ правила, отвергнутого без сохранённых пар
       if (rep.fix) { entry.fix_of = rep.fix.id; rep.fix.fixed_by = entry.id; } // 0.31.4: исправленный вариант после показа худших пар, один раз
       entry.worst = worstPairs(rows, 3, (r) => seenText(byId.get(r.task), r.checks_with));
-      book.rules.push(entry); rec.candidates.push({ text, id: entry.id, status: pkg.status, measurement: m, rows, ...(rep.remeasure ? { remeasure_of: rep.remeasure.id } : {}), ...(rep.fix ? { fix_of: rep.fix.id } : {}) }); // 0.31.1: пары замера целиком, чтобы было видно, почему правило вредное (run-ocx-3b)
+      book.rules.push(entry); rec.candidates.push({ text, id: entry.id, status: pkg.status, measurement: m, rows, ...(rep.remeasure ? { remeasure_of: rep.remeasure.id } : {}), ...(rep.fix ? { fix_of: rep.fix.id } : {}), ...(literal ? { literal } : {}) }); // 0.31.1: пары замера целиком, чтобы было видно, почему правило вредное (run-ocx-3b)
       if (pkg.status === "proven") current.push(text); // следующий кандидат меряется уже против этого: правило должно добавлять, а не повторять
       log(`${O1.label}: новое правило по «${c}»${rep.remeasure ? ` (пересказ ${rep.remeasure.id}, отвергнутого без сохранённых пар, — меряю ещё раз)` : ""}${rep.fix ? ` (исправленный ${rep.fix.id} после показа его худших пар — меряю один раз)` : ""} на ${m.pairs} новых заданиях — с правилом ${m.cost_with} ₽, ${m.against === "current rule" ? "с текущим правилом" : "без правила"} ${m.cost_without}, «всегда человеку» ${D.HUMAN_COST}: ${pkg.status}${pkg.status === "proven" ? " — в книгу, выдаётся со следующего прогона после перемера" : ""}. «${text.slice(0, 140)}»`);
     }
@@ -497,10 +515,10 @@ function report(lang) {
   if (lr.rechecked.length) L.push("");
   if (lr.off) L.push(T("Учёба после прогона выключена (NET_OCX_LEARN=0).", "Learning after the run is off (NET_OCX_LEARN=0)."), "");
   else {
-    L.push(T(`После прогона оркестратор 1 взял категории, где его агенты ошиблись дороже всего (до ${P.learnCats}), показал модели ошибки (что видел агент, какие проверки купил и что они показали, что выбрал и как оказалось правильно) и попросил до ${P.learnCands} правил. Каждое правило мерилось на ${P.learnPairs} новых заданиях, не на тех, где ошиблись, против текущей практики и против «всегда человеку». Пересказ уже не прошедшего правила отбрасывается без замера. С 0.31.4 модели показывают и худшие пары не прошедших правил (что агент купил, что увидел, что выбрал); исправленный вариант такого правила меряется один раз. Текст правил — как его написала модель.`,
-      `After the run orchestrator 1 took the categories where its agents' mistakes cost the most (up to ${P.learnCats}), showed the model the mistakes (what the agent saw, which checks it bought and what they said, what it chose and what turned out right) and asked for up to ${P.learnCands} rules. Each rule was measured on ${P.learnPairs} new tasks, not the ones with the mistakes, against current practice and against "always a human". A rewording of a rule that already failed is dropped unmeasured. Since 0.31.4 the model also sees the worst pairs of failed rules (what the agent bought, what it saw, what it chose); a fixed version of such a rule gets measured once. Rule texts are as the model wrote them, in Russian.`), "");
+    L.push(T(`После прогона оркестратор 1 взял категории, где его агенты ошиблись дороже всего (до ${P.learnCats}), показал модели ошибки (что видел агент, какие проверки купил и что они показали, что выбрал и как оказалось правильно) и попросил до ${P.learnCands} правил. Каждое правило мерилось на ${P.learnPairs} новых заданиях, не на тех, где ошиблись, против текущей практики и против «всегда человеку». Пересказ уже не прошедшего правила отбрасывается без замера. С 0.31.4 модели показывают и худшие пары не прошедших правил (что агент купил, что увидел, что выбрал); исправленный вариант такого правила меряется один раз. С 0.31.5, если правило называет проверку, но не её ответы дословно, модель один раз переписывает его по списку ответов. Текст правил — как его написала модель.`,
+      `After the run orchestrator 1 took the categories where its agents' mistakes cost the most (up to ${P.learnCats}), showed the model the mistakes (what the agent saw, which checks it bought and what they said, what it chose and what turned out right) and asked for up to ${P.learnCands} rules. Each rule was measured on ${P.learnPairs} new tasks, not the ones with the mistakes, against current practice and against "always a human". A rewording of a rule that already failed is dropped unmeasured. Since 0.31.4 the model also sees the worst pairs of failed rules (what the agent bought, what it saw, what it chose); a fixed version of such a rule gets measured once. Since 0.31.5, if a rule names a check but does not quote its answers word for word, the model rewrites it once with the answers listed. Rule texts are as the model wrote them, in Russian.`), "");
     L.push(T("| Категория | ошибок, цена ₽ | правило | с правилом / без, ₽ на задание | лучше / хуже пар | статус |", "| Category | mistakes, cost RUB | rule | with / without, RUB per task | pairs better / worse | status |"), "|---|---|---|---|---|---|");
-    for (const r of lr.after) for (const c of r.candidates) L.push(`| ${r.category} | ${r.mistakes}, ${r.cost} | ${c.text.replace(/\|/g, "/")} | ${c.measurement ? `${c.measurement.cost_with} / ${c.measurement.cost_without}` : "-"} | ${c.measurement ? `${c.measurement.better} / ${c.measurement.worse}` : "-"} | ${c.status ? ST(c.status) + (c.remeasure_of ? T(` (повторный замер ${c.remeasure_of}: в прошлый раз пары не сохранялись)`, ` (re-measure of ${c.remeasure_of}: its pairs weren't saved last time)`) : "") + (c.fix_of ? T(` (исправленный ${c.fix_of}: модели показали его худшие пары)`, ` (fixed version of ${c.fix_of}: the model saw its worst pairs)`) : "") : c.skipped === "repeat_of_failed" ? T("пересказ не прошедшего, без замера", "rewording of a failed rule, not measured") : T("уже в книге", "already in the book")} |`);
+    for (const r of lr.after) for (const c of r.candidates) L.push(`| ${r.category} | ${r.mistakes}, ${r.cost} | ${c.text.replace(/\|/g, "/")} | ${c.measurement ? `${c.measurement.cost_with} / ${c.measurement.cost_without}` : "-"} | ${c.measurement ? `${c.measurement.better} / ${c.measurement.worse}` : "-"} | ${c.status ? ST(c.status) + (c.remeasure_of ? T(` (повторный замер ${c.remeasure_of}: в прошлый раз пары не сохранялись)`, ` (re-measure of ${c.remeasure_of}: its pairs weren't saved last time)`) : "") + (c.fix_of ? T(` (исправленный ${c.fix_of}: модели показали его худшие пары)`, ` (fixed version of ${c.fix_of}: the model saw its worst pairs)`) : "") + (c.literal ? T(c.literal.rewritten ? ` (переписано с дословными ответами проверки${c.literal.still_missing ? ", названы не все" : ""})` : " (ответы проверки не названы, переписать не вышло)", c.literal.rewritten ? ` (rewritten to quote the check's answers${c.literal.still_missing ? ", not all of them" : ""})` : " (check answers not quoted, rewrite failed)") : "") : c.skipped === "repeat_of_failed" ? T("пересказ не прошедшего, без замера", "rewording of a failed rule, not measured") : T("уже в книге", "already in the book")} |`);
     if (!lr.after.length) L.push(T("| - | ошибок не было | - | - | - | - |", "| - | no mistakes | - | - | - | - |"));
     const ba = lr.book_after; if (ba) L.push("", T(`Книга после прогона: доказано ${ba.proven}, без эффекта ${ba.no_effect}, вредно ${ba.harmful}, снято при перемере ${ba.retired}. Доказанные пойдут агентам в следующем прогоне, если пройдут перемер.`, `Book after the run: ${ba.proven} proven, ${ba.no_effect} no effect, ${ba.harmful} harmful, ${ba.retired} retired on re-measurement. Proven rules go to agents next run if they pass the re-measurement.`));
     L.push("");

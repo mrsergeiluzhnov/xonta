@@ -43,6 +43,39 @@ export function worstPairs(rows, n = 3, seen = () => "") {
   return rows.filter((r) => r.cost_with > r.cost_without).sort((a, b) => (b.cost_with - b.cost_without) - (a.cost_with - a.cost_without)).slice(0, n)
     .map((r) => ({ task: r.task, policy: r.policy, correct: r.correct, without: r.without, with: r.with, cost_without: r.cost_without, cost_with: r.cost_with, checks_with: r.checks_with, reason_with: String(r.reason_with || "").slice(0, 160), seen: seen(r) }));
 }
+// 0.31.5: ответы проверок дословно. В run-ocx-6 модель видела пару «callback: реквизиты не меняли → pay» и подсказку назвать
+// ответы дословно, но написала «если поставщик не подтвердил смену счёта — reject». Агенты прочитали «реквизиты не меняли»
+// как «поставщик подтвердил отсутствие изменений» и заплатили мошеннику в 3 парах из 12. Теперь оркестратор сам сверяет
+// правило с ответами, которые эта проверка давала у него в этой категории, и если какой-то ответ не назван, один раз
+// просит модель переписать правило, перечислив эти ответы. Только для проверок с 2–3 разными ответами: если ответ один, проверка в этой категории ничего не различает,
+// а ответы с суммами и процентами дословно не перечислить.
+const norm = (s) => String(s).toLowerCase().replace(/ё/g, "е").replace(/[«»"“”„.;:!?()]/g, " ").replace(/\s+/g, " ").trim();
+export function answerQuoted(rule, answer) {
+  const r = norm(rule);
+  if (r.includes(norm(answer))) return true;
+  return String(answer).split(":").pop().split(/[,;]/).map(norm).some((f) => f.length >= 10 && r.includes(f));
+}
+// answers: { check: [тексты ответов] }; вернуть { check: [ответы, которых нет в правиле] } для проверок, названных в правиле
+export function unquotedAnswers(rule, answers, maxDistinct = 3) {
+  const out = {};
+  for (const [check, list] of Object.entries(answers || {})) {
+    const uniq = [...new Set(list.map((x) => String(x).trim()).filter(Boolean))];
+    if (uniq.length < 2 || uniq.length > maxDistinct || !new RegExp(`\\b${check}\\b`).test(rule)) continue;
+    const miss = uniq.filter((a) => !answerQuoted(rule, a));
+    if (miss.length) out[check] = miss;
+  }
+  return out;
+}
+// «callback: «…»; sender_domain: «…»» (seen из худших пар) → { callback: ["…"], … }
+export function answersFromSeen(seen, into = {}) {
+  for (const m of String(seen || "").matchAll(/([a-z_]+): «([^»]*)»/g)) (into[m[1]] ||= []).push(m[2]);
+  return into;
+}
+export function literalPrompt(rule, answers, missing) {
+  const lines = Object.keys(missing).map((c) => `${c} отвечала так: ${[...new Set(answers[c])].map((a) => `«${a}»`).join("; ")}`);
+  return `STEP:literal\nПравило: «${rule}»\nВ нём не все ответы проверки названы дословно, агенты такие правила читают неверно. Эти проверки у нас в этой категории отвечали только так:\n${lines.join("\n")}\nПерепиши правило одной-двумя фразами: для каждого из этих ответов процитируй его дословно и прямо скажи, какое действие выбрать. Смысл правила не меняй. Ответ: {"rules":["…"]}`;
+}
+
 export function pairLesson(p) {
   const checks = p.seen || p.checks_with?.join(", ");
   return `  · С правилом агент ${checks ? `купил: ${checks}` : "проверок не покупал"}. Выбрал ${p.with}${p.reason_with ? ` («${p.reason_with}»)` : ""}, правильно было ${p.correct}, без правила выбрал ${p.without}. Цена с правилом ${Math.round(p.cost_with)} ₽, без ${Math.round(p.cost_without)} ₽.`;

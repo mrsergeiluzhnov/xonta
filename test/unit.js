@@ -1372,6 +1372,26 @@ await t("учёба OCX: худшие пары не прошедшего пра�
   assert.match(pairLesson(w[0]), /купил: callback\. Выбрал pay/, "без текста проверки — хотя бы её название");
 });
 
+await t("учёба OCX: правило должно дословно называть ответы проверки, иначе модель переписывает его (0.31.5, run-ocx-6)", async () => {
+  const { unquotedAnswers, answersFromSeen, literalPrompt, answerQuoted } = await import("../stand/ocx-learn.js");
+  const FRAUD = "поставщик по номеру из договора: реквизиты не меняли, письма не отправляли", OK = "поставщик подтвердил смену счёта";
+  const answers = answersFromSeen(`callback: «${FRAUD}»; sender_domain: «домен отправителя совпадает с договором»`, { callback: [OK, OK] });
+  assert.deepEqual(answers.callback, [OK, OK, FRAUD]);
+  // правило из run-ocx-6 (r12): «не подтвердил» вместо «реквизиты не меняли» — агенты платили мошеннику
+  const r12 = "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; если результат = поставщик не подтвердил смену счёта, выбрать reject; если результат = проверка не выполнена, выбрать hold";
+  assert.deepEqual(unquotedAnswers(r12, answers), { callback: [FRAUD] }, "ответ мошенника не назван");
+  assert.ok(!answerQuoted("поставщик не подтвердил смену счёта", FRAUD));
+  const good = "Купи callback: при ответе «реквизиты не меняли» — reject, при ответе «поставщик подтвердил смену счёта» — pay.";
+  assert.deepEqual(unquotedAnswers(good, answers), {}, "фрагмента ответа достаточно");
+  assert.deepEqual(unquotedAnswers("Письма о смене реквизитов передавай человеку.", answers), {}, "проверка не названа — не трогаем");
+  assert.deepEqual(unquotedAnswers("купи duplicate_check и плати", { duplicate_check: ["дублей нет", "дублей нет"] }), {}, "один ответ на всю категорию — проверка ничего не различает, не трогаем");
+  const many = { po_match: ["цена выше договорной на 7%", "цена выше договорной на 9%", "цена выше договорной на 12%", "цена и количество совпадают с заказом"] };
+  assert.deepEqual(unquotedAnswers("купи po_match и задержи, если цена выше", many), {}, "ответы с процентами (больше 3 разных) не требуем");
+  const pr = literalPrompt(r12, answers, unquotedAnswers(r12, answers));
+  assert.match(pr, /^STEP:literal/); assert.ok(pr.includes(`«${FRAUD}»`) && pr.includes(`«${OK}»`), "в просьбе все ответы проверки, один раз каждый");
+  assert.equal(pr.split(`«${OK}»`).length, 2);
+});
+
 await t("0.20.2: предложение агента разбирается, даже если ответ модели не строгий JSON (run-ops-1: 15 ответов, 0 предложений)", async () => {
   const { parseProposal } = await import("../stand/domains/common.js");
   const C = ["delete_resource", "schema_migration", "rotate_credentials", "scale_down", "fix_mismatch"];
