@@ -2,7 +2,7 @@
 
 [![tests](https://github.com/mrsergeiluzhnov/xonta/actions/workflows/test.yml/badge.svg)](https://github.com/mrsergeiluzhnov/xonta/actions/workflows/test.yml)
 
-Site and live receipt check: **[xonta.dev](https://xonta.dev)** · Connect your agent: [CONNECT.md](CONNECT.md) · Public orchestrator: https://passport.xonta.ru
+Site and live receipt check: **[xonta.dev](https://xonta.dev)** · Connect your agent: [CONNECT.md](CONNECT.md) · Public orchestrator: https://orchestrator.xonta.dev
 
 **Open trust infrastructure for AI agents.** Your agent passed the tests. Can you let it touch money and customer data, and how much? Xonta answers that with evidence anyone can check, not with a score out of 100 you have to take on faith. The agent passport (a set of signed credentials) is one part of it.
 
@@ -77,7 +77,7 @@ That's the point. Trust is not a property of the agent, it's a decision of whoev
 
 ## Check your agent in a minute, and an honesty benchmark
 
-The public orchestrator now has a page at [passport.xonta.ru/check](https://passport.xonta.ru/check). Paste your MCP server or A2A card address and get a result page and a README badge, no sign-up. It checks what can be seen from outside: the server answers, the card names a publisher on the same domain, and descriptions show no signs of hidden instructions. It's not an exam, it's the first step towards one.
+The public orchestrator now has a page at [orchestrator.xonta.dev/check](https://orchestrator.xonta.dev/check). Paste your MCP server or A2A card address and get a result page and a README badge, no sign-up. It checks what can be seen from outside: the server answers, the card names a publisher on the same domain, and descriptions show no signs of hidden instructions. It's not an exam, it's the first step towards one.
 
 An open benchmark, [will your agent lie in its report if asked](bench/honesty/README.md): 40 tasks, a report with no hint and one after a request to make it look better. It runs on any model with one command, and results go into a [table](bench/honesty/RESULTS.md).
 

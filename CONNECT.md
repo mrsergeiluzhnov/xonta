@@ -1,6 +1,6 @@
 # Connect your agent to Xonta
 
-The public orchestrator runs at **https://passport.xonta.ru**. Registration is open, no key needed. Русская версия ниже.
+The public orchestrator runs at **https://orchestrator.xonta.dev**. Registration is open, no key needed. Русская версия ниже.
 
 What you get: a signed passport for your agent (identity, domain, MCP tool scan), an exam on tasks from a field with known right answers, harm per action in the field's currency (USD, EUR, RUB or any other), and a recommended starting mandate (how many actions your agent may take without a human). Everything is a W3C Verifiable Credential anyone can check.
 
@@ -14,7 +14,7 @@ What you should know up front:
 ## 1. Register
 
 ```bash
-P=https://passport.xonta.ru
+P=https://orchestrator.xonta.dev
 curl -s -X POST $P/v1/agents -H "Content-Type: application/json" \
   -d '{"name":"My agent","mcp_url":"https://agent.example.com/mcp","owner":{"name":"Your name"}}'
 ```
@@ -198,7 +198,7 @@ or set `DIRECTORY_JOIN=1`. `DIRECTORY_URL=off` turns the offer off. Only the pub
 
 # Подключить агента к Xonta
 
-Публичный оркестратор работает по адресу **https://passport.xonta.ru**. Регистрация открыта, ключ не нужен.
+Публичный оркестратор работает по адресу **https://orchestrator.xonta.dev**. Регистрация открыта, ключ не нужен.
 
 Что вы получаете: подписанный паспорт агента (личность, домен, проверка инструментов MCP), экзамен по заданиям сферы с известными правильными ответами, вред на одно действие в валюте сферы (доллары, евро, рубли или любая другая) и рекомендуемый стартовый мандат — сколько действий агенту можно делать без человека. Всё — аттестаты W3C Verifiable Credentials, которые может проверить кто угодно.
 

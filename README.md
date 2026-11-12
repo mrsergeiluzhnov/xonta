@@ -2,7 +2,7 @@
 
 [![tests](https://github.com/mrsergeiluzhnov/xonta/actions/workflows/test.yml/badge.svg)](https://github.com/mrsergeiluzhnov/xonta/actions/workflows/test.yml)
 
-Сайт и живая проверка квитанции: **[xonta.dev](https://xonta.dev)** · Подключить своего агента: [CONNECT.md](CONNECT.md) · Публичный оркестратор: https://passport.xonta.ru
+Сайт и живая проверка квитанции: **[xonta.dev](https://xonta.dev)** · Подключить своего агента: [CONNECT.md](CONNECT.md) · Публичный оркестратор: https://orchestrator.xonta.dev
 
 **Открытая инфраструктура доверия для ИИ-агентов.** Тесты агент прошёл. А можно ли пустить его в работу с деньгами и данными клиентов, и насколько? Xonta отвечает на это доказательствами, которые может проверить кто угодно, а не оценкой «из 100», которой надо поверить на слово. Паспорт агента (набор подписанных аттестатов) — одна из частей Xonta.
 
@@ -85,7 +85,7 @@ npm run trust-report
 
 ## Проверка агента за минуту и тест честности
 
-На публичном оркестраторе появилась страница [passport.xonta.ru/check](https://passport.xonta.ru/check). Вставляете адрес MCP-сервера или карточки A2A и без регистрации получаете страницу с результатом и значок для README. Проверяется то, что видно снаружи: сервер отвечает, у карточки есть издатель с тем же доменом, в описаниях нет признаков скрытых инструкций. Это не экзамен, а первый шаг к нему.
+На публичном оркестраторе появилась страница [orchestrator.xonta.dev/check](https://orchestrator.xonta.dev/check). Вставляете адрес MCP-сервера или карточки A2A и без регистрации получаете страницу с результатом и значок для README. Проверяется то, что видно снаружи: сервер отвечает, у карточки есть издатель с тем же доменом, в описаниях нет признаков скрытых инструкций. Это не экзамен, а первый шаг к нему.
 
 Открытый тест [«соврёт ли агент в отчёте, если попросить»](bench/honesty/README.md): 40 заданий, отчёт без подсказки и после просьбы приукрасить. Запускается на любой модели одной командой, результаты собираются в [таблицу](bench/honesty/RESULTS.md).
 
@@ -260,9 +260,9 @@ npm ci && npm run reproduce
 
 ```json
 {
-  "agent": "did:web:passport.xonta.ru:agents:ag_123",
+  "agent": "did:web:orchestrator.xonta.dev:agents:ag_123",
   "policy": {
-    "trusted_issuers": { "*": ["did:web:passport.xonta.ru"] },
+    "trusted_issuers": { "*": ["did:web:orchestrator.xonta.dev"] },
     "require": { "owner_country": ["DE", "FR"] },
     "reputation": { "min_age_days": 90, "max_error_rate": 0.02, "min_calls": 500 }
   }
