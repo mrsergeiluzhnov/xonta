@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xonta.dev/spec/harm-budget/v0.1/harm-budget.schema.json",
+  "title": "Harm Budget for Agents",
+  "description": "Policy for bounding the worst-case harm an owner's agents can do in a period. See README.en.md.",
+  "type": "object",
+  "required": ["budget"],
+  "additionalProperties": false,
+  "properties": {
+    "budget": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Harm budget per period, in `currency`. Shared by all of the owner's agents and gates."
+    },
+    "period_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 86400,
+      "description": "Length of a budget period in seconds."
+    },
+    "currency": {
+      "type": "string",
+      "description": "Unit of harm, usually a currency code such as RUB or USD."
+    },
+    "pool_file": {
+      "type": "string",
+      "description": "Path to the owner's shared pool state file. Every gate of one owner opens the same file. When absent, only the per-call exposure caps apply and there is no shared pool."
+    },
+    "reserve_ttl_seconds": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 900,
+      "description": "A reservation not settled within this time is booked as spent, for crash safety. Clamped to period_seconds."
+    },
+    "unknown_action_exposure": {
+      "type": ["number", "null"],
+      "default": null,
+      "description": "Exposure assumed for action tools not listed in `tools`. null means such tools are not limited."
+    },
+    "tools": {
+      "type": "object",
+      "description": "Per-tool exposure rules, keyed by tool name.",
+      "additionalProperties": { "$ref": "#/$defs/tool" }
+    }
+  },
+  "$defs": {
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How to read the worst-case cost of one call of this tool, and the most it may cost without a human.",
+      "properties": {
+        "exposure": {
+          "type": "number",
+          "description": "Fixed worst-case cost of one call, for tools whose cost does not vary."
+        },
+        "amount_arg": {
+          "type": "string",
+          "description": "Dotted path to the argument whose numeric value is the worst case, for a payment or refund."
+        },
+        "factor": {
+          "type": "number",
+          "default": 1,
+          "description": "Multiplier applied to amount_arg."
+        },
+        "count_arg": {
+          "type": "string",
+          "description": "Dotted path to the argument whose count drives the worst case, for a bulk read or export."
+        },
+        "per_item": {
+          "type": "number",
+          "default": 1,
+          "description": "Cost per item, multiplied by count_arg."
+        },
+        "default_count": {
+          "type": "number",
+          "description": "Count used when count_arg is absent from the call."
+        },
+        "ceiling": {
+          "type": "number",
+          "description": "Exposure used when the amount or count cannot be read. Default is unbounded, so an unreadable call fails closed."
+        },
+        "max_exposure": {
+          "type": "number",
+          "description": "Alias of ceiling."
+        },
+        "max_per_action": {
+          "type": "number",
+          "minimum": 0,
+          "description": "The most one call of this tool may cost without a human. A call above it is held. 0 means the tool always needs a human."
+        },
+        "rules": {
+          "type": "array",
+          "description": "Ordered rules for cost that depends on content. The first match sets the exposure.",
+          "items": { "$ref": "#/$defs/rule" }
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arg", "exposure"],
+      "description": "A content rule. It reads one argument and, if it fires, sets the call's exposure.",
+      "properties": {
+        "arg": {
+          "type": "string",
+          "description": "Dotted path to the argument this rule reads."
+        },
+        "count": {
+          "type": "string",
+          "description": "Regular expression. The rule fires when the argument contains at least `min` matches."
+        },
+        "min": {
+          "type": "integer",
+          "default": 1,
+          "description": "Minimum number of matches of `count` for the rule to fire."
+        },
+        "per_match": {
+          "type": "boolean",
+          "default": false,
+          "description": "Multiply exposure by the number of matches of `count`."
+        },
+        "match": {
+          "type": "string",
+          "description": "Regular expression. The rule fires when the argument matches it."
+        },
+        "not_match": {
+          "type": "string",
+          "description": "Regular expression. The rule fires when the argument does not match it."
+        },
+        "exposure": {
+          "type": "number",
+          "description": "Exposure set by this rule when it fires."
+        }
+      }
+    }
+  }
+}
