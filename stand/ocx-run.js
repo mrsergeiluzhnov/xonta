@@ -31,7 +31,7 @@ import { createLLM } from "./llm.js";
 import { grade, rng } from "./domains/common.js";
 import { provocationFor, provocationText, reportPrompt, judge, mockReport, HONESTY } from "./honesty.js";
 import * as D from "./domains/procurement.js";
-import { loadBook, saveBook, similarity, SAME, parseCandidates, measure, caseText, findRepeat, blocksRepeat, worstPairs, pairLesson, unquotedAnswers, answersFromSeen, literalPrompt } from "./ocx-learn.js";
+import { loadBook, saveBook, similarity, SAME, parseCandidates, measure, caseText, findRepeat, blocksRepeat, worstPairs, pairLesson, unquotedAnswers, answersFromSeen, literalPrompt, parseRewrite } from "./ocx-learn.js";
 
 const E = process.env, HERE = dirname(fileURLToPath(import.meta.url)), ROOT = join(HERE, "..");
 const RUN_ID = E.NET_RUN_ID || `ocx-${Date.now().toString(36)}`;
@@ -198,7 +198,7 @@ function lessonsOf(rule) {
 }
 const activeSet = (cat) => book.rules.filter((x) => x.category === cat && x.status === "proven");
 run.learning = { book: "orchestrators/ocx-o1/book.json", fresh: P.bookFresh, loaded: book.rules.length, rechecked: [], after: [], skipped: [] };
-{ const inv = book.rules.filter((x) => x.status === "invalid"); if (inv.length) { run.learning.invalid = inv.map((x) => x.id); log(`${O1.label}: в книге ${inv.length} правил без текста (${inv.map((x) => x.id).join(", ")}) — не считаются ни вредными, ни пробованными`); } } // 0.31.6
+{ const inv = book.rules.filter((x) => x.status === "invalid"); if (inv.length) { run.learning.invalid = inv.map((x) => x.id); log(`${O1.label}: в книге ${inv.length} правил без текста или с обрезанным текстом (${inv.map((x) => x.id).join(", ")}) — не считаются ни вредными, ни пробованными`); } } // 0.31.6
 {
   const staff = llmFor("o1-staff");
   for (const cat of [...new Set(book.rules.filter((x) => x.status === "proven").map((x) => x.category))]) {
@@ -422,7 +422,7 @@ if (P.learn) try {
       let literal = null;
       const miss = unquotedAnswers(text, answers);
       if (Object.keys(miss).length) {
-        const reRaw = await learner.raw(sys, literalPrompt(text, answers, miss)).catch(() => ""), re = parseCandidates(reRaw, 1)[0];
+        const reRaw = await learner.raw(sys, literalPrompt(text, answers, miss)).catch(() => ""), re = parseRewrite(reRaw); // 0.31.7: ветки — в одну строку
         literal = { draft: text, missing: miss, rewritten: !!re, raw: String(reRaw).slice(0, 800) }; // 0.31.6: сырой ответ модели — в run-ocx-7 его не было видно
         if (re) { text = re; const still = unquotedAnswers(text, answers); if (Object.keys(still).length) literal.still_missing = still; }
         log(`${O1.label}: в правиле по «${c}» не названы дословно ответы ${Object.entries(miss).map(([k, v]) => `${k} (${v.map((a) => `«${a}»`).join(", ")})`).join(", ")} — ${re ? `модель переписала${literal.still_missing ? ", но назвала не все" : ""}: «${text.slice(0, 140)}»` : "переписать не вышло, меряю как есть"}`);
@@ -521,7 +521,7 @@ function report(lang) {
     L.push(T("| Категория | ошибок, цена ₽ | правило | с правилом / без, ₽ на задание | лучше / хуже пар | статус |", "| Category | mistakes, cost RUB | rule | with / without, RUB per task | pairs better / worse | status |"), "|---|---|---|---|---|---|");
     for (const r of lr.after) for (const c of r.candidates) L.push(`| ${r.category} | ${r.mistakes}, ${r.cost} | ${c.text.replace(/\|/g, "/")} | ${c.measurement ? `${c.measurement.cost_with} / ${c.measurement.cost_without}` : "-"} | ${c.measurement ? `${c.measurement.better} / ${c.measurement.worse}` : "-"} | ${c.status ? ST(c.status) + (c.remeasure_of ? T(` (повторный замер ${c.remeasure_of}: в прошлый раз пары не сохранялись)`, ` (re-measure of ${c.remeasure_of}: its pairs weren't saved last time)`) : "") + (c.fix_of ? T(` (исправленный ${c.fix_of}: модели показали его худшие пары)`, ` (fixed version of ${c.fix_of}: the model saw its worst pairs)`) : "") + (c.literal ? T(c.literal.rewritten ? ` (переписано с дословными ответами проверки${c.literal.still_missing ? ", названы не все" : ""})` : " (ответы проверки не названы, переписать не вышло)", c.literal.rewritten ? ` (rewritten to quote the check's answers${c.literal.still_missing ? ", not all of them" : ""})` : " (check answers not quoted, rewrite failed)") : "") : c.skipped === "repeat_of_failed" ? T("пересказ не прошедшего, без замера", "rewording of a failed rule, not measured") : T("уже в книге", "already in the book")} |`);
     if (!lr.after.length) L.push(T("| - | ошибок не было | - | - | - | - |", "| - | no mistakes | - | - | - | - |"));
-    const ba = lr.book_after; if (ba) L.push("", T(`Книга после прогона: доказано ${ba.proven}, без эффекта ${ba.no_effect}, вредно ${ba.harmful}, снято при перемере ${ba.retired}${ba.invalid ? `, без текста (не считаются) ${ba.invalid}` : ""}. Доказанные пойдут агентам в следующем прогоне, если пройдут перемер.`, `Book after the run: ${ba.proven} proven, ${ba.no_effect} no effect, ${ba.harmful} harmful, ${ba.retired} retired on re-measurement${ba.invalid ? `, ${ba.invalid} with lost text (not counted)` : ""}. Proven rules go to agents next run if they pass the re-measurement.`));
+    const ba = lr.book_after; if (ba) L.push("", T(`Книга после прогона: доказано ${ba.proven}, без эффекта ${ba.no_effect}, вредно ${ba.harmful}, снято при перемере ${ba.retired}${ba.invalid ? `, без текста или обрезанных (не считаются) ${ba.invalid}` : ""}. Доказанные пойдут агентам в следующем прогоне, если пройдут перемер.`, `Book after the run: ${ba.proven} proven, ${ba.no_effect} no effect, ${ba.harmful} harmful, ${ba.retired} retired on re-measurement${ba.invalid ? `, ${ba.invalid} with lost or cut text (not counted)` : ""}. Proven rules go to agents next run if they pass the re-measurement.`));
     L.push("");
   }
   L.push(T("## Что этот прогон не проверяет", "## What this run does not test"), "", T("- Оба оркестратора — эталонная реализация OCX в одном процессе стенда, а не основной сервер Xonta. Перенос квитанций в шлюз Xonta — следующий шаг.\n- Пересылка сигнала дальше по цепочке: соседей только два.\n- Просроченная апелляция (72 часа) и вес отправителя, который падает после неподтверждённых доказательств.\n- Новый агент того же владельца.", "- Both orchestrators are the OCX reference implementation inside one bench process, not the main Xonta server. Moving receipts into the Xonta gateway is the next step.\n- Relaying a signal further: there are only two peers.\n- An overdue appeal (72 hours) and issuer weight dropping after failed evidence.\n- A new agent from the same owner."), "");

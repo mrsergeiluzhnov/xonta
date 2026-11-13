@@ -1350,6 +1350,24 @@ await t("учёба OCX: правило-объект от модели не пр
   markBroken(book); assert.equal(book.rules[0].history.length, 1, "второй раз не помечаем");
 });
 
+await t("учёба OCX: переписанное правило по веткам не теряет ветки (0.31.7, run-ocx-8)", async () => {
+  const { parseRewrite, ruleText, markBroken, unquotedAnswers } = await import("../stand/ocx-learn.js");
+  const raw = '{"rules":[{"condition":"callback: поставщик по номеру из договора: реквизиты не меняли, письма не отправляли","action":"hold"},{"condition":"callback: поставщик подтвердил смену счёта","action":"pay"},{"condition":"callback: проверка не выполнена","action":"hold"}]}';
+  const r = parseRewrite(raw);
+  assert.ok(r.includes("реквизиты не меняли") && r.includes("подтвердил смену счёта — pay") && r.includes("проверка не выполнена — hold"), r);
+  assert.ok(!/condition|action/.test(r), "без служебных слов: " + r);
+  assert.deepEqual(unquotedAnswers(r, { callback: ["поставщик по номеру из договора: реквизиты не меняли, письма не отправляли", "поставщик подтвердил смену счёта"] }), {}, "все ответы названы");
+  assert.equal(ruleText({ condition: "дубль найден", action: "reject" }), "если дубль найден — reject");
+  assert.equal(parseRewrite('{"rules":["первое правило про домен и сверку заказа","второе правило про что-то другое"]}'), "первое правило про домен и сверку заказа", "строки — первая");
+  const book = markBroken({ rules: [
+    { id: "r17", text: "condition — callback: поставщик по номеру из договора: реквизиты не меняли, письма не отправляли; action — hold", status: "harmful", literal: { raw }, history: [], worst: [{}] },
+    { id: "r15", text: "первое правило про домен и сверку заказа", status: "harmful", literal: { raw: '{"rules":["первое правило про домен и сверку заказа","второе"]}' } },
+    { id: "r18", text: r, status: "harmful", literal: { raw } }] });
+  assert.equal(book.rules[0].status, "invalid"); assert.equal(book.rules[0].history[0].reason, "rule cut to one branch"); assert.equal(book.rules[0].worst, undefined);
+  assert.equal(book.rules[1].status, "harmful", "строковое правило не трогаем");
+  assert.equal(book.rules[2].status, "harmful", "собранное целиком не трогаем");
+});
+
 await t("учёба OCX: пересказ правила, отвергнутого без сохранённых пар, меряется ещё раз (0.31.3, run-ocx-4)", async () => {
   const { findRepeat } = await import("../stand/ocx-learn.js");
   const old = { id: "r1", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; иначе reject", status: "harmful", history: [{ run: "run-ocx-3b", kind: "learn", status: "harmful" }] };

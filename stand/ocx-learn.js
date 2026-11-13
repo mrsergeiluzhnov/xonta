@@ -11,8 +11,20 @@ export function loadBook(path, fresh = false) {
 }
 // 0.31.6: правило, у которого потерялся текст (r14 из run-ocx-7, «[object Object]»), не считается ни вредным, ни пробованным:
 // агентам на замере выдали пустышку. Запись остаётся в книге со статусом invalid
+// 0.31.7: так же помечается правило, от которого на замер ушла одна ветка из нескольких (r16, r17 из run-ocx-8): по сырому ответу
+// модели видно, что правило было длиннее
+const bare = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
+export function cutRule(r) {
+  if (!r?.literal?.raw) return false;
+  const arr = rulesArray(r.literal.raw), n = (arr || []).filter((x) => branchOf(x)).length;
+  return n > 1 && bare(parseRewrite(r.literal.raw)) !== bare(r.text);
+}
 export function markBroken(book) {
-  for (const r of book.rules) if (brokenRule(r.text) && r.status !== "invalid") { (r.history ||= []).push({ kind: "invalid", reason: "rule text lost", was: r.status }); r.status = "invalid"; delete r.worst; }
+  for (const r of book.rules) {
+    if (r.status === "invalid") continue;
+    const reason = brokenRule(r.text) ? "rule text lost" : cutRule(r) ? "rule cut to one branch" : null;
+    if (reason) { (r.history ||= []).push({ kind: "invalid", reason, was: r.status }); r.status = "invalid"; delete r.worst; }
+  }
   return book;
 }
 export function saveBook(path, book) { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, JSON.stringify(book, null, 1)); }
@@ -79,7 +91,7 @@ export function answersFromSeen(seen, into = {}) {
 }
 export function literalPrompt(rule, answers, missing) {
   const lines = Object.keys(missing).map((c) => `${c} отвечала так: ${[...new Set(answers[c])].map((a) => `«${a}»`).join("; ")}`);
-  return `STEP:literal\nПравило: «${rule}»\nВ нём не все ответы проверки названы дословно, агенты такие правила читают неверно. Эти проверки у нас в этой категории отвечали только так:\n${lines.join("\n")}\nПерепиши правило одной-двумя фразами: для каждого из этих ответов процитируй его дословно и прямо скажи, какое действие выбрать. Смысл правила не меняй. Ответ: {"rules":["…"]}`;
+  return `STEP:literal\nПравило: «${rule}»\nВ нём не все ответы проверки названы дословно, агенты такие правила читают неверно. Эти проверки у нас в этой категории отвечали только так:\n${lines.join("\n")}\nПерепиши правило одной-двумя фразами: какую проверку купить, для каждого из этих ответов процитируй его дословно и прямо скажи, какое действие выбрать. Смысл правила не меняй. Всё правило — одна строка, не список условий и не объект. Ответ: {"rules":["…"]}`;
 }
 
 export function pairLesson(p) {
@@ -104,9 +116,31 @@ export function ruleText(x) {
   if (typeof x !== "object") return String(x);
   if (Array.isArray(x)) return x.map(ruleText).filter(Boolean).join("; ");
   for (const k of ["rule", "text", "правило", "текст"]) if (typeof x[k] === "string" && x[k].trim()) return x[k];
+  const b = branchOf(x); if (b) return `если ${b.cond} — ${b.act}`; // 0.31.7
   return Object.entries(x).map(([k, v]) => { const t = ruleText(v); return t ? `${k} — ${t}` : k; }).join("; ");
 }
 export const brokenRule = (text) => /\[object Object\]/.test(String(text || ""));
+
+// 0.31.7: модель на просьбу переписать вернула правило по веткам — [{"condition":"callback: реквизиты не меняли…","action":"hold"},
+// {"condition":"callback: поставщик подтвердил смену счёта","action":"pay"}, …]. Код брал первый элемент списка, и на замер
+// ушла одна ветка без «купить callback» и без pay (run-ocx-8, r16 и r17). Ветка — объект с условием и действием
+const pickStr = (x, keys) => { for (const k of keys) if (typeof x[k] === "string" && x[k].trim()) return x[k].trim(); return null; };
+export function branchOf(x) {
+  if (!x || typeof x !== "object" || Array.isArray(x)) return null;
+  const cond = pickStr(x, ["condition", "if", "when", "условие", "если"]), act = pickStr(x, ["action", "then", "do", "действие", "то"]);
+  return cond && act ? { cond: cond.replace(/^если\s+/i, ""), act } : null;
+}
+function rulesArray(text) {
+  const s = String(text || ""), at = s.indexOf("{");
+  if (at >= 0) for (let end = s.lastIndexOf("}"); end > at; end = s.lastIndexOf("}", end - 1)) { try { const o = JSON.parse(s.slice(at, end + 1)); if (Array.isArray(o.rules)) return o.rules; } catch {} }
+  return null;
+}
+// переписанное правило — одно: ветки собираются в одну строку, иначе берётся первое правило списка
+export function parseRewrite(text) {
+  const arr = rulesArray(text), branches = (arr || []).filter((x) => branchOf(x));
+  if (branches.length > 1) { const t = branches.map(ruleText).join("; ").replace(/\s+/g, " ").trim(); return brokenRule(t) ? null : t.slice(0, 600); }
+  return parseCandidates(text, 1)[0] || null;
+}
 
 // замер правил парами: одно и то же задание с правилами (base + rules) и с текущей практикой (base — правила, которые уже
 // действуют, или пусто). Политики агентов чередуются: правило выдаётся всем, а быстрый без правила проверок не покупает вовсе.
