@@ -1368,6 +1368,20 @@ await t("учёба OCX: переписанное правило по ветка
   assert.equal(book.rules[2].status, "harmful", "собранное целиком не трогаем");
 });
 
+await t("учёба OCX: при переписывании не пропадают действия черновика (0.31.8, run-ocx-9)", async () => {
+  const { actionsOf, lostActions, keepActionsPrompt } = await import("../stand/ocx-learn.js");
+  const draft = "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; если результат = поставщик не подтвердил смену счёта, выбрать reject; если результат = проверка не выполнена, выбрать hold";
+  const re = "купить callback; если результат \"поставщик по номеру из договора: реквизиты не меняли, письма не отправляли\" выбрать hold; если результат \"поставщик подтвердил смену счёта\" выбрать pay; если результат \"проверка не выполнена\" выбрать hold";
+  assert.deepEqual([...actionsOf(draft)].sort(), ["hold", "pay", "reject"]);
+  assert.deepEqual(lostActions(draft, re), ["reject"], "ответ из run-ocx-9: reject пропал");
+  assert.deepEqual(lostActions(draft, re.replace("отправляли\" выбрать hold", "отправляли\" выбрать reject")), [], "с reject — ничего не пропало");
+  assert.deepEqual([...actionsOf("купить duplicate_check; если результат duplicate — reject")], ["reject"], "duplicate_check не путаем с действием");
+  assert.deepEqual([...actionsOf("payment_hold_x и prepay")], [], "части слов не считаются");
+  const ans = { callback: ["поставщик по номеру из договора: реквизиты не меняли, письма не отправляли", "поставщик подтвердил смену счёта"] };
+  const p = keepActionsPrompt(draft, re, ["reject"], ans, { callback: [ans.callback[0]] });
+  assert.ok(p.startsWith("STEP:literal") && p.includes("пропало действие reject") && p.includes("«поставщик подтвердил смену счёта»") && p.includes("(pay, reject, hold)"), p);
+});
+
 await t("учёба OCX: пересказ правила, отвергнутого без сохранённых пар, меряется ещё раз (0.31.3, run-ocx-4)", async () => {
   const { findRepeat } = await import("../stand/ocx-learn.js");
   const old = { id: "r1", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; иначе reject", status: "harmful", history: [{ run: "run-ocx-3b", kind: "learn", status: "harmful" }] };
