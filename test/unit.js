@@ -1399,6 +1399,28 @@ await t("учёба OCX: другое действие на тот же отве
   assert.equal(findRepeat([r12, r18, r20], cand.replace("выбрать reject", "— reject"), shown).block?.id, "r12", "после замера пересказ отбрасывается");
 });
 
+await t("учёба OCX: склеенные слова в переписанном правиле расклеиваются, такое правило в книге не считается (0.31.10, run-ocx-11)", async () => {
+  const { squashed, unsquash, unquotedAnswers, actionsOf, findRepeat, markBroken } = await import("../stand/ocx-learn.js");
+  const draft = "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; если результат = поставщик не подтвердил смену счёта, выбрать reject; если результат = проверка не выполнена, выбрать hold";
+  const glued = "купить callback;если\"поставщикподтвердилсменучёта\"выбратьpay;если\"поставщикпономузадоговорареквизитынеменялиписьнамнеотправляли\"выбратьreject;если\"проверканевыполнена\"выбратьhold";
+  const ans = { callback: ["поставщик подтвердил смену счёта", "поставщик по номеру из договора: реквизиты не меняли, письма не отправляли"] };
+  assert.ok(squashed(glued) && !squashed(draft));
+  const u = unsquash(glued, ans, [draft]);
+  assert.ok(u.fixed, u.text);
+  assert.equal(u.text, "купить callback; если \"поставщик подтвердил смену счёта\" выбрать pay; если \"поставщик по номеру из договора: реквизиты не меняли, письма не отправляли\" выбрать reject; если \"проверка не выполнена\" выбрать hold");
+  assert.deepEqual(unquotedAnswers(u.text, ans), {}, "оба ответа названы дословно");
+  assert.deepEqual([...actionsOf(u.text)].sort(), ["hold", "pay", "reject"]);
+  assert.deepEqual(unsquash(draft, ans, [draft]), { text: draft, fixed: false }, "обычный текст не трогается");
+  assert.ok(!unsquash("купить callback;еслиабракадабраквазимодобумбарашкатрам выбрать pay", ans, [draft]).fixed, "неизвестную склейку не выдумываем");
+  const H = [{ run: "x", kind: "learn", status: "harmful", pairs_saved: true }];
+  const r12 = { id: "r12", category: "b", text: draft, status: "harmful", fix_of: "r10", fixed_by: "r18", history: H };
+  const r18 = { id: "r18", category: "b", text: "купить callback; если результат \"поставщик по номеру из договора: реквизиты не меняли, письма не отправляли\" выбрать hold; если результат \"поставщик подтвердил смену счёта\" выбрать pay; если результат \"проверка не выполнена\" выбрать hold", status: "no_effect", fix_of: "r12", history: H };
+  const r = findRepeat([r12, r18], u.text, new Set(["r12", "r18"]));
+  assert.equal(r.block, null); assert.equal(r.fix?.id, "r12"); assert.equal(r.changed?.id, "r18", "расклеенное правило из run-ocx-11 пошло бы на замер как исправленный r12");
+  const book = markBroken({ rules: [{ id: "r20", category: "b", text: glued, status: "no_effect", history: H }] });
+  assert.equal(book.rules[0].status, "invalid"); assert.equal(book.rules[0].history.at(-1).reason, "words glued together");
+});
+
 await t("учёба OCX: пересказ правила, отвергнутого без сохранённых пар, меряется ещё раз (0.31.3, run-ocx-4)", async () => {
   const { findRepeat } = await import("../stand/ocx-learn.js");
   const old = { id: "r1", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; иначе reject", status: "harmful", history: [{ run: "run-ocx-3b", kind: "learn", status: "harmful" }] };

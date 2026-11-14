@@ -22,7 +22,7 @@ export function cutRule(r) {
 export function markBroken(book) {
   for (const r of book.rules) {
     if (r.status === "invalid") continue;
-    const reason = brokenRule(r.text) ? "rule text lost" : cutRule(r) ? "rule cut to one branch" : null;
+    const reason = brokenRule(r.text) ? "rule text lost" : cutRule(r) ? "rule cut to one branch" : squashed(r.text) ? "words glued together" : null; // 0.31.10: r20 из run-ocx-11
     if (reason) { (r.history ||= []).push({ kind: "invalid", reason, was: r.status }); r.status = "invalid"; delete r.worst; }
   }
   return book;
@@ -177,6 +177,42 @@ export function parseRewrite(text) {
   const arr = rulesArray(text), branches = (arr || []).filter((x) => branchOf(x));
   if (branches.length > 1) { const t = branches.map(ruleText).join("; ").replace(/\s+/g, " ").trim(); return brokenRule(t) ? null : t.slice(0, 600); }
   return parseCandidates(text, 1)[0] || null;
+}
+
+// 0.31.10: в run-ocx-11 модель переписала правило, склеив слова: «купить callback;если"поставщикподтвердилсменучёта"выбратьpay;…».
+// Сверка ответов такие слова не узнала («назвала не все»), а агенты на замере правило почти не поняли: callback купили в 1 паре из 12.
+// Теперь склеенный текст чинится: ответ проверки в кавычках, который совпадает с известным ответом без пробелов и знаков, заменяется
+// этим ответом (модель при склейке теряет буквы: «сменучёта», «пономуза» — допускается 15% правок); остальные склеенные слова разбиваются по словам черновика и ответов. Если склейка осталась — переписанный вариант не берётся
+const letters = (s) => String(s).toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я_]/g, "");
+function editDistance(a, b) {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) { const cur = [i]; for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; }
+  return prev[b.length];
+}
+export const squashed = (s) => /[a-zа-яё_]{25,}/i.test(String(s || ""));
+function segment(word, vocab) {
+  const w = word.toLowerCase().replace(/ё/g, "е"), n = w.length, best = new Array(n + 1).fill(null); best[0] = [];
+  for (let i = 1; i <= n; i++) for (let j = Math.max(0, i - 30); j < i; j++) {
+    if (!best[j] || !vocab.has(w.slice(j, i))) continue;
+    if (!best[i] || best[j].length + 1 < best[i].length) best[i] = [...best[j], [j, i]];
+  }
+  return best[n] && best[n].length > 1 ? best[n].map(([a, b]) => word.slice(a, b)).join(" ") : null;
+}
+const BASE_WORDS = ["если", "то", "тогда", "иначе", "выбрать", "выбери", "выбирай", "купить", "купи", "при", "ответе", "ответ", "результат", "результате", "проверка", "проверку", "и", "или", "не", "pay", "reject", "hold", "escalate"];
+export function unsquash(text, answers = {}, sources = []) {
+  let s = String(text || "");
+  if (!squashed(s)) return { text: s, fixed: false };
+  const known = new Map();
+  for (const a of Object.values(answers).flat()) if (a) known.set(letters(a), String(a).trim());
+  const near = (inner) => { const k = letters(inner); let best = null, bd = Infinity; for (const [key, a] of known) { const d = editDistance(k, key); if (d < bd) { bd = d; best = a; } } return best && bd <= Math.floor(0.15 * Math.max(k.length, 1)) ? best : null; };
+  s = s.replace(/(["«“„])([^"«»“”„]+)(["»”“])/g, (m, o, inner, c) => { const a = near(inner); return a ? `${o}${a}${c}` : m; });
+  const vocab = new Set(BASE_WORDS);
+  for (const src of [...sources, ...known.values(), ...Object.keys(answers)]) for (const w of String(src).toLowerCase().replace(/ё/g, "е").match(/[a-zа-я_]+/g) || []) vocab.add(w);
+  s = s.replace(/[a-zа-яё_]{6,}/gi, (w) => vocab.has(w.toLowerCase().replace(/ё/g, "е")) ? w : segment(w, vocab) || w);
+  let q = 0; s = s.replace(/"/g, (m, i, all) => { q++; return q % 2 ? (/[a-zа-яё0-9]/i.test(all[i - 1] || "") ? ' "' : '"') : (/[a-zа-яё0-9]/i.test(all[i + 1] || "") ? '" ' : '"'); });
+  s = s.replace(/([a-zа-яё0-9])«/gi, "$1 «").replace(/»([a-zа-яё0-9])/gi, "» $1").replace(/;(?=\S)/g, "; ").replace(/\s+/g, " ").trim();
+  const left = (s.match(/[a-zа-яё_]{18,}/gi) || []).filter((w) => !vocab.has(w.toLowerCase().replace(/ё/g, "е"))); // длинных склеек не осталось
+  return { text: s, fixed: !left.length };
 }
 
 // замер правил парами: одно и то же задание с правилами (base + rules) и с текущей практикой (base — правила, которые уже
