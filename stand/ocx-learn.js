@@ -48,11 +48,20 @@ export const blocksRepeat = (rule) => (rule?.history || []).some((h) => h.kind =
 // он похож на старый по словам, но не почти дословно. Такой вариант меряется один раз (fix), дальше старое правило
 // снова отбрасывает пересказы (run-ocx-5: звонок вреден, потому что агенты читают «реквизиты не меняли» как подтверждение)
 export const NEAR = 0.85;
+// 0.31.9: в run-ocx-10 сверка 0.31.8 сработала — модель вернула reject на ответ мошенника, и правило получилось ровно то,
+// которого ждали: «"реквизиты не меняли…" — reject; "подтвердил смену счёта" — pay; "не выполнена" — hold». Но его отбросили
+// без замера как пересказ r12: по словам оно на 0,95 похоже на r18 (там на тот же ответ стоял hold), а исправление r12 уже
+// «израсходовал» r18. Теперь (1) правило, которое на тот же дословный ответ проверки ставит другое действие, — не пересказ
+// (changed); (2) исправление не считается использованным, если в исправленном варианте пропало действие исходного правила
 export function findRepeat(failed, text, shown = new Set()) {
-  const like = failed.filter((x) => similarity(x.text, text) >= SAME);
-  const fixable = (x) => blocksRepeat(x) && shown.has(x.id) && !x.fixed_by && similarity(x.text, text) < NEAR;
+  const near = failed.filter((x) => similarity(x.text, text) >= SAME);
+  const changed = near.filter((x) => actionsDiffer(x.text, text));
+  const like = near.filter((x) => !changed.includes(x));
+  const byId = new Map(failed.map((x) => [x.id, x]));
+  const fixUsed = (x) => { if (!x.fixed_by) return false; const f = byId.get(x.fixed_by); return !f || !lostActions(x.text, f.text).length; };
+  const fixable = (x) => blocksRepeat(x) && shown.has(x.id) && !fixUsed(x) && similarity(x.text, text) < NEAR;
   const block = like.find((x) => blocksRepeat(x) && !fixable(x)) || null;
-  return { block, fix: block ? null : like.find(fixable) || null, remeasure: like.find((x) => !blocksRepeat(x)) || null };
+  return { block, fix: block ? null : like.find(fixable) || null, remeasure: like.find((x) => !blocksRepeat(x)) || null, changed: block ? null : changed[0] || null };
 }
 
 // 0.31.4: худшие пары замера — то, что правило сделало хуже. Хранятся в книге вместе с тем, что показали проверки,
@@ -102,6 +111,21 @@ export function literalPrompt(rule, answers, missing) {
 const ACTS = ["pay", "reject", "hold", "escalate"];
 export const actionsOf = (s) => new Set(ACTS.filter((a) => new RegExp(`(^|[^a-z_])${a}([^a-z_]|$)`, "i").test(String(s || ""))));
 export function lostActions(draft, text) { const b = actionsOf(text); return [...actionsOf(draft)].filter((a) => !b.has(a)); }
+// 0.31.9: какое действие правило ставит на каждый дословно названный ответ проверки: { ответ → действие }.
+// Берутся только части правила (между «;»), где ровно одно действие
+export function answerActions(s) {
+  const out = new Map();
+  for (const part of String(s || "").split(/;/)) {
+    const acts = [...actionsOf(part)]; if (acts.length !== 1) continue;
+    for (const m of part.matchAll(/["«“„]([^"«»“”„]{6,})["»”“]/g)) out.set(norm(m[1]), acts[0]);
+  }
+  return out;
+}
+export function actionsDiffer(a, b) {
+  const A = answerActions(a), B = answerActions(b);
+  for (const [k, v] of A) if (B.has(k) && B.get(k) !== v) return true;
+  return false;
+}
 export function keepActionsPrompt(draft, text, lost, answers, missing) {
   const lines = Object.keys(missing).map((c) => `${c} отвечала так: ${[...new Set(answers[c])].map((a) => `«${a}»`).join("; ")}`);
   return `STEP:literal\nЧерновик правила: «${draft}»\nПереписанный вариант: «${text}»\nВ переписанном варианте пропало ${lost.length > 1 ? "действия" : "действие"} ${lost.join(", ")}, ${lost.length > 1 ? "они были" : "оно было"} в черновике. Смысл правила поменялся, так нельзя. Эти проверки у нас в этой категории отвечали только так:\n${lines.join("\n")}\nДля каждого ответа реши, какой ветке черновика он соответствует по смыслу, процитируй ответ дословно и поставь действие этой ветки из черновика. Все действия черновика (${[...actionsOf(draft)].join(", ")}) должны остаться. Всё правило — одна строка, не список условий и не объект. Ответ: {"rules":["…"]}`;

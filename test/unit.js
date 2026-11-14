@@ -1382,6 +1382,23 @@ await t("учёба OCX: при переписывании не пропадаю
   assert.ok(p.startsWith("STEP:literal") && p.includes("пропало действие reject") && p.includes("«поставщик подтвердил смену счёта»") && p.includes("(pay, reject, hold)"), p);
 });
 
+await t("учёба OCX: другое действие на тот же ответ проверки — не пересказ; исправление с потерянным действием не тратит попытку (0.31.9, run-ocx-10)", async () => {
+  const { findRepeat, answerActions, actionsDiffer } = await import("../stand/ocx-learn.js");
+  const H = [{ run: "x", kind: "learn", status: "harmful", pairs_saved: true }];
+  const r12 = { id: "r12", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; если результат = поставщик не подтвердил смену счёта, выбрать reject; если результат = проверка не выполнена, выбрать hold", status: "harmful", fixed_by: "r18", history: H };
+  const r18 = { id: "r18", text: "купить callback; если результат \"поставщик по номеру из договора: реквизиты не меняли, письма не отправляли\" выбрать hold; если результат \"поставщик подтвердил смену счёта\" выбрать pay; если результат \"проверка не выполнена\" выбрать hold", status: "no_effect", fix_of: "r12", history: H };
+  const cand = "купить callback; если результат = \"поставщик по номеру из договора: реквизиты не меняли, письма не отправляли\" выбрать reject; если результат = \"поставщик подтвердил смену счёта\" выбрать pay; если результат = \"проверка не выполнена\" выбрать hold";
+  assert.equal(answerActions(cand).size, 3);
+  assert.ok(actionsDiffer(r18.text, cand), "«не меняли»: hold против reject");
+  assert.ok(!actionsDiffer(r18.text, r18.text.replace("выбрать pay", "— pay")), "те же действия другими словами — не отличие");
+  const shown = new Set(["r12", "r18"]);
+  let r = findRepeat([r12, r18], cand, shown);
+  assert.equal(r.block, null, "ответ модели из run-ocx-10 не отбрасывается"); assert.equal(r.changed?.id, "r18"); assert.equal(r.fix?.id, "r12", "r18 потерял reject — исправление r12 ещё не потрачено");
+  assert.equal(findRepeat([r12, r18], r18.text, shown).block?.id, "r18", "повтор r18 по-прежнему отбрасывается");
+  const r20 = { id: "r20", text: cand, status: "harmful", fix_of: "r12", history: H }; r12.fixed_by = "r20";
+  assert.equal(findRepeat([r12, r18, r20], cand.replace("выбрать reject", "— reject"), shown).block?.id, "r12", "после замера пересказ отбрасывается");
+});
+
 await t("учёба OCX: пересказ правила, отвергнутого без сохранённых пар, меряется ещё раз (0.31.3, run-ocx-4)", async () => {
   const { findRepeat } = await import("../stand/ocx-learn.js");
   const old = { id: "r1", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; иначе reject", status: "harmful", history: [{ run: "run-ocx-3b", kind: "learn", status: "harmful" }] };
