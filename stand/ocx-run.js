@@ -427,7 +427,7 @@ if (P.learn) try {
       if (Object.keys(miss).length) {
         const reRaw = await learner.raw(sys, literalPrompt(text, answers, miss)).catch(() => ""); let re = parseRewrite(reRaw); // 0.31.7: ветки — в одну строку
         const glued = re && squashed(re); if (glued) { const u = unsquash(re, answers, [text]); re = u.fixed ? u.text : null; } // 0.31.10: склеенные слова (run-ocx-11)
-        literal = { draft: text, missing: miss, rewritten: !!re, raw: String(reRaw).slice(0, 800), ...(glued ? { glued: true, unglued: !!re } : {}) }; // 0.31.6: сырой ответ модели — в run-ocx-7 его не было видно
+        literal = { draft: text, missing: miss, rewritten: !!re, raw: String(reRaw).slice(0, 1200), ...(glued ? { glued: true, unglued: !!re } : {}) }; // 0.31.6: сырой ответ модели — в run-ocx-7 его не было видно
         if (glued) log(`${O1.label}: в переписанном правиле по «${c}» слова склеены — ${re ? "расклеил по ответам проверки и словам черновика" : "расклеить не вышло, переписанный вариант не беру"}`);
         if (re) { text = re; const still = unquotedAnswers(text, answers); if (Object.keys(still).length) literal.still_missing = still; }
         log(`${O1.label}: в правиле по «${c}» не названы дословно ответы ${Object.entries(miss).map(([k, v]) => `${k} (${v.map((a) => `«${a}»`).join(", ")})`).join(", ")} — ${re ? `модель переписала${literal.still_missing ? ", но назвала не все" : ""}: «${text.slice(0, 140)}»` : "переписать не вышло, меряю как есть"}`);
@@ -436,7 +436,7 @@ if (P.learn) try {
           const r2Raw = await learner.raw(sys, keepActionsPrompt(literal.draft, re, lost, answers, miss)).catch(() => ""); let re2 = parseRewrite(r2Raw);
           if (re2 && squashed(re2)) { const u = unsquash(re2, answers, [literal.draft]); re2 = u.fixed ? u.text : null; } // 0.31.10
           const lost2 = re2 ? lostActions(literal.draft, re2) : lost, still2 = re2 ? unquotedAnswers(re2, answers) : null;
-          literal.actions_lost = lost; literal.raw2 = String(r2Raw).slice(0, 800);
+          literal.actions_lost = lost; literal.raw2 = String(r2Raw).slice(0, 1200);
           if (re2 && lost2.length < lost.length && Object.keys(still2).length <= Object.keys(literal.still_missing || {}).length) { text = re2; literal.actions_kept = !lost2.length; if (lost2.length) literal.actions_still_lost = lost2; if (Object.keys(still2).length) literal.still_missing = still2; else delete literal.still_missing; }
           else literal.actions_kept = false;
           log(`${O1.label}: при переписывании правила по «${c}» пропало действие ${lost.join(", ")} из черновика — ${literal.actions_kept ? `модель переписала ещё раз, действия сохранены: «${text.slice(0, 140)}»` : text === re ? "второй раз не вышло, меряю первый вариант" : `второй вариант лучше, но не все действия: «${text.slice(0, 140)}»`}`);

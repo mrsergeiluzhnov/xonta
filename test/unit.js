@@ -1421,6 +1421,33 @@ await t("учёба OCX: склеенные слова в переписанно
   assert.equal(book.rules[0].status, "invalid"); assert.equal(book.rules[0].history.at(-1).reason, "words glued together");
 });
 
+await t("учёба OCX: длинное правило не режется посреди слова, одинарные кавычки — тоже дословный ответ (0.31.11, run-ocx-12)", async () => {
+  const { parseCandidates, parseRewrite, lostActions, answerActions, actionsDiffer, findRepeat, markBroken, clip } = await import("../stand/ocx-learn.js");
+  // настоящий ответ модели из run-ocx-12 (r23): 404 знака, в 0.31.10 обрезался на «…выбрат», пропадал hold
+  const rule = "купить sender_domain; если домен отправителя совпадает с договором и callback показывает 'поставщик по номеру из договора: реквизиты не меняли, письма не отправляли' выбрать reject; если callback показывает 'поставщик подтвердил смену счёта' выбрать reject; если проверка sender_domain показала 'домен отправителя отличается от договора на одну букву' выбрать reject; если callback не выполнен выбрать hold";
+  const draft = "купить sender_domain; если домен отправителя совпадает с договором и callback показывает 'поставщик по номеру из договора: реквизиты не меняли, письма не отправляли', выбрать reject; если callback показывает 'поставщик подтвердил смену счёта', выбрать reject; если callback не выполнен, выбрать hold";
+  const raw = JSON.stringify({ rules: [rule] });
+  assert.equal(parseRewrite(raw), rule, "правило целиком");
+  assert.deepEqual(lostActions(draft, parseRewrite(raw)), [], "hold на месте");
+  const long = Array.from({ length: 12 }, (_, i) => `если ответ номер ${i} пришёл от проверки — выбрать hold`).join("; ");
+  const c = clip(long); assert.ok(c.length <= 600 && c.endsWith("выбрать hold"), c);
+  assert.equal(parseCandidates(JSON.stringify({ rules: [long] }))[0], c);
+  // отброшенный в run-ocx-12 кандидат: ответы в одинарных кавычках, на «не меняли» — pay (в r18 — hold)
+  const cand = "купить callback; если результат = 'поставщик подтвердил смену счёта' выбрать reject; если результат = 'поставщик по номеру из договора: реквизиты не меняли, письма не отправляли' выбрать pay; если результат = 'проверка не выполнена' выбрать hold";
+  assert.equal(answerActions(cand).size, 3);
+  assert.equal(answerActions("если агент's ответ 'да' выбрать pay").size, 0, "апостроф и короткое слово — не ответ");
+  const H = [{ run: "x", kind: "learn", status: "harmful", pairs_saved: true }];
+  const r18 = { id: "r18", text: "купить callback; если результат \"поставщик по номеру из договора: реквизиты не меняли, письма не отправляли\" выбрать hold; если результат \"поставщик подтвердил смену счёта\" выбрать pay; если результат \"проверка не выполнена\" выбрать hold", status: "no_effect", fix_of: "r12", history: H };
+  assert.ok(actionsDiffer(r18.text, cand), "в 0.31.10 считался пересказом r18");
+  const r21 = { id: "r21", text: "купить callback; если \"поставщик подтвердил смену счёта\" тогда reject; если \"поставщик по номеру из договора: реквизиты не меняли, письма не отправляли\" тогда pay", status: "harmful", history: H };
+  assert.equal(findRepeat([r18, r21], cand, new Set()).block?.id, "r21", "те же действия, что у вредного r21, — пересказ r21");
+  // обрезанный r23 в книге не считается
+  const cut = rule.slice(0, 400);
+  const book = markBroken({ rules: [{ id: "r23", category: "b", text: cut, status: "harmful", history: H, literal: { raw, raw2: raw } }, { id: "r24", category: "b", text: rule, status: "harmful", history: H, literal: { raw } }] });
+  assert.equal(book.rules[0].status, "invalid"); assert.equal(book.rules[0].history.at(-1).reason, "rule text cut off");
+  assert.equal(book.rules[1].status, "harmful", "целое правило остаётся");
+});
+
 await t("учёба OCX: пересказ правила, отвергнутого без сохранённых пар, меряется ещё раз (0.31.3, run-ocx-4)", async () => {
   const { findRepeat } = await import("../stand/ocx-learn.js");
   const old = { id: "r1", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; иначе reject", status: "harmful", history: [{ run: "run-ocx-3b", kind: "learn", status: "harmful" }] };

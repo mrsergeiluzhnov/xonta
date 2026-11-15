@@ -17,12 +17,15 @@ const bare = (s) => String(s || "").toLowerCase().replace(/\s+/g, " ").trim();
 export function cutRule(r) {
   if (!r?.literal?.raw) return false;
   const arr = rulesArray(r.literal.raw), n = (arr || []).filter((x) => branchOf(x)).length;
-  return n > 1 && bare(parseRewrite(r.literal.raw)) !== bare(r.text);
+  if (n > 1 && bare(parseRewrite(r.literal.raw)) !== bare(r.text)) return "rule cut to one branch";
+  // 0.31.11: правило обрезано на 400 знаках посреди слова (r23 из run-ocx-12): полный ответ модели начинается с текста правила и длиннее его
+  const t = bare(r.text);
+  return [r.literal.raw, r.literal.raw2].filter(Boolean).some((raw) => { const full = bare(parseRewrite(raw) || ""); return full.length > t.length && full.startsWith(t) && !/[;.]$/.test(t); }) ? "rule text cut off" : false;
 }
 export function markBroken(book) {
   for (const r of book.rules) {
     if (r.status === "invalid") continue;
-    const reason = brokenRule(r.text) ? "rule text lost" : cutRule(r) ? "rule cut to one branch" : squashed(r.text) ? "words glued together" : null; // 0.31.10: r20 из run-ocx-11
+    const reason = brokenRule(r.text) ? "rule text lost" : cutRule(r) || (squashed(r.text) ? "words glued together" : null); // 0.31.10: r20 из run-ocx-11
     if (reason) { (r.history ||= []).push({ kind: "invalid", reason, was: r.status }); r.status = "invalid"; delete r.worst; }
   }
   return book;
@@ -118,6 +121,7 @@ export function answerActions(s) {
   for (const part of String(s || "").split(/;/)) {
     const acts = [...actionsOf(part)]; if (acts.length !== 1) continue;
     for (const m of part.matchAll(/["«“„]([^"«»“”„]{6,})["»”“]/g)) out.set(norm(m[1]), acts[0]);
+    for (const m of part.matchAll(/(?<![a-zа-яё])'([^'"«»“”„]{6,})'(?![a-zа-яё])/gi)) out.set(norm(m[1]), acts[0]); // 0.31.11: одинарные кавычки (run-ocx-12)
   }
   return out;
 }
@@ -142,7 +146,15 @@ export function parseCandidates(text, max = 3) {
   const at = s.indexOf("{");
   if (at >= 0) for (let end = s.lastIndexOf("}"); end > at && !arr; end = s.lastIndexOf("}", end - 1)) { try { const o = JSON.parse(s.slice(at, end + 1)); if (Array.isArray(o.rules)) arr = o.rules; } catch {} }
   if (!arr) arr = s.split(/\n+/).map((x) => x.replace(/^[\s\-*\d.)"«]+|["»,\s]+$/g, "")).filter((x) => x.length > 25);
-  return [...new Set(arr.map((x) => ruleText(x).replace(/\s+/g, " ").trim()).filter((x) => x.length > 10 && !brokenRule(x)))].map((x) => x.slice(0, 400)).slice(0, max);
+  return [...new Set(arr.map((x) => ruleText(x).replace(/\s+/g, " ").trim()).filter((x) => x.length > 10 && !brokenRule(x)))].map((x) => clip(x)).slice(0, max);
+}
+// 0.31.11: в run-ocx-12 переписанное правило было длиной 404 знака, код обрезал его на 400 посреди слова («…выбрат»).
+// Пропала последняя ветка с hold, сверка решила, что модель потеряла действие, и на замер ушло обрезанное правило.
+// Теперь предел 600, а если правило длиннее — режется по границе ветки («;»), не посреди слова
+export const RULE_MAX = 600;
+export function clip(s, max = RULE_MAX) {
+  s = String(s || ""); if (s.length <= max) return s;
+  const at = s.lastIndexOf(";", max); return (at > max / 2 ? s.slice(0, at) : s.slice(0, max)).trim();
 }
 
 // 0.31.6: модель иногда кладёт в "rules" не строку, а объект — {"rule": "…"} или {"ответ": "действие", …}.
@@ -175,7 +187,7 @@ function rulesArray(text) {
 // переписанное правило — одно: ветки собираются в одну строку, иначе берётся первое правило списка
 export function parseRewrite(text) {
   const arr = rulesArray(text), branches = (arr || []).filter((x) => branchOf(x));
-  if (branches.length > 1) { const t = branches.map(ruleText).join("; ").replace(/\s+/g, " ").trim(); return brokenRule(t) ? null : t.slice(0, 600); }
+  if (branches.length > 1) { const t = branches.map(ruleText).join("; ").replace(/\s+/g, " ").trim(); return brokenRule(t) ? null : clip(t); }
   return parseCandidates(text, 1)[0] || null;
 }
 
