@@ -1448,6 +1448,31 @@ await t("учёба OCX: длинное правило не режется по�
   assert.equal(book.rules[1].status, "harmful", "целое правило остаётся");
 });
 
+await t("учёба OCX: те же действия на те же ответы — пересказ; правило против исходов журнала переписывается (0.31.12, run-ocx-13)", async () => {
+  const { findRepeat, sameActions, answerOutcomes, contradictions, outcomesPrompt, similarity, SAME } = await import("../stand/ocx-learn.js");
+  const H = [{ run: "x", kind: "learn", status: "harmful", pairs_saved: true }];
+  // настоящие r21 (ocx-11), r18, r12 и r24 (ocx-13) из книги оркестратора 1
+  const r21 = { id: "r21", text: "купить callback; если \"поставщик подтвердил смену счёта\" тогда reject; если \"поставщик по номеру из договора: реквизиты не меняли, письма не отправляли\" тогда pay; купить sender_domain; если \"домен отправителя совпадает с договором\" тогда pay; если \"домен отправителя отличается от договора на одну букву\" тогда reject", status: "harmful", fixed_by: "r23", history: H };
+  const r18 = { id: "r18", text: "купить callback; если результат \"поставщик по номеру из договора: реквизиты не меняли, письма не отправляли\" выбрать hold; если результат \"поставщик подтвердил смену счёта\" выбрать pay; если результат \"проверка не выполнена\" выбрать hold", status: "no_effect", fix_of: "r12", history: H };
+  const r12 = { id: "r12", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; если результат = поставщик не подтвердил смену счёта, выбрать reject; если результат = проверка не выполнена, выбрать hold", status: "harmful", fixed_by: "r18", history: H };
+  const r24 = "купить callback; если результат = 'поставщик подтвердил смену счёта', выбрать reject; если результат = 'поставщик по номеру из договора: реквизиты не меняли, письма не отправляли', выбрать pay; если результат = 'проверка не выполнена', выбрать hold";
+  assert.ok(similarity(r21.text, r24) < SAME, "по словам r24 на r21 не похож — поэтому в ocx-13 его мерили");
+  assert.ok(sameActions(r21.text, r24));
+  const rep = findRepeat([r12, r18, r21], r24, new Set(["r12", "r18", "r21"]));
+  assert.equal(rep.block?.id, "r21", "те же действия на два ответа — пересказ r21"); assert.equal(rep.fix, null);
+  const good = "купить callback; если результат = 'поставщик подтвердил смену счёта', выбрать pay; если результат = 'поставщик по номеру из договора: реквизиты не меняли, письма не отправляли', выбрать reject; если результат = 'проверка не выполнена', выбрать hold";
+  assert.ok(!sameActions(r21.text, good)); assert.equal(findRepeat([r12, r18, r21], good, new Set(["r12", "r18", "r21"])).block, null, "верное правило не пересказ");
+  // исходы журнала: после «не меняли» правильно reject, после «подтвердил» — pay, после «не выполнена» — по-разному
+  const S = (a, c, n) => Array.from({ length: n }, () => ({ check: "callback", answer: a, correct: c }));
+  const out = answerOutcomes([...S("поставщик по номеру из договора: реквизиты не меняли, письма не отправляли", "reject", 9), ...S("поставщик подтвердил смену счёта", "pay", 5), ...S("проверка не выполнена", "pay", 2), ...S("проверка не выполнена", "reject", 2)]);
+  const cx = contradictions(r24, out);
+  assert.deepEqual(cx.map((x) => [x.action, x.correct, x.n, x.of]), [["reject", "pay", 5, 5], ["pay", "reject", 9, 9]]);
+  assert.deepEqual(contradictions(good, out), [], "верное правило исходам не противоречит");
+  assert.deepEqual(contradictions(r18.text, out), [], "hold не проверяется");
+  assert.deepEqual(contradictions(r24, answerOutcomes(S("поставщик подтвердил смену счёта", "pay", 2))), [], "меньше трёх случаев — не судим");
+  assert.ok(/правильно было pay в 5 из 5/.test(outcomesPrompt(r24, cx)));
+});
+
 await t("учёба OCX: пересказ правила, отвергнутого без сохранённых пар, меряется ещё раз (0.31.3, run-ocx-4)", async () => {
   const { findRepeat } = await import("../stand/ocx-learn.js");
   const old = { id: "r1", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; иначе reject", status: "harmful", history: [{ run: "run-ocx-3b", kind: "learn", status: "harmful" }] };

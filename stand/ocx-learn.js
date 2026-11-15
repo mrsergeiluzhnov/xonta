@@ -56,13 +56,22 @@ export const NEAR = 0.85;
 // без замера как пересказ r12: по словам оно на 0,95 похоже на r18 (там на тот же ответ стоял hold), а исправление r12 уже
 // «израсходовал» r18. Теперь (1) правило, которое на тот же дословный ответ проверки ставит другое действие, — не пересказ
 // (changed); (2) исправление не считается использованным, если в исправленном варианте пропало действие исходного правила
+// 0.31.12: в run-ocx-13 правило «'подтвердил смену счёта' — reject; 'реквизиты не меняли…' — pay» ушло на замер, хотя ровно
+// те же действия на те же ответы были во вредном r21 (ocx-11). По словам они похожи на 0,54 — r21 длиннее, там ещё проверка
+// домена. Теперь правило, которое на два и больше дословных ответа проверки ставит те же действия, что не прошедшее, —
+// его пересказ, сколько бы слов вокруг ни было
+export function sameActions(a, b, min = 2) {
+  const A = answerActions(a), B = answerActions(b); let n = 0;
+  for (const [k, v] of A) if (B.has(k)) { if (B.get(k) !== v) return false; n++; }
+  return n >= min;
+}
 export function findRepeat(failed, text, shown = new Set()) {
-  const near = failed.filter((x) => similarity(x.text, text) >= SAME);
+  const near = failed.filter((x) => similarity(x.text, text) >= SAME || sameActions(x.text, text));
   const changed = near.filter((x) => actionsDiffer(x.text, text));
   const like = near.filter((x) => !changed.includes(x));
   const byId = new Map(failed.map((x) => [x.id, x]));
   const fixUsed = (x) => { if (!x.fixed_by) return false; const f = byId.get(x.fixed_by); return !f || !lostActions(x.text, f.text).length; };
-  const fixable = (x) => blocksRepeat(x) && shown.has(x.id) && !fixUsed(x) && similarity(x.text, text) < NEAR;
+  const fixable = (x) => blocksRepeat(x) && shown.has(x.id) && !fixUsed(x) && similarity(x.text, text) < NEAR && !sameActions(x.text, text); // 0.31.12: те же действия — не исправление
   const block = like.find((x) => blocksRepeat(x) && !fixable(x)) || null;
   return { block, fix: block ? null : like.find(fixable) || null, remeasure: like.find((x) => !blocksRepeat(x)) || null, changed: block ? null : changed[0] || null };
 }
@@ -133,6 +142,36 @@ export function actionsDiffer(a, b) {
 export function keepActionsPrompt(draft, text, lost, answers, missing) {
   const lines = Object.keys(missing).map((c) => `${c} отвечала так: ${[...new Set(answers[c])].map((a) => `«${a}»`).join("; ")}`);
   return `STEP:literal\nЧерновик правила: «${draft}»\nПереписанный вариант: «${text}»\nВ переписанном варианте пропало ${lost.length > 1 ? "действия" : "действие"} ${lost.join(", ")}, ${lost.length > 1 ? "они были" : "оно было"} в черновике. Смысл правила поменялся, так нельзя. Эти проверки у нас в этой категории отвечали только так:\n${lines.join("\n")}\nДля каждого ответа реши, какой ветке черновика он соответствует по смыслу, процитируй ответ дословно и поставь действие этой ветки из черновика. Все действия черновика (${[...actionsOf(draft)].join(", ")}) должны остаться. Всё правило — одна строка, не список условий и не объект. Ответ: {"rules":["…"]}`;
+}
+
+// 0.31.12: сверка правила с исходами. Модель трижды (r21 в ocx-11, черновик в ocx-12, r24 в ocx-13) поставила pay на ответ
+// мошенника и reject на подтверждение поставщика — похоже, решила, что раз r12 с «подтвердил — pay» вредное, надо наоборот.
+// Оркестратор знает по своему журналу, как оказалось правильно после каждого ответа проверки. Если правило велит исполнить
+// (pay) там, где после этого ответа правильно было reject, или наоборот, — не меньше чем в minN случаях и в доле share, —
+// модели один раз показывают эти цифры и просят переписать. hold и escalate не проверяются: это осторожный выбор, его меряет замер
+// samples: [{ check, answer, correct }] → Map(нормализованный ответ → { check, answer, n, by: { действие: сколько } })
+export function answerOutcomes(samples) {
+  const out = new Map();
+  for (const s of samples || []) {
+    if (!s?.answer || !s.correct) continue; const k = norm(s.answer);
+    const o = out.get(k) || { check: s.check, answer: String(s.answer).trim(), n: 0, by: {} };
+    o.n++; o.by[s.correct] = (o.by[s.correct] || 0) + 1; out.set(k, o);
+  }
+  return out;
+}
+const OPPOSITE = { pay: "reject", reject: "pay" };
+export function contradictions(rule, outcomes, minN = 3, share = 0.8) {
+  const out = [];
+  for (const [k, act] of answerActions(rule)) {
+    const opp = OPPOSITE[act]; if (!opp) continue;
+    const o = outcomes.get(k) || [...outcomes.entries()].find(([a]) => (a.length >= 10 && k.includes(a)) || (k.length >= 10 && a.includes(k)))?.[1];
+    if (o && o.n >= minN && (o.by[opp] || 0) / o.n >= share) out.push({ check: o.check, answer: o.answer, action: act, correct: opp, n: o.by[opp], of: o.n });
+  }
+  return out;
+}
+export function outcomesPrompt(rule, contra) {
+  const lines = contra.map((x) => `- после ответа ${x.check} «${x.answer}» правильно было ${x.correct} в ${x.n} из ${x.of} случаев, а правило велит ${x.action}`);
+  return `STEP:outcomes\nПравило: «${rule}»\nВ нашем журнале по этой категории исходы такие:\n${lines.join("\n")}\nПравило противоречит этим исходам. Перепиши его так, чтобы для каждого из этих ответов действие совпадало с тем, как оказалось правильно. Ответы проверки цитируй дословно. Всё правило — одна строка, не список условий и не объект. Ответ: {"rules":["…"]}`;
 }
 
 export function pairLesson(p) {
