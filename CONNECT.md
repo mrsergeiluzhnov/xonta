@@ -49,6 +49,16 @@ curl -s -X POST $P/v1/agents/$ID/field-exam -H "Authorization: Bearer $OWNER_TOK
 
 `budget` is how much harm per period you accept, in the field's currency (default 25 for USD and EUR, 2000 for RUB). The answer has accuracy, harm per autonomous action, the mistakes, a signed `AgentFieldEvaluation` and a recommended `ActionMandate`. The limit is computed from the upper bound of the average harm, so an agent that is rarely but badly wrong gets fewer actions, and the mandate has `max_harm_per_action`: any single action that can cost more than the period budget goes to a human. The passport is public: `GET $P/v1/agents/$ID/passport`. How a gate enforces this budget at runtime across all of an owner's agents is specified in [spec/harm-budget](spec/harm-budget/README.en.md).
 
+## Badge for your README
+
+Once the domain is verified, put the passport badge in your README. It shows the live state: `verified`, `check expired` (the domain check is older than 90 days, run domain-check again), `suspended` or `revoked`. The link opens a page that fetches the passport and checks every signature and status list in the browser, nothing is taken on trust from xonta.dev.
+
+```markdown
+[![xonta passport](https://orchestrator.xonta.dev/v1/agents/$ID/badge.svg)](https://xonta.dev/passport?p=https://orchestrator.xonta.dev/v1/agents/$ID/passport)
+```
+
+The passport, DID documents and status lists answer with `Access-Control-Allow-Origin: *`, so any site can verify a passport the same way.
+
 ## Owner level and rights
 
 The mandate after an exam depends on how well the owner is known. Level 0, nobody checked, gets a third of the actions and a quarter of the per-action cap. Level 1, the registration was signed with the owner's own did:web (`owner_did`), gets two thirds and half. Level 2, verified by contract by the orchestrator's admin, gets the full mandate. Children take their root's level. Each new identity with an unknown owner starts small, so spinning up identities doesn't pay. The shares are set with `OWNER_TIER_ACTIONS` and `OWNER_TIER_PER_ACTION`.

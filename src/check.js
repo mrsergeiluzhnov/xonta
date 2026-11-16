@@ -84,6 +84,16 @@ export function createCheck({ store, allowPrivate = false, publicUrl = "", now =
 }
 
 const LABEL = { clear: ["no signs found", "#2e7d4f"], incomplete: ["card incomplete", "#a5751a"], findings: ["needs a look", "#b5492b"], unreachable: ["unreachable", "#6b6b6b"], none: ["not checked", "#6b6b6b"] };
+const PASSPORT_LABEL = { verified: ["verified", "#2e7d4f"], deprecated: ["deprecated", "#a5751a"], expired: ["check expired", "#a5751a"], unverified: ["not verified", "#6b6b6b"], suspended: ["suspended", "#b5492b"], revoked: ["revoked", "#b5492b"] };
+export function passportBadgeSvg(b) {
+  const [text, color] = PASSPORT_LABEL[b?.state] || PASSPORT_LABEL.unverified;
+  const left = "xonta passport", lw = 92, rw = Math.round(text.length * 6.6 + 14), w = lw + rw;
+  const title = `${left}: ${text}${b?.until ? ` (domain check valid until ${b.until.slice(0, 10)})` : ""}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="20" role="img" aria-label="${left}: ${text}"><title>${esc(title)}</title>
+<rect width="${w}" height="20" rx="3" fill="#3b3b3b"/><rect x="${lw}" width="${rw}" height="20" rx="3" fill="${color}"/><rect x="${lw}" width="4" height="20" fill="${color}"/>
+<g fill="#fff" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11"><text x="${lw / 2}" y="14" text-anchor="middle">${left}</text><text x="${lw + rw / 2}" y="14" text-anchor="middle">${esc(text)}</text></g></svg>`;
+}
+
 export function badgeSvg(c) {
   const [text, color] = LABEL[c?.verdict || "none"];
   const left = "xonta check", lw = 74, rw = Math.round(text.length * 6.6 + 14), w = lw + rw;

@@ -255,5 +255,15 @@ export function createOrchestrator({ store, issuer, notify, signals, publicUrl, 
     if (rec.owner_did) return { level: 1, name: "self_identified", why: `регистрация подписана DID владельца ${rec.owner_did}` };
     return { level: 0, name: "unverified", why: "владелец не проверен" };
   }
-  return { register, didDoc, domainCheck, scan, test, reputation, ownerVerified, ownerLevel, setAgentStatus, passport, listSignals, actOnSignal, checkOwner, get, tester };
+  // значок для README: живое состояние паспорта, без подписи — подпись проверяет страница паспорта
+  function badge(id, now = Date.now()) {
+    const rec = get(id);
+    if (rec.status === "revoked" || rec.status === "suspended") return { state: rec.status };
+    const dc = credsOf(rec, "AgentDomainControl");
+    const live = dc.filter((c) => { const s = issuer.statusOf(c); return !s.revocation && !s.suspension && (!c.vc.validUntil || Date.parse(c.vc.validUntil) > now); });
+    if (!live.length) return { state: dc.length ? "expired" : "unverified" };
+    const until = live.map((c) => c.vc.validUntil).filter(Boolean).sort().at(-1) || null;
+    return { state: rec.status === "deprecated" ? "deprecated" : "verified", until };
+  }
+  return { register, didDoc, domainCheck, scan, test, reputation, ownerVerified, ownerLevel, setAgentStatus, passport, badge, listSignals, actOnSignal, checkOwner, get, tester };
 }

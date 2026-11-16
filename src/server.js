@@ -23,7 +23,7 @@ import { createPrivacyReports, mountPrivacyReports } from "./privacy-reports.js"
 import { createRecipes, mountRecipes } from "./recipes.js";
 import { createProbes, mountProbes } from "./probes.js";
 import { createA2A, mountA2A } from "./a2a.js";
-import { createCheck, mountCheck } from "./check.js";
+import { createCheck, mountCheck, passportBadgeSvg } from "./check.js";
 import { renderHome } from "./home.js";
 import { errorBody } from "./i18n.js";
 import { verifyCaller } from "./callerauth.js";
@@ -35,7 +35,7 @@ import { scanMcpServer } from "./scan.js";
 import { publicKeyFromMultibase } from "./crypto.js";
 import * as xontaDocsSuite from "../suites/xonta-docs.js";
 
-export const VERSION = "0.31.14";
+export const VERSION = "0.31.15";
 const env = process.env;
 const PORT = Number(env.PORT || 4040);
 const PUBLIC_URL = (env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/$/, "");
@@ -140,6 +140,13 @@ function limit(req, max = 20, windowMs = 3600_000, bucket = "scan") {
 const scanPublic = async (url) => { const { _tools, ...r } = await scanMcpServer(url, { allowPrivate: ALLOW_PRIVATE }); return r; };
 
 // --- идентификаторы и статусы ---
+// открытые для чтения адреса можно запрашивать из браузера с любого сайта: страница паспорта на xonta.dev сама проверяет подписи.
+// Только GET и без заголовков авторизации, поэтому ключи владельца так не уходят.
+const PUBLIC_READ = [/^\/\.well-known\/did\.json$/, /^\/agents\/[^/]+\/did\.json$/, /^\/status\/[^/]+$/, /^\/v1\/agents\/[^/]+\/(passport|badge\.svg)$/];
+app.use((req, res, next) => {
+  if ((req.method === "GET" || req.method === "HEAD") && PUBLIC_READ.some((r) => r.test(req.path))) res.set({ "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET" });
+  next();
+});
 app.get("/.well-known/did.json", (_req, res) => res.json(issuer.doc));
 app.get("/agents/:id/did.json", (req, res) => { const d = orch.didDoc(req.params.id); return d ? res.json(d) : res.status(404).json({ error: "not found" }); });
 app.get("/status/:purpose", (req, res) => { const vc = issuer.statusListCredential(req.params.purpose); return vc ? res.set("Cache-Control", "max-age=300").json(vc) : res.status(404).json({ error: "not found" }); });
@@ -156,6 +163,10 @@ app.post("/v1/agents", wrap(async (req) => {
   return orch.register(req.body, { caller: await verifyCaller(req, resolver) });
 }));
 app.get("/v1/agents/:id/passport", wrap((req) => orch.passport(req.params.id)));
+app.get("/v1/agents/:id/badge.svg", (req, res) => {
+  let b; try { b = orch.badge(req.params.id); } catch (e) { if (e.status !== 404) console.error(e); b = null; }
+  res.status(b ? 200 : 404).type("image/svg+xml").set("Cache-Control", "max-age=300").send(passportBadgeSvg(b));
+});
 app.post("/v1/agents/:id/domain-check", wrap(async (req) => { await ownerAuth(req, req.params.id); return orch.domainCheck(req.params.id); }));
 app.post("/v1/agents/:id/scan", wrap(async (req) => { await ownerAuth(req, req.params.id); return orch.scan(req.params.id); }));
 app.post("/v1/agents/:id/test", wrap((req) => { ownerOrAdmin(req, req.params.id); return orch.test(req.params.id, req.body || {}); }));
