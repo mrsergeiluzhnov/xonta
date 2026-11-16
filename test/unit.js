@@ -1473,6 +1473,29 @@ await t("учёба OCX: те же действия на те же ответы 
   assert.ok(/правильно было pay в 5 из 5/.test(outcomesPrompt(r24, cx)));
 });
 
+await t("учёба OCX: модель видит исходы по всем ответам правила, вторая попытка, если поменяла не ту ветку (0.31.13, run-ocx-14)", async () => {
+  const { answerOutcomes, contradictions, outcomesPrompt, outcomeLines, parseRewrite } = await import("../stand/ocx-learn.js");
+  // настоящие черновик и ответ модели из ocx-14
+  const draft = "купить callback; если результат = 'поставщик подтвердил смену счёта' тогда reject; если результат = 'поставщик по номеру из договора: реквизиты не меняли, письма не отправляли' тогда reject; если результат = 'проверка не выполнена' тогда hold";
+  const raw = "{\"rules\":[\"купить callback; если результат = 'поставщик подтвердил смену счёта' тогда reject; если результат = 'поставщик по номеру из договора: реквизиты не меняли, письма не отправляли' тогда pay; если результат = 'проверка не выполнена' тогда hold\"]}";
+  const S = (a, c, n) => Array.from({ length: n }, () => ({ check: "callback", answer: a, correct: c }));
+  const NO = "поставщик по номеру из договора: реквизиты не меняли, письма не отправляли", YES = "поставщик подтвердил смену счёта";
+  const out = answerOutcomes([...S(YES, "pay", 4), ...S(NO, "reject", 16)]);
+  const cx = contradictions(draft, out);
+  assert.deepEqual(cx.map((x) => [x.answer, x.action, x.correct, x.n, x.of]), [[YES, "reject", "pay", 4, 4]]);
+  const p1 = outcomesPrompt(draft, cx, out);
+  assert.ok(/правильно было pay в 4 из 4 случаев, а правило велит reject — это надо исправить/.test(p1));
+  assert.ok(/«поставщик по номеру из договора: реквизиты не меняли, письма не отправляли» правильно было reject в 16 из 16 случаев, правило велит reject — совпадает, это действие не меняй/.test(p1), "строка, где правило уже право, тоже видна");
+  assert.ok(/остальные ветки оставь как есть/.test(p1));
+  assert.equal(outcomeLines(draft, out, cx).length, 1);
+  const re = parseRewrite(raw), left = contradictions(re, out);
+  assert.equal(left.length, 2, "модель поменяла не ту ветку: теперь противоречат обе");
+  const p2 = outcomesPrompt(re, left, out, true);
+  assert.ok(p2.includes("всё ещё противоречит") && /reject в 16 из 16 случаев, а правило велит pay — это надо исправить/.test(p2));
+  assert.ok(!/остальные ветки/.test(p2), "в правиле нет верных веток — не просим их оставить");
+  assert.ok(/STEP:outcomes/.test(outcomesPrompt(draft, cx)), "без исходов — как в 0.31.12");
+});
+
 await t("учёба OCX: пересказ правила, отвергнутого без сохранённых пар, меряется ещё раз (0.31.3, run-ocx-4)", async () => {
   const { findRepeat } = await import("../stand/ocx-learn.js");
   const old = { id: "r1", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; иначе reject", status: "harmful", history: [{ run: "run-ocx-3b", kind: "learn", status: "harmful" }] };

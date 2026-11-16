@@ -169,9 +169,24 @@ export function contradictions(rule, outcomes, minN = 3, share = 0.8) {
   }
   return out;
 }
-export function outcomesPrompt(rule, contra) {
-  const lines = contra.map((x) => `- после ответа ${x.check} «${x.answer}» правильно было ${x.correct} в ${x.n} из ${x.of} случаев, а правило велит ${x.action}`);
-  return `STEP:outcomes\nПравило: «${rule}»\nВ нашем журнале по этой категории исходы такие:\n${lines.join("\n")}\nПравило противоречит этим исходам. Перепиши его так, чтобы для каждого из этих ответов действие совпадало с тем, как оказалось правильно. Ответы проверки цитируй дословно. Всё правило — одна строка, не список условий и не объект. Ответ: {"rules":["…"]}`;
+// 0.31.13: в run-ocx-14 черновик был «'подтвердил смену счёта' — reject; 'реквизиты не меняли…' — reject», сверка показала одну строку
+// («после 'подтвердил' правильно было pay в 4 из 4»), а модель поменяла не ту ветку: «не меняли» — pay, «подтвердил» — по-прежнему reject.
+// Теперь модель видит исходы по всем ответам, названным в правиле, — и те, где правило уже право, с просьбой эти действия не трогать.
+// Если первый вариант снова противоречит исходам, модели один раз показывают, что осталось не так (второй попыткой — again)
+export function outcomeLines(rule, outcomes, contra) {
+  const bad = new Set(contra.map((x) => norm(x.answer))), lines = [];
+  for (const [k, act] of answerActions(rule)) {
+    const o = outcomes?.get?.(k) || [...(outcomes || new Map()).entries()].find(([a]) => (a.length >= 10 && k.includes(a)) || (k.length >= 10 && a.includes(k)))?.[1];
+    if (!o || bad.has(norm(o.answer))) continue;
+    const by = Object.entries(o.by).sort((a, b) => b[1] - a[1]).map(([a, n]) => `${a} в ${n}`).join(", ");
+    lines.push(`- после ответа ${o.check} «${o.answer}» правильно было ${by} из ${o.n} случаев, правило велит ${act}${OPPOSITE[act] && (o.by[act] || 0) / o.n >= 0.8 ? " — совпадает, это действие не меняй" : ""}`);
+  }
+  return lines;
+}
+export function outcomesPrompt(rule, contra, outcomes = null, again = false) {
+  const lines = contra.map((x) => `- после ответа ${x.check} «${x.answer}» правильно было ${x.correct} в ${x.n} из ${x.of} случаев, а правило велит ${x.action} — это надо исправить`);
+  const ok = outcomeLines(rule, outcomes, contra);
+  return `STEP:outcomes\n${again ? "Ты переписал правило, но оно всё ещё противоречит исходам журнала. " : ""}Правило: «${rule}»\nВ нашем журнале по этой категории исходы такие:\n${[...lines, ...ok].join("\n")}\nПравило противоречит исходам в ${contra.length > 1 ? "отмеченных строках" : "отмеченной строке"}. Перепиши его так, чтобы для каждого ответа действие совпадало с тем, как оказалось правильно. Меняй действие только у ${contra.length > 1 ? "этих ответов" : "этого ответа"}${ok.length ? ", остальные ветки оставь как есть" : ""}. Ответы проверки цитируй дословно. Всё правило — одна строка, не список условий и не объект. Ответ: {"rules":["…"]}`;
 }
 
 export function pairLesson(p) {
