@@ -4,6 +4,8 @@
 
 [Русский](README.md)
 
+Submitted to the IETF as Internet-Draft [draft-luzhnov-ocx-00](https://datatracker.ietf.org/doc/draft-luzhnov-ocx/).
+
 An open draft. The full specification is in [SPEC.md](SPEC.md), JSON schemas are in [schema](schema/), and the reference implementation with conformance checks is in [impl](impl/). Expect breaking changes until 0.4. We'll call it stable at 0.4, once it runs on several orchestrators and at least one of them isn't ours. Comments go to issues; see [CONTRIBUTING.md](CONTRIBUTING.md) for how to take part.
 
 ## In two sentences
