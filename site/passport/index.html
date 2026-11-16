@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Паспорт агента · Xonta</title>
+<meta name="description" content="Проверка паспорта ИИ-агента прямо в браузере: подписи, сроки, отзыв. Agent passport check in your browser: signatures, dates, revocation.">
+<meta name="robots" content="noindex">
+<style>
+:root{--bg:#fbfaf7;--ink:#1d1c1a;--ink2:#5c5a55;--line:#e3e0d8;--card:#fff;--acc:#1f5f8b;--ok:#2e7d4f;--warn:#a5751a;--bad:#b5492b;--code:#f1efe9}
+@media (prefers-color-scheme:dark){:root{--bg:#141413;--ink:#ecebe6;--ink2:#a6a39b;--line:#2e2d2a;--card:#1b1a18;--acc:#7db4dd;--ok:#6cc08f;--warn:#d7a84a;--bad:#e07a5f;--code:#1f1e1c}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:780px;margin:0 auto;padding:28px 16px 72px}
+a{color:var(--acc)}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px;font-size:15px}
+header .brand{font-weight:700;letter-spacing:.02em;color:var(--ink);text-decoration:none}
+.lang button{font:inherit;font-size:14px;background:none;border:1px solid var(--line);color:var(--ink2);padding:2px 10px;cursor:pointer}
+.lang button:first-child{border-radius:6px 0 0 6px}.lang button:last-child{border-radius:0 6px 6px 0;border-left:0}
+.lang button[aria-pressed=true]{color:var(--ink);background:var(--code)}
+h1{font-size:30px;line-height:1.2;margin:0 0 6px}
+h2{font-size:18px;margin:34px 0 10px}
+.lede{font-size:17px;color:var(--ink2);margin:0 0 18px}
+.muted{color:var(--ink2);font-size:14px}
+code{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--code);border-radius:5px;padding:1px 5px;overflow-wrap:anywhere}
+pre{font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--code);border-radius:6px;padding:12px 14px;white-space:pre-wrap;word-break:break-all;max-height:320px;overflow:auto}
+form{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}
+input{flex:1 1 340px;min-width:0;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:inherit}
+button.go{font:inherit;padding:10px 18px;border:0;border-radius:8px;background:var(--acc);color:#fff;cursor:pointer}
+.verdict{border:1px solid var(--line);border-left:6px solid var(--ink2);background:var(--card);border-radius:10px;padding:18px 20px;margin:8px 0 24px}
+.verdict.ok{border-left-color:var(--ok)}.verdict.warn{border-left-color:var(--warn)}.verdict.bad{border-left-color:var(--bad)}
+.verdict .big{font-size:21px;font-weight:650;line-height:1.3}
+.verdict.ok .big{color:var(--ok)}.verdict.warn .big{color:var(--warn)}.verdict.bad .big{color:var(--bad)}
+dl.facts{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;margin:0}
+dl.facts dt{color:var(--ink2);font-size:14px;padding-top:2px}dl.facts dd{margin:0;overflow-wrap:anywhere}
+.creds{list-style:none;padding:0;margin:0}
+.creds li{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.creds .top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
+.creds .name{font-weight:600}
+.pill{font-size:13px;padding:1px 9px;border-radius:999px;border:1px solid currentColor;white-space:nowrap}
+.pill.ok{color:var(--ok)}.pill.warn{color:var(--warn)}.pill.bad{color:var(--bad)}.pill.na{color:var(--ink2)}
+.checks{list-style:none;padding:0;margin:8px 0 0;font-size:14px}
+.checks li{border:0;background:none;padding:1px 0;margin:0}
+.ok-t{color:var(--ok)}.warn-t{color:var(--warn)}.bad-t{color:var(--bad)}
+details{margin-top:8px}summary{cursor:pointer;color:var(--ink2);font-size:14px}
+ol.how{padding-left:20px}ol.how li{margin-bottom:4px}
+.cta{margin-top:40px;padding:20px;border-radius:10px;background:var(--code)}
+.cta strong{display:block;font-size:17px;margin-bottom:4px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px;margin-right:8px}
+@keyframes s{to{transform:rotate(360deg)}}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <a class="brand" href="https://xonta.dev/?utm_source=passport&amp;utm_medium=page">Xonta</a>
+  <div class="lang" role="group" aria-label="Language">
+    <button type="button" data-lang="ru">RU</button><button type="button" data-lang="en">EN</button>
+  </div>
+</header>
+
+<section id="intro">
+  <h1 data-t="title"></h1>
+  <p class="lede" data-t="lede"></p>
+  <form id="f">
+    <input id="u" required data-tp="placeholder">
+    <button class="go" data-t="check"></button>
+  </form>
+  <p class="muted" data-t="introNote"></p>
+</section>
+
+<section id="out" hidden>
+  <p id="loading" class="muted"><span class="spin"></span><span data-t="loading"></span></p>
+  <div id="result" hidden>
+    <h1 id="agentName"></h1>
+    <p class="muted" id="agentUrl"></p>
+    <div id="verdict" class="verdict"><div class="big" id="vBig"></div><div id="vSmall" class="muted"></div></div>
+    <dl class="facts" id="facts"></dl>
+    <h2 data-t="credsTitle"></h2>
+    <ul class="creds" id="creds"></ul>
+    <h2 data-t="howTitle"></h2>
+    <ol class="how" id="how"></ol>
+    <p class="muted"><a id="raw" target="_blank" rel="noopener" data-t="rawLink"></a> · <a href="./" data-t="another"></a></p>
+  </div>
+  <div id="fail" class="verdict bad" hidden><div class="big" data-t="loadFail"></div><div class="muted" id="failWhy"></div></div>
+</section>
+
+<div class="cta">
+  <strong data-t="ctaTitle"></strong>
+  <span data-t="ctaText"></span>
+  <a href="https://github.com/mrsergeiluzhnov/xonta/blob/main/CONNECT.md" data-t="ctaLink"></a>
+</div>
+</main>
+
+<script>
+"use strict";
+// ---------- тексты / strings ----------
+const T = {
+  ru: {
+    title: "Паспорт ИИ-агента",
+    lede: "Страница сама скачивает паспорт агента и проверяет в вашем браузере каждую подпись, срок и список отзыва. Верить на слово ни нам, ни агенту не нужно.",
+    placeholder: "ag_… или адрес паспорта",
+    check: "Проверить",
+    introNote: "Паспорт выдаёт оркестратор Xonta или любой другой совместимый оркестратор. Формат: W3C Verifiable Credentials 2.0, подпись eddsa-jcs-2022.",
+    loading: "Скачиваю паспорт и проверяю подписи…",
+    loadFail: "Паспорт не удалось получить",
+    credsTitle: "Что подтверждено",
+    howTitle: "Как это проверено",
+    rawLink: "Паспорт в JSON", another: "Проверить другой",
+    ctaTitle: "Нужен такой паспорт для вашего агента или MCP-сервера?",
+    ctaText: "Регистрация бесплатная, домен подтверждается за пару минут. ",
+    ctaLink: "Как подключиться",
+    f_status: "Статус", f_did: "DID агента", f_endpoint: "Адрес MCP", f_issuer: "Кто выдал", f_owner: "Владелец", f_gateway: "Шлюз",
+    st_active: "действует", st_deprecated: "выводится из работы", st_suspended: "приостановлен", st_revoked: "отозван",
+    own0: "не проверен", own1: "назвал себя (подпись DID)", own2: "проверен по договору",
+    issuerXonta: "оркестратор Xonta", issuerOther: "другой оркестратор, не Xonta",
+    v_ok: "Паспорт подлинный, домен подтверждён",
+    v_okSmall: (d) => `Контроль домена действует до ${d}. Все подписи сошлись.`,
+    v_expired: "Подписи верны, но проверка домена устарела",
+    v_expiredSmall: "Владелец давно не подтверждал, что домен под его контролем. Это не значит, что агент поддельный, но свежего подтверждения нет.",
+    v_nodomain: "Подписи верны, домен не подтверждён",
+    v_nodomainSmall: "Агент зарегистрирован, но владелец ещё не доказал контроль над доменом.",
+    v_badsig: "Подпись не сошлась — паспорту верить нельзя",
+    v_badsigSmall: "Хотя бы один аттестат изменён после выдачи или подписан чужим ключом.",
+    v_revoked: "Агент отозван", v_revokedSmall: "Оркестратор отозвал паспорт. Аттестаты больше не действуют.",
+    v_suspended: "Агент приостановлен", v_suspendedSmall: "Оркестратор приостановил паспорт на время проверки.",
+    v_dcstatus: "Подтверждение домена отозвано", v_dcstatusSmall: "Оркестратор отозвал или приостановил аттестат о контроле домена.",
+    v_nokey: "Подписи проверить не удалось", v_nokeySmall: "Документ DID издателя не скачался, без открытого ключа подлинность не проверить. Попробуйте позже.",
+    p_unknown: "не проверен",
+    v_nocrypto: "Браузер не умеет проверять подписи Ed25519",
+    v_nocryptoSmall: "Обновите браузер (Chrome 137+, Firefox 129+, Safari 17+) и откройте страницу снова.",
+    c_sig: "подпись верна", c_sigBad: "подпись не сходится", c_sigNa: "подпись не проверена",
+    c_dates: (a, b) => b ? `действует с ${a} по ${b}` : `действует с ${a}`,
+    c_expired: (b) => `срок истёк ${b}`, c_future: (a) => `начнёт действовать ${a}`,
+    c_status: "не отозван и не приостановлен", c_revoked: "отозван", c_suspended: "приостановлен", c_statusNa: "список отзыва не получен",
+    c_subject: "выдан этому агенту", c_subjectBad: "выдан другому агенту", c_issuer: "выдан тем же оркестратором", c_issuerBad: "выдан другим издателем",
+    p_valid: "действует", p_expired: "истёк", p_bad: "не проходит", p_revoked: "отозван", p_suspended: "приостановлен",
+    details: "Содержимое",
+    tools: (n) => `инструментов: ${n}`, findings: (n) => n ? `замечаний: ${n}` : "серьёзных замечаний нет",
+    how: [
+      "Скачан паспорт по адресу выше.",
+      (d) => `DID издателя ${d} превращён в адрес документа DID, оттуда взят открытый ключ Ed25519 (Multikey).`,
+      "Для каждого аттестата заново посчитан хэш: SHA-256 от канонического JSON (RFC 8785) конфигурации подписи и документа, подпись проверена ключом издателя (WebCrypto).",
+      "Скачаны списки отзыва и приостановки (Bitstring Status List), проверены их подписи, распакованы, найден бит каждого аттестата.",
+      "Проверены сроки действия и то, что аттестаты выданы именно этому агенту и этим издателем.",
+    ],
+    errHttp: (s) => `сервер ответил ${s}`, errNet: "сеть или CORS: сервер не отдал паспорт браузеру", errJson: "ответ не похож на паспорт", errUrl: "нужен адрес https:// или id агента",
+  },
+  en: {
+    title: "AI agent passport",
+    lede: "This page downloads the agent's passport and checks every signature, date and revocation list in your browser. You don't have to take our word, or the agent's.",
+    placeholder: "ag_… or passport URL",
+    check: "Check",
+    introNote: "Passports are issued by the Xonta orchestrator or any compatible one. Format: W3C Verifiable Credentials 2.0, eddsa-jcs-2022 signatures.",
+    loading: "Downloading the passport and checking signatures…",
+    loadFail: "Could not get the passport",
+    credsTitle: "What is confirmed",
+    howTitle: "How this was checked",
+    rawLink: "Passport as JSON", another: "Check another",
+    ctaTitle: "Want a passport like this for your agent or MCP server?",
+    ctaText: "Registration is free, the domain check takes a couple of minutes. ",
+    ctaLink: "How to connect",
+    f_status: "Status", f_did: "Agent DID", f_endpoint: "MCP endpoint", f_issuer: "Issued by", f_owner: "Owner", f_gateway: "Gateway",
+    st_active: "active", st_deprecated: "being retired", st_suspended: "suspended", st_revoked: "revoked",
+    own0: "not verified", own1: "self-identified (DID signature)", own2: "verified by contract",
+    issuerXonta: "Xonta orchestrator", issuerOther: "another orchestrator, not Xonta",
+    v_ok: "Genuine passport, domain verified",
+    v_okSmall: (d) => `Domain control is valid until ${d}. All signatures check out.`,
+    v_expired: "Signatures are valid, but the domain check is out of date",
+    v_expiredSmall: "The owner hasn't re-confirmed control of the domain for a while. That doesn't make the agent fake, there's just no fresh confirmation.",
+    v_nodomain: "Signatures are valid, domain not verified",
+    v_nodomainSmall: "The agent is registered, but the owner hasn't proven control of the domain yet.",
+    v_badsig: "A signature doesn't match — don't trust this passport",
+    v_badsigSmall: "At least one credential was changed after issuance or signed with someone else's key.",
+    v_revoked: "Agent revoked", v_revokedSmall: "The orchestrator revoked this passport. Its credentials are no longer valid.",
+    v_suspended: "Agent suspended", v_suspendedSmall: "The orchestrator suspended this passport pending a review.",
+    v_dcstatus: "Domain confirmation withdrawn", v_dcstatusSmall: "The orchestrator revoked or suspended the domain control credential.",
+    v_nokey: "Couldn't check the signatures", v_nokeySmall: "The issuer's DID document didn't download, and without the public key authenticity can't be checked. Try again later.",
+    p_unknown: "not checked",
+    v_nocrypto: "Your browser can't verify Ed25519 signatures",
+    v_nocryptoSmall: "Update your browser (Chrome 137+, Firefox 129+, Safari 17+) and reload.",
+    c_sig: "signature valid", c_sigBad: "signature doesn't match", c_sigNa: "signature not checked",
+    c_dates: (a, b) => b ? `valid ${a} to ${b}` : `valid from ${a}`,
+    c_expired: (b) => `expired ${b}`, c_future: (a) => `not valid until ${a}`,
+    c_status: "not revoked or suspended", c_revoked: "revoked", c_suspended: "suspended", c_statusNa: "status list not available",
+    c_subject: "issued to this agent", c_subjectBad: "issued to another agent", c_issuer: "issued by the same orchestrator", c_issuerBad: "issued by a different issuer",
+    p_valid: "valid", p_expired: "expired", p_bad: "fails", p_revoked: "revoked", p_suspended: "suspended",
+    details: "Contents",
+    tools: (n) => `${n} tools`, findings: (n) => n ? `${n} findings` : "no serious findings",
+    how: [
+      "Downloaded the passport from the address above.",
+      (d) => `Turned the issuer DID ${d} into its DID document URL and took the Ed25519 public key (Multikey) from it.`,
+      "For each credential recomputed the hash: SHA-256 of the canonical JSON (RFC 8785) of the proof config and the document, then verified the signature with the issuer key (WebCrypto).",
+      "Downloaded the revocation and suspension lists (Bitstring Status List), checked their signatures, unpacked them and looked up each credential's bit.",
+      "Checked validity dates, and that the credentials were issued to this agent by this issuer.",
+    ],
+    errHttp: (s) => `server answered ${s}`, errNet: "network or CORS: the server didn't give the passport to the browser", errJson: "the answer doesn't look like a passport", errUrl: "need an https:// URL or an agent id",
+  },
+};
+const TYPE_NAMES = {
+  AgentDomainControl: ["Контроль домена", "Domain control"],
+  AgentMcpScan: ["Проверка инструментов MCP", "MCP tool scan"],
+  AgentEvaluation: ["Экзамен", "Evaluation"],
+  AgentFieldEvaluation: ["Экзамен по сфере", "Field evaluation"],
+  AgentReputation: ["Репутация", "Reputation"],
+  AgentOwnerVerified: ["Владелец проверен", "Owner verified"],
+  ActionMandate: ["Мандат на действия", "Action mandate"],
+};
+const XONTA_ISSUERS = ["did:web:orchestrator.xonta.dev", "did:web:passport.xonta.ru"];
+// оркестратор Xonta переехал с passport.xonta.ru на orchestrator.xonta.dev с тем же ключом: старые аттестаты остаются действительными
+const ALIASES = { "did:web:passport.xonta.ru": "did:web:orchestrator.xonta.dev" };
+const canon = (did) => { if (typeof did !== "string") return did; for (const [a, b] of Object.entries(ALIASES)) if (did === a || did.startsWith(a + ":")) return b + did.slice(a.length); return did; };
+const DEFAULT_ORCH = "https://orchestrator.xonta.dev";
+
+// ---------- крипто / crypto ----------
+// RFC 8785 JCS, совпадает с пакетом canonicalize на сервере
+function jcs(v) {
+  if (v === null || typeof v !== "object") {
+    if (typeof v === "number" && !isFinite(v)) throw new Error("JCS: number");
+    return JSON.stringify(v);
+  }
+  if (typeof v.toJSON === "function") return jcs(v.toJSON());
+  if (Array.isArray(v)) return "[" + v.map((x) => (x === undefined || typeof x === "function" ? "null" : jcs(x))).join(",") + "]";
+  return "{" + Object.keys(v).sort().filter((k) => v[k] !== undefined && typeof v[k] !== "function").map((k) => JSON.stringify(k) + ":" + jcs(v[k])).join(",") + "}";
+}
+const enc = new TextEncoder();
+const sha256 = async (s) => new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(s)));
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function base58decode(s) {
+  const bytes = [];
+  for (const ch of s) {
+    let carry = B58.indexOf(ch);
+    if (carry < 0) throw new Error("base58");
+    for (let j = 0; j < bytes.length; j++) { carry += bytes[j] * 58; bytes[j] = carry & 255; carry >>= 8; }
+    while (carry) { bytes.push(carry & 255); carry >>= 8; }
+  }
+  for (const ch of s) { if (ch !== "1") break; bytes.push(0); }
+  return new Uint8Array(bytes.reverse());
+}
+function fromMultibase58(s) { if (typeof s !== "string" || s[0] !== "z") throw new Error("multibase"); return base58decode(s.slice(1)); }
+function b64url(s) {
+  const b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4));
+  return Uint8Array.from(b, (c) => c.charCodeAt(0));
+}
+async function gunzip(bytes) {
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+function didWebToUrl(did) {
+  const m = /^did:web:([^#?]+)$/.exec(did || "");
+  if (!m) throw new Error("not did:web");
+  const parts = m[1].split(":").map(decodeURIComponent);
+  const host = parts.shift();
+  return parts.length ? `https://${host}/${parts.join("/")}/did.json` : `https://${host}/.well-known/did.json`;
+}
+
+const cache = new Map();
+async function getJson(url) {
+  if (!cache.has(url)) cache.set(url, (async () => {
+    let r;
+    try { r = await fetch(url, { headers: { accept: "application/json" }, credentials: "omit" }); }
+    catch { throw new Error(L().errNet); }
+    if (!r.ok) throw new Error(L().errHttp(r.status));
+    try { return await r.json(); } catch { throw new Error(L().errJson); }
+  })());
+  return cache.get(url);
+}
+
+async function keyFor(vmId) {
+  const did = vmId.split("#")[0];
+  const doc = await getJson(didWebToUrl(did));
+  if (doc.id !== did) throw new Error("DID document id mismatch");
+  const allowed = [].concat(doc.assertionMethod || []).map((a) => (typeof a === "string" ? a : a.id));
+  const vm = [].concat(doc.verificationMethod || []).find((v) => v.id === vmId) || [].concat(doc.assertionMethod || []).find((a) => typeof a === "object" && a.id === vmId);
+  if (!vm || !allowed.includes(vmId)) throw new Error("key is not an assertionMethod");
+  const mk = fromMultibase58(vm.publicKeyMultibase);
+  if (mk.length !== 34 || mk[0] !== 0xed || mk[1] !== 0x01) throw new Error("not an Ed25519 Multikey");
+  return crypto.subtle.importKey("raw", mk.slice(2), { name: "Ed25519" }, false, ["verify"]);
+}
+
+// eddsa-jcs-2022 (W3C vc-di-eddsa), как verifyProof на сервере
+async function verifyProof(vc) {
+  const proofs = [].concat(vc.proof || []);
+  if (!proofs.length) return false;
+  const issuer = typeof vc.issuer === "string" ? vc.issuer : vc.issuer?.id;
+  let unknown = false;
+  for (const p of proofs) {
+    if (p?.type !== "DataIntegrityProof" || p.cryptosuite !== "eddsa-jcs-2022" || p.proofPurpose !== "assertionMethod") continue;
+    if (p.verificationMethod?.split("#")[0] !== issuer) continue;
+    const { proofValue, ...config } = p;
+    const { proof: _p, ...unsecured } = vc;
+    if (config["@context"] !== undefined) {
+      const dc = [].concat(vc["@context"] || []), pc = [].concat(config["@context"]);
+      if (pc.some((c, i) => JSON.stringify(c) !== JSON.stringify(dc[i]))) continue;
+      unsecured["@context"] = config["@context"];
+    }
+    let key;
+    try { key = await keyFor(p.verificationMethod); } catch { unknown = true; continue; }
+    const h1 = await sha256(jcs(config)), h2 = await sha256(jcs(unsecured));
+    const data = new Uint8Array(64); data.set(h1, 0); data.set(h2, 32);
+    try { if (await crypto.subtle.verify({ name: "Ed25519" }, key, fromMultibase58(proofValue), data)) return true; } catch {}
+  }
+  return unknown ? null : false; // null — ключ издателя не получен, проверить нельзя
+}
+
+function dateCheck(vc, now = new Date()) {
+  if (vc.validFrom && new Date(vc.validFrom) > now) return "future";
+  if (vc.validUntil && new Date(vc.validUntil) < now) return "expired";
+  return "ok";
+}
+
+const lists = new Map();
+async function statusList(url, issuer) {
+  if (!lists.has(url)) lists.set(url, (async () => {
+    const vc = await getJson(url);
+    const iss = typeof vc.issuer === "string" ? vc.issuer : vc.issuer?.id;
+    if (iss !== issuer) throw new Error("status list from another issuer");
+    if ((await verifyProof(vc)) !== true) throw new Error("status list signature");
+    if (dateCheck(vc) !== "ok") throw new Error("status list expired");
+    const s = vc.credentialSubject?.encodedList;
+    if (typeof s !== "string" || s[0] !== "u") throw new Error("encodedList");
+    return { purpose: vc.credentialSubject.statusPurpose, bits: await gunzip(b64url(s.slice(1))) };
+  })());
+  return lists.get(url);
+}
+// null — проверить не удалось; иначе { revocation, suspension }
+async function checkStatus(vc) {
+  const entries = [].concat(vc.credentialStatus || []).filter((e) => e?.type === "BitstringStatusListEntry");
+  if (!entries.length) return { revocation: false, suspension: false };
+  const out = { revocation: false, suspension: false };
+  const issuer = typeof vc.issuer === "string" ? vc.issuer : vc.issuer?.id;
+  try {
+    for (const e of entries) {
+      const l = await statusList(e.statusListCredential, issuer);
+      if (l.purpose !== e.statusPurpose) throw new Error("purpose");
+      const i = Number(e.statusListIndex);
+      if (!Number.isInteger(i) || i < 0 || (i >> 3) >= l.bits.length) throw new Error("index");
+      if ((l.bits[i >> 3] >> (7 - (i & 7))) & 1) out[e.statusPurpose] = true;
+    }
+    return out;
+  } catch { return null; }
+}
+async function ed25519Supported() {
+  try { await crypto.subtle.generateKey({ name: "Ed25519" }, false, ["sign", "verify"]); return true; } catch { return false; }
+}
+
+// ---------- проверка паспорта / passport check ----------
+async function checkPassport(url) {
+  if (!(await ed25519Supported())) throw Object.assign(new Error("nocrypto"), { nocrypto: true });
+  const pp = await getJson(url);
+  if (!pp || typeof pp !== "object" || !pp.passport || !Array.isArray(pp.credentials)) throw new Error(L().errJson);
+  const agentDid = pp.passport.id, issuer = pp.passport.issuer;
+  const creds = [];
+  for (const raw of pp.credentials) {
+    const { _status, _inclusion, ...vc } = raw;
+    const iss = typeof vc.issuer === "string" ? vc.issuer : vc.issuer?.id;
+    const type = [].concat(vc.type || []).find((t) => t !== "VerifiableCredential") || "?";
+    const sig = await verifyProof(vc);
+    const status = await checkStatus(vc);
+    creds.push({ vc, type, sig, dates: dateCheck(vc), status, subjectOk: canon(vc.credentialSubject?.id) === canon(agentDid), issuerOk: canon(iss) === canon(issuer) });
+  }
+  return { pp, creds, issuer };
+}
+
+function summarize({ pp, creds }) {
+  const usable = (c) => c.sig && c.subjectOk && c.issuerOk && c.dates === "ok" && c.status && !c.status.revocation && !c.status.suspension;
+  if (creds.some((c) => c.sig === false || !c.subjectOk || !c.issuerOk)) return { cls: "bad", key: "badsig" };
+  if (creds.some((c) => c.sig === null)) return { cls: "warn", key: "nokey" };
+  const st = pp.passport.status;
+  if (st === "revoked") return { cls: "bad", key: "revoked" };
+  if (st === "suspended") return { cls: "warn", key: "suspended" };
+  const dc = creds.filter((c) => c.type === "AgentDomainControl");
+  const live = dc.filter(usable);
+  if (live.length) {
+    const until = live.map((c) => c.vc.validUntil).filter(Boolean).sort().at(-1);
+    return { cls: "ok", key: "ok", until };
+  }
+  if (dc.some((c) => c.status && (c.status.revocation || c.status.suspension))) return { cls: "bad", key: "dcstatus" };
+  return { cls: "warn", key: dc.length ? "expired" : "nodomain" };
+}
+
+// ---------- вывод / rendering ----------
+let lang = new URLSearchParams(location.search).get("lang");
+if (lang !== "en" && lang !== "ru") { try { lang = localStorage.getItem("xonta-lang"); } catch { lang = null; } }
+if (lang !== "en" && lang !== "ru") lang = /^ru|^uk|^be|^kk/i.test(navigator.language || "") ? "ru" : "en";
+const L = () => T[lang];
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const fmtDate = (s) => { if (!s) return ""; const d = new Date(s); return isNaN(d) ? String(s) : d.toLocaleDateString(lang === "ru" ? "ru-RU" : "en-GB", { day: "numeric", month: "long", year: "numeric" }).replace(/\s*г\.$/, ""); };
+let last = null;
+
+function applyStatic() {
+  document.documentElement.lang = lang;
+  document.title = (lang === "ru" ? "Паспорт агента" : "Agent passport") + " · Xonta";
+  document.querySelectorAll("[data-t]").forEach((n) => { const v = L()[n.dataset.t]; if (typeof v === "string") n.textContent = v; });
+  $("u").placeholder = L().placeholder;
+  document.querySelectorAll(".lang button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+}
+
+function render(res, url) {
+  const t = L();
+  const { pp, creds } = res;
+  $("agentName").textContent = pp.name || pp.passport.id;
+  $("agentUrl").textContent = pp.url || "";
+  const s = summarize(res);
+  $("verdict").className = "verdict " + s.cls;
+  $("vBig").textContent = t["v_" + s.key];
+  const small = t["v_" + s.key + "Small"];
+  $("vSmall").textContent = typeof small === "function" ? small(fmtDate(s.until)) : small;
+
+  const facts = $("facts"); facts.replaceChildren();
+  const add = (k, v, mono) => { if (v == null || v === "") return; facts.append(el("dt", null, k)); const dd = el("dd"); if (mono) dd.append(el("code", null, v)); else dd.textContent = v; facts.append(dd); };
+  const p = pp.passport;
+  add(t.f_status, t["st_" + p.status] || p.status);
+  add(t.f_endpoint, pp.url, true);
+  add(t.f_did, p.id, true);
+  add(t.f_issuer, `${p.issuer.replace(/^did:web:/, "")} (${XONTA_ISSUERS.includes(p.issuer) ? t.issuerXonta : t.issuerOther})`);
+  if (p.owner_level != null) add(t.f_owner, t["own" + p.owner_level] || p.owner_level_name);
+
+  const ul = $("creds"); ul.replaceChildren();
+  const order = ["AgentDomainControl", "AgentMcpScan", "AgentOwnerVerified", "AgentFieldEvaluation", "AgentEvaluation", "ActionMandate", "AgentReputation"];
+  const sorted = [...creds].sort((a, b) => ((order.indexOf(a.type) + 99) % 99 - (order.indexOf(b.type) + 99) % 99) || String(b.vc.validFrom).localeCompare(String(a.vc.validFrom)));
+  for (const c of sorted) {
+    const li = el("li");
+    const top = el("div", "top");
+    const name = (TYPE_NAMES[c.type] || [c.type, c.type])[lang === "ru" ? 0 : 1];
+    top.append(el("span", "name", name));
+    let pill;
+    if (c.sig === false || !c.subjectOk || !c.issuerOk) pill = ["bad", t.p_bad];
+    else if (c.sig === null) pill = ["na", t.p_unknown];
+    else if (c.status?.revocation) pill = ["bad", t.p_revoked];
+    else if (c.status?.suspension) pill = ["warn", t.p_suspended];
+    else if (c.dates !== "ok") pill = ["warn", t.p_expired];
+    else pill = ["ok", t.p_valid];
+    top.append(el("span", "pill " + pill[0], pill[1]));
+    li.append(top);
+
+    const sub = c.vc.credentialSubject || {};
+    const line = [];
+    if (c.type === "AgentDomainControl" && sub.domain) line.push(sub.domain);
+    if (c.type === "AgentMcpScan") { if (sub.tools_count != null) line.push(t.tools(sub.tools_count)); line.push(t.findings((sub.findings || []).length)); }
+    if (line.length) li.append(el("div", "muted", line.join(" · ")));
+
+    const ch = el("ul", "checks");
+    const item = (ok, text) => ch.append(el("li", ok === true ? "ok-t" : ok === false ? "bad-t" : "warn-t", (ok === true ? "✓ " : ok === false ? "✗ " : "! ") + text));
+    item(c.sig, c.sig === true ? t.c_sig : c.sig === false ? t.c_sigBad : t.c_sigNa);
+    if (c.dates === "ok") item(true, t.c_dates(fmtDate(c.vc.validFrom), c.vc.validUntil && fmtDate(c.vc.validUntil)));
+    else if (c.dates === "expired") item(null, t.c_expired(fmtDate(c.vc.validUntil)));
+    else item(null, t.c_future(fmtDate(c.vc.validFrom)));
+    if (!c.status) item(null, t.c_statusNa);
+    else if (c.status.revocation) item(false, t.c_revoked);
+    else if (c.status.suspension) item(null, t.c_suspended);
+    else item(true, t.c_status);
+    item(c.subjectOk, c.subjectOk ? t.c_subject : t.c_subjectBad);
+    if (!c.issuerOk) item(false, t.c_issuerBad);
+    li.append(ch);
+    const det = el("details"); det.append(el("summary", null, t.details)); det.append(el("pre", null, JSON.stringify(c.vc, null, 2)));
+    li.append(det);
+    ul.append(li);
+  }
+
+  const how = $("how"); how.replaceChildren();
+  for (const h of t.how) how.append(el("li", null, typeof h === "function" ? h(p.issuer) : h));
+  $("raw").href = url;
+}
+
+function renderFail(msg) {
+  $("loading").hidden = true; $("result").hidden = true; $("fail").hidden = false;
+  $("failWhy").textContent = msg;
+}
+
+function resolveTarget(q) {
+  const v = (q || "").trim();
+  if (/^ag_[a-z0-9]+$/i.test(v)) return `${DEFAULT_ORCH}/v1/agents/${v}/passport`;
+  let u;
+  try { u = new URL(v); } catch { return null; }
+  if (u.protocol !== "https:" && !(u.protocol === "http:" && /^(localhost|127\.0\.0\.1)$/.test(u.hostname))) return null;
+  return u.href;
+}
+
+async function run() {
+  const q = new URLSearchParams(location.search);
+  const id = q.get("id"), p = q.get("p");
+  const orch = q.get("o");
+  let target = null;
+  if (p) target = resolveTarget(p);
+  else if (id && /^ag_[a-z0-9]+$/i.test(id)) target = orch ? resolveTarget(`${orch.replace(/\/+$/, "")}/v1/agents/${id}/passport`) : resolveTarget(id);
+  if (!p && !id) return;
+  $("intro").hidden = true; $("out").hidden = false;
+  if (!target) return renderFail(L().errUrl);
+  try {
+    last = { res: await checkPassport(target), url: target };
+    $("loading").hidden = true; $("result").hidden = false;
+    render(last.res, last.url);
+  } catch (e) {
+    if (e.nocrypto) { $("loading").hidden = true; $("result").hidden = true; $("fail").hidden = false; $("fail").querySelector(".big").textContent = L().v_nocrypto; $("failWhy").textContent = L().v_nocryptoSmall; return; }
+    renderFail(e.message);
+  }
+}
+
+document.querySelectorAll(".lang button").forEach((b) => b.addEventListener("click", () => {
+  lang = b.dataset.lang; try { localStorage.setItem("xonta-lang", lang); } catch {}
+  applyStatic(); if (last) render(last.res, last.url);
+}));
+$("f").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const v = $("u").value.trim();
+  if (!resolveTarget(v)) { $("u").setCustomValidity(L().errUrl); $("u").reportValidity(); $("u").setCustomValidity(""); return; }
+  const qs = /^ag_/i.test(v) ? `?id=${encodeURIComponent(v)}` : `?p=${encodeURIComponent(v)}`;
+  location.search = qs + (lang === "en" ? "&lang=en" : "");
+});
+applyStatic();
+run();
+</script>
+</body>
+</html>

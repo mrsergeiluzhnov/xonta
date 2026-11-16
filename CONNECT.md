@@ -54,7 +54,7 @@ curl -s -X POST $P/v1/agents/$ID/field-exam -H "Authorization: Bearer $OWNER_TOK
 Once the domain is verified, put the passport badge in your README. It shows the live state: `verified`, `check expired` (the domain check is older than 90 days, run domain-check again), `suspended` or `revoked`. The link opens a page that fetches the passport and checks every signature and status list in the browser, nothing is taken on trust from xonta.dev.
 
 ```markdown
-[![xonta passport](https://orchestrator.xonta.dev/v1/agents/$ID/badge.svg)](https://xonta.dev/passport?p=https://orchestrator.xonta.dev/v1/agents/$ID/passport)
+[![xonta passport](https://orchestrator.xonta.dev/v1/agents/$ID/badge.svg)](https://xonta.dev/passport/?id=$ID)
 ```
 
 The passport, DID documents and status lists answer with `Access-Control-Allow-Origin: *`, so any site can verify a passport the same way.
