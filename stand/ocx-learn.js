@@ -72,8 +72,15 @@ export function findRepeat(failed, text, shown = new Set()) {
   const byId = new Map(failed.map((x) => [x.id, x]));
   const fixUsed = (x) => { if (!x.fixed_by) return false; const f = byId.get(x.fixed_by); return !f || !lostActions(x.text, f.text).length; };
   const fixable = (x) => blocksRepeat(x) && shown.has(x.id) && !fixUsed(x) && similarity(x.text, text) < NEAR && !sameActions(x.text, text); // 0.31.12: те же действия — не исправление
-  const block = like.find((x) => blocksRepeat(x) && !fixable(x)) || null;
-  return { block, fix: block ? null : like.find(fixable) || null, remeasure: like.find((x) => !blocksRepeat(x)) || null, changed: block ? null : changed[0] || null };
+  // 0.31.14: в run-ocx-15 модель сразу написала нужное правило со звонком («подтвердил» — pay, «не меняли» — reject,
+  // «не выполнена» — hold), но его отбросили как пересказ r12. r12 ответы проверки дословно не называл («не подтвердил»),
+  // поэтому по действиям его не сравнить, а исправление r12 уже «израсходовал» перепутанный r24 (ocx-13). Теперь правило,
+  // которое ответов не называло, не может отбросить правило, где названы два и больше ответа с действиями: такое правило
+  // отбрасывают только не прошедшие с теми же действиями на те же ответы (sameActions). Меряется как уточнение (refines)
+  const vague = (x) => !answerActions(x.text).size && answerActions(text).size >= 2;
+  const block = like.find((x) => blocksRepeat(x) && !fixable(x) && !vague(x)) || null;
+  const fix = block ? null : like.find(fixable) || null;
+  return { block, fix, remeasure: like.find((x) => !blocksRepeat(x)) || null, changed: block ? null : changed[0] || null, refines: block || fix ? null : like.find((x) => blocksRepeat(x) && vague(x)) || null };
 }
 
 // 0.31.4: худшие пары замера — то, что правило сделало хуже. Хранятся в книге вместе с тем, что показали проверки,

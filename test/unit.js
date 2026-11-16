@@ -1396,7 +1396,7 @@ await t("учёба OCX: другое действие на тот же отве
   assert.equal(r.block, null, "ответ модели из run-ocx-10 не отбрасывается"); assert.equal(r.changed?.id, "r18"); assert.equal(r.fix?.id, "r12", "r18 потерял reject — исправление r12 ещё не потрачено");
   assert.equal(findRepeat([r12, r18], r18.text, shown).block?.id, "r18", "повтор r18 по-прежнему отбрасывается");
   const r20 = { id: "r20", text: cand, status: "harmful", fix_of: "r12", history: H }; r12.fixed_by = "r20";
-  assert.equal(findRepeat([r12, r18, r20], cand.replace("выбрать reject", "— reject"), shown).block?.id, "r12", "после замера пересказ отбрасывается");
+  assert.equal(findRepeat([r12, r18, r20], cand.replace("выбрать reject", "— reject"), shown).block?.id, "r20", "после замера пересказ отбрасывается (с 0.31.14 — по r20: r12 ответов не называет)");
 });
 
 await t("учёба OCX: склеенные слова в переписанном правиле расклеиваются, такое правило в книге не считается (0.31.10, run-ocx-11)", async () => {
@@ -1494,6 +1494,25 @@ await t("учёба OCX: модель видит исходы по всем от
   assert.ok(p2.includes("всё ещё противоречит") && /reject в 16 из 16 случаев, а правило велит pay — это надо исправить/.test(p2));
   assert.ok(!/остальные ветки/.test(p2), "в правиле нет верных веток — не просим их оставить");
   assert.ok(/STEP:outcomes/.test(outcomesPrompt(draft, cx)), "без исходов — как в 0.31.12");
+});
+
+await t("учёба OCX: правило без дословных ответов не отбрасывает правило с ними (0.31.14, run-ocx-15)", async () => {
+  const { findRepeat, blocksRepeat } = await import("../stand/ocx-learn.js");
+  const H = [{ run: "x", kind: "learn", status: "harmful", pairs_saved: true }];
+  // настоящие правила книги оркестратора 1 после ocx-14 и кандидат модели из ocx-15
+  const r10 = { id: "r10", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; иначе reject", status: "harmful", history: H };
+  const r12 = { id: "r12", text: "купить callback; если результат = поставщик подтвердил смену счёта, выбрать pay; если результат = поставщик не подтвердил смену счёта, выбрать reject; если результат = проверка не выполнена, выбрать hold", status: "harmful", fix_of: "r10", fixed_by: "r24", history: H };
+  const r18 = { id: "r18", text: "купить callback; если результат \"поставщик по номеру из договора: реквизиты не меняли, письма не отправляли\" выбрать hold; если результат \"поставщик подтвердил смену счёта\" выбрать pay; если результат \"проверка не выполнена\" выбрать hold", status: "no_effect", fix_of: "r12", history: H };
+  const r24 = { id: "r24", text: "купить callback; если результат = 'поставщик подтвердил смену счёта', выбрать reject; если результат = 'поставщик по номеру из договора: реквизиты не меняли, письма не отправляли', выбрать pay; если результат = 'проверка не выполнена', выбрать hold", status: "harmful", fix_of: "r12", differs_from: "r18", history: H };
+  const failed = [r10, r12, r18, r24], shown = new Set(["r18", "r24"]);
+  const cand = "купить callback; если результат \"поставщик подтвердил смену счёта\" выбрать pay; если результат \"поставщик по номеру из договора: реквизиты не меняли, письма не отправляли\" выбрать reject; если результат \"проверка не выполнена\" выбрать hold";
+  const r = findRepeat(failed, cand, shown);
+  assert.equal(r.block, null, "в ocx-15 отброшено как пересказ r12"); assert.equal(r.refines?.id, "r12"); assert.equal(r.changed?.id, "r18"); assert.equal(r.fix, null);
+  assert.equal(findRepeat(failed, r24.text.replace("выбрать pay", "— pay"), shown).block?.id, "r24", "перепутанное по-прежнему пересказ r24");
+  assert.ok(["r10", "r12"].includes(findRepeat(failed, r12.text.replace("выбрать hold", "— hold"), shown).block?.id), "пересказ r12 без дословных ответов по-прежнему отбрасывается");
+  const r26 = { id: "r26", text: cand, status: "no_effect", refines: "r12", history: H };
+  assert.equal(findRepeat([...failed, r26], cand.replace("выбрать reject", "— reject"), shown).block?.id, "r26", "после замера его пересказ отбрасывается");
+  assert.ok(blocksRepeat(r26));
 });
 
 await t("учёба OCX: пересказ правила, отвергнутого без сохранённых пар, меряется ещё раз (0.31.3, run-ocx-4)", async () => {
