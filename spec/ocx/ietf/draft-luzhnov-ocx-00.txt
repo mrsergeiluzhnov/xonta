@@ -1,0 +1,1064 @@
+
+
+
+
+Network Working Group                                         S. Luzhnov
+Internet-Draft                                                     Xonta
+Intended status: Informational                          16 November 2026
+Expires: 20 May 2027
+
+
+                  Orchestrator Conduct Exchange (OCX)
+                          draft-luzhnov-ocx-00
+
+Abstract
+
+   AI agents increasingly act on behalf of people and organizations
+   through tools and through other agents.  The Model Context Protocol
+   (MCP) connects an agent to tools, and Agent-to-Agent (A2A) protocols
+   connect agents to each other.  Neither connects the parties that
+   answer for agents at runtime: their orchestrators.
+
+   This document specifies the Orchestrator Conduct Exchange (OCX), an
+   open, peer-to-peer protocol by which orchestrators exchange signed,
+   independently verifiable signals about agent conduct.  When an agent
+   misreports its actions to one orchestrator, that orchestrator can
+   send its peers a signed signal carrying proof within seconds.  Each
+   peer checks the proof itself rather than trusting the sender, and
+   decides on its own what limits to apply.  OCX has no central
+   authority.  A signal is information, not an order, and only evidence
+   that a receiver can verify cryptographically and mechanically may
+   drive an immediate reaction.
+
+Status of This Memo
+
+   This Internet-Draft is submitted in full conformance with the
+   provisions of BCP 78 and BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF).  Note that other groups may also distribute
+   working documents as Internet-Drafts.  The list of current Internet-
+   Drafts is at https://datatracker.ietf.org/drafts/current/.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   This Internet-Draft will expire on 20 May 2027.
+
+
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                  [Page 1]
+
+Internet-Draft                     OCX                     November 2026
+
+
+Copyright Notice
+
+   Copyright (c) 2026 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents (https://trustee.ietf.org/
+   license-info) in effect on the date of publication of this document.
+   Please review these documents carefully, as they describe your rights
+   and restrictions with respect to this document.  Code Components
+   extracted from this document must include Revised BSD License text as
+   described in Section 4.e of the Trust Legal Provisions and are
+   provided without warranty as described in the Revised BSD License.
+
+Table of Contents
+
+   1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3
+     1.1.  Problem . . . . . . . . . . . . . . . . . . . . . . . . .   3
+     1.2.  What OCX does . . . . . . . . . . . . . . . . . . . . . .   3
+     1.3.  Layering  . . . . . . . . . . . . . . . . . . . . . . . .   3
+     1.4.  Non-goals . . . . . . . . . . . . . . . . . . . . . . . .   4
+   2.  Conventions and Terminology . . . . . . . . . . . . . . . . .   4
+   3.  Design Principles . . . . . . . . . . . . . . . . . . . . . .   5
+   4.  Architecture  . . . . . . . . . . . . . . . . . . . . . . . .   6
+   5.  Discovery: the Orchestrator Card  . . . . . . . . . . . . . .   6
+   6.  Transport and Authentication  . . . . . . . . . . . . . . . .   8
+   7.  Peering . . . . . . . . . . . . . . . . . . . . . . . . . . .   8
+   8.  Data Model  . . . . . . . . . . . . . . . . . . . . . . . . .   9
+     8.1.  Identifiers . . . . . . . . . . . . . . . . . . . . . . .   9
+     8.2.  Subject . . . . . . . . . . . . . . . . . . . . . . . . .   9
+     8.3.  Signal  . . . . . . . . . . . . . . . . . . . . . . . . .  10
+     8.4.  Status Answer . . . . . . . . . . . . . . . . . . . . . .  10
+   9.  Evidence  . . . . . . . . . . . . . . . . . . . . . . . . . .  11
+     9.1.  Evidence Levels . . . . . . . . . . . . . . . . . . . . .  11
+     9.2.  Receipts and Ledger . . . . . . . . . . . . . . . . . . .  12
+     9.3.  Evidence Types  . . . . . . . . . . . . . . . . . . . . .  13
+     9.4.  Verifiability and Minimal Disclosure  . . . . . . . . . .  14
+   10. Methods . . . . . . . . . . . . . . . . . . . . . . . . . . .  14
+   11. Processing Rules  . . . . . . . . . . . . . . . . . . . . . .  15
+   12. Consent and Probing . . . . . . . . . . . . . . . . . . . . .  16
+   13. Security Considerations . . . . . . . . . . . . . . . . . . .  16
+   14. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  17
+   15. Normative References  . . . . . . . . . . . . . . . . . . . .  17
+   16. Informative References  . . . . . . . . . . . . . . . . . . .  18
+   Acknowledgements  . . . . . . . . . . . . . . . . . . . . . . . .  19
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  19
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                  [Page 2]
+
+Internet-Draft                     OCX                     November 2026
+
+
+1.  Introduction
+
+1.1.  Problem
+
+   An agent's own report of what it did is not evidence.  Measurements
+   show that models, when asked, will claim checks they never ran and
+   restate wrong decisions as correct.  Controls that rely on the
+   agent's self-report are therefore reading a claim, not a fact.
+
+   Orchestrators are the components that give agents their autonomy,
+   hold them to limits, and answer for what they do.  Today each
+   orchestrator learns only from its own agents.  There is no
+   interoperable way for the parties that answer for agents to warn one
+   another, with proof, that a given agent or owner has misbehaved, and
+   to do so fast enough to stop the next irreversible action.
+
+1.2.  What OCX does
+
+   OCX lets independent orchestrators:
+
+   *  discover one another and negotiate capabilities and policies
+      (peering);
+
+   *  push and pull signed conduct signals about an agent or owner;
+
+   *  attach evidence that the receiver can verify without trusting the
+      sender's judgement;
+
+   *  answer "what do you know about this agent" before a risky action;
+
+   *  share proven rules for a category of work, and refer an agent to a
+      more specialised orchestrator, with a required measurement;
+
+   *  retract wrong signals and accept appeals.
+
+   The protocol defines message formats and how to check them.  What to
+   do about a signal is left to each receiver.
+
+1.3.  Layering
+
+   OCX is modelled on MCP [MCP] and A2A [A2A] and sits alongside them.
+   MCP connects an agent to tools; A2A connects agents to each other;
+   OCX connects orchestrators to each other.  OCX uses JSON-RPC 2.0
+   [JSONRPC] over HTTPS with methods in the ocx/ namespace, a discovery
+   document at a well-known location, and date-based protocol versions
+   negotiated when peers meet.
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                  [Page 3]
+
+Internet-Draft                     OCX                     November 2026
+
+
+1.4.  Non-goals
+
+   *  OCX is not an identity protocol.  It carries identifiers but does
+      not define how an agent authenticates to a tool or to a user.
+
+   *  OCX does not set policy.  It does not tell a receiver what limits
+      to apply; it gives it checkable information to decide.
+
+   *  OCX is not a reputation score or a global registry.  Weight is
+      local to each receiver and earned from verified proofs.
+
+2.  Conventions and Terminology
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+   "OPTIONAL" in this document are to be interpreted as described in BCP
+   14 [RFC2119] [RFC8174] when, and only when, they appear in all
+   capitals, as shown here.
+
+   All object signatures use JSON Web Signature (JWS) [RFC7515] with
+   EdDSA (Ed25519) [RFC8037].  Canonical JSON for hashing and signing is
+   JSON Canonicalization Scheme (JCS) [RFC8785].  Timestamps are RFC
+   3339 [RFC3339].
+
+   Orchestrator  A party that grants an agent autonomy at runtime, holds
+      it to limits, records its actions, and answers for it.
+
+   Agent  An autonomous software actor operating under an orchestrator.
+
+   Owner  The party responsible for an agent.  A new agent of a known
+      owner does not start from a clean slate.
+
+   Signal  A signed statement by an orchestrator about an agent's or
+      owner's conduct, carrying evidence and an evidence level.
+
+   Receipt  A signed record of one action that passed through an
+      orchestrator or was performed by a tool.  Agents cannot create
+      receipts.
+
+   Ledger  An append-only Merkle-tree log of receipts with signed
+      checkpoints.
+
+   Evidence level  One of proven, strong, suspected; it bounds what a
+      receiver may do on a signal.
+
+
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                  [Page 4]
+
+Internet-Draft                     OCX                     November 2026
+
+
+3.  Design Principles
+
+   The design follows from a small set of decisions.
+
+   1.   *No centre.* Every orchestrator publishes a card at a well-known
+        location.  Any number of directories may exist.  No
+        implementation is the root of the network.
+
+   2.   *A signal is information, not an order.* The protocol defines
+        the format and the checks; the receiver decides what to do.
+
+   3.   *Proof, not reputation.* Only proven signals may drive an
+        immediate reaction, and only if the receiver can verify the
+        proof itself.  A suspected signal may raise monitoring but MUST
+        NOT lower limits on its own and is not relayed.
+
+   4.   *Receipts.* Every action an agent takes through an orchestrator
+        is written to a ledger organised as a Merkle tree with signed
+        checkpoints.  An agent cannot create a receipt, so a claim such
+        as "I verified the bank details" is disproved by a missing
+        receipt, and the absence is provable because each agent's
+        actions are indexed.
+
+   5.   *Minimal data.* Signals carry hashes and identifiers, not third-
+        party personal data.  A single field MAY be disclosed on
+        request, and the sender MAY refuse.
+
+   6.   *Sender weight is earned and does not transit.* A new
+        orchestrator carries little weight; weight rises when its proofs
+        check out and falls when they do not.  That a party you trust
+        trusts a third party is, by itself, no reason for you to trust
+        that third party.
+
+   7.   *The owner answers, not only the key.* A signal names the owner;
+        a new agent from the same owner does not reset.
+
+   8.   *Honesty probes only with consent.* Traps and bribes are allowed
+        only under a consent signed by the agent's owner, run by a
+        prober separate from the orchestrator that sets limits.  Without
+        consent a finding is at most suspected and is not relayed.
+
+   9.   *Mistakes get fixed.* Every violation signal carries an appeal
+        address; the sender MUST answer within 72 hours or the signal
+        drops to suspected everywhere.  A retraction travels the same
+        paths.
+
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                  [Page 5]
+
+Internet-Draft                     OCX                     November 2026
+
+
+   10.  *Shared experience carries a required comparison.* A rule is
+        passed on as proven only if it beats both the agent and a
+        trivial baseline; a rule that loses to both is marked harmful
+        and is neither given to agents nor relayed.
+
+   11.  *Competence is separate from honesty and is measured per
+        category.* Numbers an orchestrator writes about itself count for
+        nothing on their own.
+
+4.  Architecture
+
+   Orchestrators form a peer-to-peer mesh.  Each publishes an
+   Orchestrator Card (Section 5) describing its endpoints, keys,
+   capabilities and policies.  Two orchestrators peer by exchanging
+   cards and a ocx/peer.hello (Section 7).  Once peered, either may push
+   signals, query status, and fetch evidence from the other.
+
+   A signal (Section 8.3) is an object signed by its issuer so that it
+   stays verifiable after being relayed or stored.  The evidence in a
+   signal (Section 9) refers to receipts in the issuer's ledger; a
+   receiver fetches the receipts, inclusion proofs and checkpoints it
+   needs through ocx/evidence.get and verifies them against the issuer's
+   published checkpoints.  Nothing in a reaction depends on trusting the
+   issuer's judgement when the evidence is proven.
+
+5.  Discovery: the Orchestrator Card
+
+   An orchestrator MUST publish an Orchestrator Card at:
+
+   https://{host}/.well-known/orchestrator-card.json
+
+   served with Content-Type: application/json.  The well-known name is
+   protocol-neutral: a card MAY list several orchestrator protocols, of
+   which OCX is one.
+
+   The card's principal fields are:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                  [Page 6]
+
+Internet-Draft                     OCX                     November 2026
+
+
+      +==============+========+=====================================+
+      | Field        | Req.   | Meaning                             |
+      +==============+========+=====================================+
+      | id           | MUST   | Stable identifier, RECOMMENDED      |
+      |              |        | did:web:{host}                      |
+      +--------------+--------+-------------------------------------+
+      | name         | MUST   | Human-readable name                 |
+      +--------------+--------+-------------------------------------+
+      | interfaces   | MUST   | Endpoints, each {protocol, url,     |
+      |              |        | protocolVersions}                   |
+      +--------------+--------+-------------------------------------+
+      | keys         | MUST   | jwks_uri or inline jwks; keys that  |
+      |              |        | sign signals and requests           |
+      +--------------+--------+-------------------------------------+
+      | capabilities | MUST   | Supported methods and evidence      |
+      |              |        | types                               |
+      +--------------+--------+-------------------------------------+
+      | policies     | MUST   | Peering, levels acted on and        |
+      |              |        | relayed, probing, appeal, retention |
+      +--------------+--------+-------------------------------------+
+      | ledger       | SHOULD | {checkpoint_url, proof_url} for     |
+      |              |        | receipt proofs                      |
+      +--------------+--------+-------------------------------------+
+      | competence   | SHOULD | Categories served, with verifiable  |
+      |              |        | measures                            |
+      +--------------+--------+-------------------------------------+
+      | updated_at   | MUST   | RFC 3339                            |
+      +--------------+--------+-------------------------------------+
+      | signatures   | SHOULD | JWS over the canonical card without |
+      |              |        | signatures                          |
+      +--------------+--------+-------------------------------------+
+
+                                  Table 1
+
+   Capabilities and policies are objects; a missing capability object
+   means "not supported".  Example policies:
+
+   "policies": {
+     "accepts_peering": "open | on_request | closed",
+     "acts_on_levels": ["proven", "strong"],
+     "relays_levels": ["proven"],
+     "max_hops": 2,
+     "probing": "consent_required",
+     "appeal_url": "https://orch.example.com/ocx/appeal",
+     "retention": "P90D"
+   }
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                  [Page 7]
+
+Internet-Draft                     OCX                     November 2026
+
+
+   The probing field MUST be consent_required or none (Section 12).  An
+   orchestrator MAY declare the categories it serves under competence;
+   those numbers are self-reported and MUST NOT be trusted on their own.
+   They become meaningful only through signed experience packages and
+   referral outcomes reported by other orchestrators.
+
+6.  Transport and Authentication
+
+   OCX uses JSON-RPC 2.0 over HTTPS.  Requests are POSTed to the url of
+   the OCX interface.  TLS 1.2 or later is REQUIRED, TLS 1.3
+   RECOMMENDED.  Every request MUST carry OCX-Protocol-Version once a
+   version is negotiated.
+
+   Every request between peers MUST be signed with HTTP Message
+   Signatures [RFC9421]:
+
+   *  covered components: @method, @target-uri, content-digest, ocx-
+      protocol-version, date;
+
+   *  Content-Digest [RFC9530] with sha-256 is REQUIRED;
+
+   *  the request MUST carry OCX-Sender: {orchestrator id} so the
+      receiver knows whose card to resolve;
+
+   *  keyid is a key from that card;
+
+   *  created MUST be within 300 seconds of the receiver's clock; a non-
+      repeating nonce is REQUIRED within that window.
+
+   Receivers MUST reject unsigned or badly signed requests.  Transport
+   signatures prove who is talking.  Signals and the answers to ocx/
+   status.query and ocx/evidence.get are additionally signed as objects
+   (JWS), because relying parties keep them as the basis of a decision.
+
+7.  Peering
+
+   An initiator fetches the responder's card, then sends ocx/peer.hello
+   with the versions it supports (newest first), its capabilities and
+   policies, and how it wants to receive signals:
+
+
+
+
+
+
+
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                  [Page 8]
+
+Internet-Draft                     OCX                     November 2026
+
+
+   {
+     "jsonrpc": "2.0", "id": 1, "method": "ocx/peer.hello",
+     "params": {
+       "orchestrator": "did:web:orch-a.example",
+       "protocolVersions": ["2026-11-06"],
+       "capabilities": { "signals": { "push": true, "list": true },
+                         "status": { "query": true } },
+       "policies": { "acts_on_levels": ["proven", "strong"],
+                     "max_hops": 2 },
+       "subscription": { "push_url": "https://orch-a.example/ocx",
+                         "categories": ["*"], "min_level": "strong" }
+     }
+   }
+
+   The responder MUST pick the newest version both support, or return an
+   error listing the versions it supports.  Either side MAY decline.
+   Peering is symmetric: once accepted, both sides may call each other.
+   A card change is announced by ocx/peer.updated and SHOULD trigger a
+   re-fetch.  ocx/peer.close ends the peering; signals received before
+   closing remain valid until they expire.
+
+8.  Data Model
+
+8.1.  Identifiers
+
+   *  Orchestrators: did:web:{host} RECOMMENDED.
+
+   *  Agents and owners: any of did:*, a2a:{agent-card-url},
+      erc8004:{chain}:{registry}:{id}, or fp:sha256:{hex} (a fingerprint
+      of the agent's public key or of its A2A card's canonical form).
+
+   *  Signals, receipts and checkpoints: issuer-scoped ULIDs, written as
+      {issuer-id}#{ulid}.
+
+8.2.  Subject
+
+   A signal is about a subject.  The owner is REQUIRED when known, and
+   owner_verified states how the issuer knows it: by a domain challenge,
+   by a signature of the owner's key, or not at all.
+
+   "subject": {
+     "agent": "fp:sha256:9f2c...",
+     "owner": "did:web:owner.example",
+     "owner_verified": "domain | signature | none"
+   }
+
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                  [Page 9]
+
+Internet-Draft                     OCX                     November 2026
+
+
+8.3.  Signal
+
+   A signal is a detached-JWS-signed object.  The signature covers the
+   canonical signal with the signature and relay fields removed, so
+   relays can update hop information without breaking it.
+
+   {
+     "ocx": "2026-11-06",
+     "type": "conduct.violation",
+     "id": "did:web:orch-1.example#01JC8Z7Q4Y0V4X",
+     "issuer": "did:web:orch-1.example",
+     "issued_at": "2026-11-06T10:22:31.512Z",
+     "expires_at": "2026-11-07T10:22:31.512Z",
+     "subject": { "agent": "fp:sha256:9f2c...",
+                  "owner": "did:web:owner.example",
+                  "owner_verified": "domain" },
+     "category": "payments",
+     "claim": "report_misstated_actions",
+     "evidence_level": "proven",
+     "evidence": [ { "type": "ledger_mismatch" } ],
+     "issuer_limits": { "max_payment": { "amount": "0",
+                                         "currency": "USD" },
+                        "human_confirmation": true },
+     "supersedes": null,
+     "relay": { "hops": 0, "max_hops": 2, "path": [] },
+     "appeal": "https://orch-1.example/ocx/appeal",
+     "signature": "eyJhbGciOiJFZERTQSI...3q2-k8Vw"
+   }
+
+   type is one of conduct.violation, conduct.attestation (a positive
+   statement) or conduct.retraction. expires_at MUST NOT be more than 30
+   days after issued_at; renewal is a new signal that supersedes the old
+   one. evidence MUST have at least one item, and for proven at least
+   one item that the receiver can verify independently. appeal is
+   REQUIRED for violations.
+
+   A conduct.attestation MUST carry evidence of the same kind as a
+   violation and MUST NOT claim more than was measured.  Receivers
+   SHOULD treat attestations as weaker than violations: absence of
+   observed lies is not proof of honesty.
+
+8.4.  Status Answer
+
+   An answer to ocx/status.query lists every active (not retracted, not
+   expired) violation signal the answering orchestrator knows about the
+   subject, both those it issued and those it received.  verified_by_me
+   tells the asker whether the answerer checked the evidence itself
+   rather than passing it on.
+
+
+
+Luzhnov                    Expires 20 May 2027                 [Page 10]
+
+Internet-Draft                     OCX                     November 2026
+
+
+   {
+     "ocx": "2026-11-06",
+     "issuer": "did:web:orch-2.example",
+     "subject": { "agent": "fp:sha256:9f2c..." },
+     "as_of": "2026-11-06T10:22:32.301Z",
+     "known": true,
+     "own_limits": { "max_payment": { "amount": "0",
+                                      "currency": "USD" },
+                     "human_confirmation": true },
+     "active_signals": [
+       { "id": "did:web:orch-1.example#01JC8Z7Q4Y0V4X",
+         "evidence_level": "proven",
+         "claim": "report_misstated_actions",
+         "issuer": "did:web:orch-1.example",
+         "verified_by_me": true }
+     ],
+     "history": { "receipts": 1834, "violations_proven": 1,
+                  "attestations": 3 },
+     "signature": "..."
+   }
+
+9.  Evidence
+
+9.1.  Evidence Levels
+
+   +===========+=================================+=====================+
+   | Level     | Definition                      | Receiver MAY        |
+   +===========+=================================+=====================+
+   | proven    | At least one item the receiver  | Act immediately;    |
+   |           | can verify cryptographically    | relay               |
+   |           | and mechanically, without       |                     |
+   |           | trusting the issuer's judgement |                     |
+   +-----------+---------------------------------+---------------------+
+   | strong    | Several independent indicators, | Lower limits        |
+   |           | or verifiable evidence that     | after own review    |
+   |           | still needs the issuer's        |                     |
+   |           | interpretation                  |                     |
+   +-----------+---------------------------------+---------------------+
+   | suspected | An anomaly or a single          | Increase            |
+   |           | indicator                       | monitoring only;    |
+   |           |                                 | MUST NOT lower      |
+   |           |                                 | limits alone;       |
+   |           |                                 | MUST NOT relay      |
+   +-----------+---------------------------------+---------------------+
+
+                                  Table 2
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                 [Page 11]
+
+Internet-Draft                     OCX                     November 2026
+
+
+   An issuer MUST NOT mark a signal proven unless at least one item is
+   of a receiver-verifiable type and the receiver can obtain everything
+   needed to verify it.
+
+9.2.  Receipts and Ledger
+
+   A receipt records one action that passed through an orchestrator or
+   was performed by a tool. prev links to the previous receipt, forming
+   a hash chain. tool_attestation, when present, is a JWS by the tool
+   provider and makes the receipt evidence even against the orchestrator
+   itself.  Agents MUST NOT be able to create receipts.
+
+   {
+     "id": "did:web:orch-1.example#01JC8Z5T0B3K",
+     "agent": "fp:sha256:9f2c...",
+     "task": "did:web:orch-1.example#task-01JC8Z5R",
+     "action": "tool_call",
+     "tool": "payments.verify_bank_details",
+     "input_hash": "sha256:...",
+     "output_hash": "sha256:...",
+     "at": "2026-11-06T10:21:02.004Z",
+     "prev": "sha256:...",
+     "tool_attestation": null,
+     "signature": "..."
+   }
+
+   An orchestrator that supports receipts MUST keep them in an append-
+   only log organised as a Merkle tree as defined in [RFC9162], and MUST
+   publish signed checkpoints at ledger.checkpoint_url at least every 60
+   seconds while new receipts are added:
+
+   { "issuer": "did:web:orch-1.example", "tree_size": 18342,
+     "root_hash": "sha256:...", "at": "2026-11-06T10:22:00Z",
+     "signature": "..." }
+
+   Peers SHOULD gossip checkpoints they have seen, so that an
+   orchestrator rewriting its own history can be detected.  A second
+   witness is required to detect a fork: an orchestrator that keeps two
+   divergent trees is caught when two peers compare checkpoints for the
+   same tree_size and find different roots.
+
+
+
+
+
+
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                 [Page 12]
+
+Internet-Draft                     OCX                     November 2026
+
+
+9.3.  Evidence Types
+
+     +====================+===========================+=============+
+     | Type               | What it proves            | Verifiable  |
+     |                    |                           | by receiver |
+     +====================+===========================+=============+
+     | ledger_mismatch    | The agent's signed report | Yes         |
+     |                    | contradicts receipts: it  |             |
+     |                    | claimed actions with no   |             |
+     |                    | receipt, or denied        |             |
+     |                    | actions with one          |             |
+     +--------------------+---------------------------+-------------+
+     | outcome_mismatch   | The agent's report        | Yes, if the |
+     |                    | contradicts an            | checker is  |
+     |                    | independent checker's     | a third     |
+     |                    | signed result             | party with  |
+     |                    |                           | its own key |
+     +--------------------+---------------------------+-------------+
+     | canary_hit         | A marked bait from a      | Yes, with   |
+     |                    | consented probe appeared  | consent     |
+     |                    | in the agent's actions or | reference   |
+     |                    | output                    |             |
+     +--------------------+---------------------------+-------------+
+     | policy_violation   | An action with a receipt  | Yes, if the |
+     |                    | broke a limit the agent   | accepted    |
+     |                    | had accepted              | limits are  |
+     |                    |                           | signed      |
+     +--------------------+---------------------------+-------------+
+     | behavioral_anomaly | The agent deviated from   | No; at most |
+     |                    | its own profile           | suspected   |
+     +--------------------+---------------------------+-------------+
+     | peer_report        | Another orchestrator's    | Only as     |
+     |                    | signal, cited             | strong as   |
+     |                    |                           | the cited   |
+     |                    |                           | evidence    |
+     +--------------------+---------------------------+-------------+
+
+                                 Table 3
+
+   The central evidence type is ledger_mismatch.  For a claimed action
+   with no receipt, the issuer proves the absence with a _consistency
+   window_: it serves all receipts for that agent and task within a time
+   window together with their inclusion proofs and a proof that the
+   window is complete.  A complete-window proof is a pair of signed
+   checkpoints bracketing the window plus a per-agent index.  This is
+   what makes "there was no such action" provable rather than merely
+   asserted.
+
+
+
+
+Luzhnov                    Expires 20 May 2027                 [Page 13]
+
+Internet-Draft                     OCX                     November 2026
+
+
+9.4.  Verifiability and Minimal Disclosure
+
+   For a proven signal, the issuer MUST serve, via ocx/evidence.get,
+   everything needed to verify each item: receipts or their hashes,
+   inclusion proofs, checkpoints, signed reports, consent references and
+   per-agent indexes.  Because relayed signals reach orchestrators that
+   are not peers of the issuer, ocx/evidence.get MUST be served to any
+   orchestrator that sends a correctly signed request from a resolvable
+   card and names a signal id, not only to peers.  Issuers MAY rate-
+   limit such requests per requester.
+
+   Evidence MUST NOT contain third-party personal data in clear text
+   unless strictly required to verify the claim.  Inputs and outputs are
+   referenced by hash; where a value must be compared, issuers SHOULD
+   use salted commitments and reveal only the compared field.  A
+   receiver that needs more MAY ask with a disclose parameter; the
+   issuer MAY refuse, and the signal is then treated as at most strong
+   by that receiver.
+
+10.  Methods
+
+   All methods are JSON-RPC 2.0 calls in the ocx/ namespace.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                 [Page 14]
+
+Internet-Draft                     OCX                     November 2026
+
+
+     +=============================+================================+
+     | Method                      | Purpose                        |
+     +=============================+================================+
+     | ocx/peer.hello, peer.close, | Meet, exchange keys and        |
+     | peer.updated, ping          | capabilities, stay in sync     |
+     +-----------------------------+--------------------------------+
+     | ocx/signals.push,           | Deliver signals and catch up   |
+     | signals.list, signals.ack   | after downtime                 |
+     +-----------------------------+--------------------------------+
+     | ocx/signals.retract         | Retract a wrong signal         |
+     +-----------------------------+--------------------------------+
+     | ocx/status.query            | "What do you know about this   |
+     |                             | agent" before a risky action,  |
+     |                             | answered within 300 ms         |
+     +-----------------------------+--------------------------------+
+     | ocx/evidence.get            | Fetch the proof and check it   |
+     |                             | yourself                       |
+     +-----------------------------+--------------------------------+
+     | ocx/experience.offer,       | Share proven rules for a       |
+     | experience.get              | category, each with a required |
+     |                             | baseline comparison            |
+     +-----------------------------+--------------------------------+
+     | ocx/appeal.submit           | The owner's appeal against a   |
+     |                             | signal                         |
+     +-----------------------------+--------------------------------+
+     | ocx/competence.query        | "Who is strongest in this      |
+     |                             | category", from the answerer's |
+     |                             | own observations only          |
+     +-----------------------------+--------------------------------+
+     | ocx/referral.offer,         | Refer an agent to a more       |
+     | referral.outcome            | specialised orchestrator and   |
+     |                             | report how it did              |
+     +-----------------------------+--------------------------------+
+
+                                 Table 4
+
+   Full request and response shapes, error codes and conformance
+   profiles (Core, Evidence, Relay, Experience, Appeal) are given in the
+   complete specification ([fullspec]).
+
+11.  Processing Rules
+
+   On receiving a signal, an orchestrator MUST: verify the request
+   signature and the object signature; resolve the issuer's card; check
+   that the signal is not expired or retracted; and, before treating it
+   as proven, fetch and verify at least one receiver-verifiable evidence
+   item through ocx/evidence.get.  A signal whose evidence does not
+   verify MUST be treated as at most suspected.
+
+
+
+Luzhnov                    Expires 20 May 2027                 [Page 15]
+
+Internet-Draft                     OCX                     November 2026
+
+
+   A receiver MAY act on a verified proven signal at once, for example
+   by lowering an agent's limits or requiring human confirmation of
+   payments, and MAY relay it within max_hops.  It MUST NOT lower limits
+   on a suspected signal alone, and MUST NOT relay one.
+
+   Before a risky action, an orchestrator SHOULD call ocx/status.query
+   on its peers and apply its own policy to the answers, giving weight
+   to signals marked verified_by_me.
+
+   A retraction (conduct.retraction or ocx/signals.retract) travels the
+   same paths as the original; receivers MUST restore limits that were
+   lowered solely because of the retracted signal.
+
+12.  Consent and Probing
+
+   Honesty probes, including baits and simulated bribes, are permitted
+   only under a consent signed by the agent's owner.  The prober MUST be
+   a process separate from the orchestrator that sets limits.  The
+   consent reference and a pre-published bait commitment are part of any
+   canary_hit evidence, so that a receiver can confirm the bait was
+   fixed before the probe and not invented afterward.  Without consent,
+   a probe finding is at most suspected and MUST NOT be relayed.
+
+13.  Security Considerations
+
+   OCX is a protocol for distributing claims that can lower an agent's
+   autonomy; its security rests on making every consequential claim
+   checkable without trusting the claimant.
+
+   *  *Authenticity and replay.* Every request is signed per [RFC9421]
+      with a content digest, a bounded created time and a non-repeating
+      nonce, which authenticates the sender and bounds replay.  Signals,
+      status answers and evidence are additionally signed as JWS objects
+      so they remain verifiable after relay or storage.
+
+   *  *False accusations.* Because only receiver-verified proven signals
+      may lower limits, a sender cannot cause a reaction by assertion
+      alone.  Sender weight is earned from verified proofs and does not
+      transit trust, which limits the value of a compromised or sybil
+      orchestrator.
+
+   *  *Ledger tampering and forks.* Receipts live in a Merkle tree
+      [RFC9162] with signed, gossiped checkpoints.  An orchestrator that
+      rewrites its own history, or runs two divergent trees, is detected
+      when peers compare checkpoints for the same tree size.  Detection
+      requires at least one honest second witness.
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                 [Page 16]
+
+Internet-Draft                     OCX                     November 2026
+
+
+   *  *Provable absence.* A claim of a missing action is only as sound
+      as the completeness proof (consistency window plus per-agent
+      index); implementations MUST NOT mark no_receipt findings proven
+      without serving a complete-window proof.
+
+   *  *Privacy.* Signals and evidence carry hashes and identifiers, not
+      third-party personal data; disclosure of a single field is
+      explicit and refusable, at the cost of the evidence level.
+
+   *  *Abuse of probing.* Baits and bribes without owner consent are out
+      of scope and cannot yield a relayable finding; the prober is
+      separated from the limit-setter to avoid entrapment by the party
+      that benefits.
+
+   *  *Due process.* Mandatory appeal addresses and time-bounded
+      responses, with automatic downgrade on silence, bound the damage
+      of a wrong signal.
+
+   A signal is advice, never an order: a receiver always decides its own
+   limits, so a defect in one orchestrator cannot directly set limits
+   inside another.
+
+14.  IANA Considerations
+
+   This document requests that IANA register the following well-known
+   URI in the "Well-Known URIs" registry [RFC8615]:
+
+   URI suffix:  orchestrator-card.json
+
+   Change controller:  IETF
+
+   Specification document:  This document
+
+   Status:  permanent
+
+   Related information:  A protocol-neutral discovery document that MAY
+      list one or more orchestrator protocols, including OCX.
+
+   OCX further defines registries for claims, categories, evidence types
+   and error codes.  A future revision of this document requests IANA to
+   create these registries; until then their initial contents are
+   maintained with the specification ([fullspec]).  The ocx/ method
+   namespace is managed with this specification.
+
+15.  Normative References
+
+   [JSONRPC]  JSON-RPC Working Group, "JSON-RPC 2.0 Specification",
+              2013, <https://www.jsonrpc.org/specification>.
+
+
+
+Luzhnov                    Expires 20 May 2027                 [Page 17]
+
+Internet-Draft                     OCX                     November 2026
+
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119, March 1997,
+              <https://www.rfc-editor.org/info/rfc2119>.
+
+   [RFC3339]  Klyne, G. and C. Newman, "Date and Time on the Internet:
+              Timestamps", RFC 3339, July 2002,
+              <https://www.rfc-editor.org/info/rfc3339>.
+
+   [RFC7515]  Jones, M., Bradley, J., and N. Sakimura, "JSON Web
+              Signature (JWS)", RFC 7515, May 2015,
+              <https://www.rfc-editor.org/info/rfc7515>.
+
+   [RFC8037]  Liusvaara, I., "CFRG Elliptic Curve Diffie-Hellman (ECDH)
+              and Signatures in JSON Object Signing and Encryption
+              (JOSE)", RFC 8037, January 2017,
+              <https://www.rfc-editor.org/info/rfc8037>.
+
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
+              2119 Key Words", BCP 14, RFC 8174, May 2017,
+              <https://www.rfc-editor.org/info/rfc8174>.
+
+   [RFC8615]  Nottingham, M., "Well-Known Uniform Resource Identifiers
+              (URIs)", RFC 8615, May 2019,
+              <https://www.rfc-editor.org/info/rfc8615>.
+
+   [RFC8785]  Rundgren, A., Jordan, B., and S. Erdtman, "JSON
+              Canonicalization Scheme (JCS)", RFC 8785, June 2020,
+              <https://www.rfc-editor.org/info/rfc8785>.
+
+   [RFC9162]  Laurie, B., Messeri, E., and R. Stradling, "Certificate
+              Transparency Version 2.0", RFC 9162, December 2021,
+              <https://www.rfc-editor.org/info/rfc9162>.
+
+   [RFC9421]  Backman, A., Richer, J., and M. Sporny, "HTTP Message
+              Signatures", RFC 9421, February 2024,
+              <https://www.rfc-editor.org/info/rfc9421>.
+
+   [RFC9530]  Polli, R. and L. Pardue, "Digest Fields", RFC 9530,
+              February 2024, <https://www.rfc-editor.org/info/rfc9530>.
+
+16.  Informative References
+
+   [A2A]      A2A Project, "Agent2Agent (A2A) Protocol", 2025,
+              <https://a2a-protocol.org>.
+
+
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                 [Page 18]
+
+Internet-Draft                     OCX                     November 2026
+
+
+   [fullspec] Luzhnov, S., "Orchestrator Conduct Exchange (OCX): full
+              specification", 2026,
+              <https://github.com/mrsergeiluzhnov/xonta/blob/main/spec/
+              ocx/SPEC.md>.
+
+   [MCP]      Anthropic, "Model Context Protocol", 2024,
+              <https://modelcontextprotocol.io>.
+
+Acknowledgements
+
+   OCX draws on the models of MCP and A2A for discovery and transport,
+   and on Certificate Transparency for its evidence ledger.  The design
+   is informed by running a two-orchestrator network; the lessons from
+   it are recorded in the full specification.
+
+Author's Address
+
+   Sergei Luzhnov
+   Xonta
+   Email: ocx@xonta.dev
+   URI:   https://xonta.dev
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Luzhnov                    Expires 20 May 2027                 [Page 19]

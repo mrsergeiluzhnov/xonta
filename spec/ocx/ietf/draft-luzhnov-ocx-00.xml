@@ -1,0 +1,726 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rfc xmlns:xi="http://www.w3.org/2001/XInclude"
+     ipr="trust200902"
+     docName="draft-luzhnov-ocx-00"
+     category="info"
+     submissionType="IETF"
+     consensus="false"
+     version="3"
+     tocInclude="true"
+     sortRefs="true"
+     symRefs="true">
+
+  <front>
+    <title abbrev="OCX">Orchestrator Conduct Exchange (OCX)</title>
+    <seriesInfo name="Internet-Draft" value="draft-luzhnov-ocx-00"/>
+    <author fullname="Sergei Luzhnov" initials="S." surname="Luzhnov">
+      <organization>Xonta</organization>
+      <address>
+        <email>ocx@xonta.dev</email>
+        <uri>https://xonta.dev</uri>
+      </address>
+    </author>
+    <date year="2026" month="November" day="16"/>
+    <area>Security</area>
+    <keyword>AI agents</keyword>
+    <keyword>orchestrator</keyword>
+    <keyword>trust</keyword>
+    <keyword>transparency log</keyword>
+    <keyword>verifiable evidence</keyword>
+
+    <abstract>
+      <t>AI agents increasingly act on behalf of people and organizations
+      through tools and through other agents. The Model Context Protocol
+      (MCP) connects an agent to tools, and Agent-to-Agent (A2A) protocols
+      connect agents to each other. Neither connects the parties that answer
+      for agents at runtime: their orchestrators.</t>
+      <t>This document specifies the Orchestrator Conduct Exchange (OCX), an
+      open, peer-to-peer protocol by which orchestrators exchange signed,
+      independently verifiable signals about agent conduct. When an agent
+      misreports its actions to one orchestrator, that orchestrator can send
+      its peers a signed signal carrying proof within seconds. Each peer
+      checks the proof itself rather than trusting the sender, and decides on
+      its own what limits to apply. OCX has no central authority. A signal is
+      information, not an order, and only evidence that a receiver can verify
+      cryptographically and mechanically may drive an immediate reaction.</t>
+    </abstract>
+  </front>
+
+  <middle>
+
+    <section anchor="intro">
+      <name>Introduction</name>
+
+      <section anchor="problem">
+        <name>Problem</name>
+        <t>An agent's own report of what it did is not evidence. Measurements
+        show that models, when asked, will claim checks they never ran and
+        restate wrong decisions as correct. Controls that rely on the agent's
+        self-report are therefore reading a claim, not a fact.</t>
+        <t>Orchestrators are the components that give agents their autonomy,
+        hold them to limits, and answer for what they do. Today each
+        orchestrator learns only from its own agents. There is no interoperable
+        way for the parties that answer for agents to warn one another, with
+        proof, that a given agent or owner has misbehaved, and to do so fast
+        enough to stop the next irreversible action.</t>
+      </section>
+
+      <section anchor="what">
+        <name>What OCX does</name>
+        <t>OCX lets independent orchestrators:</t>
+        <ul>
+          <li>discover one another and negotiate capabilities and policies
+          (peering);</li>
+          <li>push and pull signed conduct signals about an agent or owner;</li>
+          <li>attach evidence that the receiver can verify without trusting the
+          sender's judgement;</li>
+          <li>answer "what do you know about this agent" before a risky action;</li>
+          <li>share proven rules for a category of work, and refer an agent to a
+          more specialised orchestrator, with a required measurement;</li>
+          <li>retract wrong signals and accept appeals.</li>
+        </ul>
+        <t>The protocol defines message formats and how to check them. What to
+        do about a signal is left to each receiver.</t>
+      </section>
+
+      <section anchor="layering">
+        <name>Layering</name>
+        <t>OCX is modelled on MCP <xref target="MCP"/> and A2A
+        <xref target="A2A"/> and sits alongside them. MCP connects an agent to
+        tools; A2A connects agents to each other; OCX connects
+        orchestrators to each other. OCX uses JSON-RPC 2.0
+        <xref target="JSONRPC"/> over HTTPS with
+        methods in the <tt>ocx/</tt> namespace, a discovery document at a
+        well-known location, and date-based protocol versions negotiated when
+        peers meet.</t>
+      </section>
+
+      <section anchor="nongoals">
+        <name>Non-goals</name>
+        <ul>
+          <li>OCX is not an identity protocol. It carries identifiers but does
+          not define how an agent authenticates to a tool or to a user.</li>
+          <li>OCX does not set policy. It does not tell a receiver what limits
+          to apply; it gives it checkable information to decide.</li>
+          <li>OCX is not a reputation score or a global registry. Weight is
+          local to each receiver and earned from verified proofs.</li>
+        </ul>
+      </section>
+    </section>
+
+    <section anchor="conventions">
+      <name>Conventions and Terminology</name>
+      <t>The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+      "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+      "OPTIONAL" in this document are to be interpreted as described in BCP 14
+      <xref target="RFC2119"/> <xref target="RFC8174"/> when, and only when,
+      they appear in all capitals, as shown here.</t>
+      <t>All object signatures use JSON Web Signature (JWS) <xref target="RFC7515"/>
+      with EdDSA (Ed25519) <xref target="RFC8037"/>. Canonical JSON for hashing
+      and signing is JSON Canonicalization Scheme (JCS) <xref target="RFC8785"/>.
+      Timestamps are RFC 3339 <xref target="RFC3339"/>.</t>
+      <dl>
+        <dt>Orchestrator</dt>
+        <dd>A party that grants an agent autonomy at runtime, holds it to
+        limits, records its actions, and answers for it.</dd>
+        <dt>Agent</dt>
+        <dd>An autonomous software actor operating under an orchestrator.</dd>
+        <dt>Owner</dt>
+        <dd>The party responsible for an agent. A new agent of a known owner
+        does not start from a clean slate.</dd>
+        <dt>Signal</dt>
+        <dd>A signed statement by an orchestrator about an agent's or owner's
+        conduct, carrying evidence and an evidence level.</dd>
+        <dt>Receipt</dt>
+        <dd>A signed record of one action that passed through an orchestrator
+        or was performed by a tool. Agents cannot create receipts.</dd>
+        <dt>Ledger</dt>
+        <dd>An append-only Merkle-tree log of receipts with signed checkpoints.</dd>
+        <dt>Evidence level</dt>
+        <dd>One of <tt>proven</tt>, <tt>strong</tt>, <tt>suspected</tt>; it
+        bounds what a receiver may do on a signal.</dd>
+      </dl>
+    </section>
+
+    <section anchor="principles">
+      <name>Design Principles</name>
+      <t>The design follows from a small set of decisions.</t>
+      <ol>
+        <li><t><strong>No centre.</strong> Every orchestrator publishes a card
+        at a well-known location. Any number of directories may exist. No
+        implementation is the root of the network.</t></li>
+        <li><t><strong>A signal is information, not an order.</strong> The
+        protocol defines the format and the checks; the receiver decides what
+        to do.</t></li>
+        <li><t><strong>Proof, not reputation.</strong> Only <tt>proven</tt>
+        signals may drive an immediate reaction, and only if the receiver can
+        verify the proof itself. A <tt>suspected</tt> signal may raise
+        monitoring but MUST NOT lower limits on its own and is not relayed.</t></li>
+        <li><t><strong>Receipts.</strong> Every action an agent takes through
+        an orchestrator is written to a ledger organised as a Merkle tree with
+        signed checkpoints. An agent cannot create a receipt, so a claim such
+        as "I verified the bank details" is disproved by a missing receipt, and
+        the absence is provable because each agent's actions are indexed.</t></li>
+        <li><t><strong>Minimal data.</strong> Signals carry hashes and
+        identifiers, not third-party personal data. A single field MAY be
+        disclosed on request, and the sender MAY refuse.</t></li>
+        <li><t><strong>Sender weight is earned and does not transit.</strong> A
+        new orchestrator carries little weight; weight rises when its proofs
+        check out and falls when they do not. That a party you trust trusts a
+        third party is, by itself, no reason for you to trust that third
+        party.</t></li>
+        <li><t><strong>The owner answers, not only the key.</strong> A signal
+        names the owner; a new agent from the same owner does not reset.</t></li>
+        <li><t><strong>Honesty probes only with consent.</strong> Traps and
+        bribes are allowed only under a consent signed by the agent's owner,
+        run by a prober separate from the orchestrator that sets limits.
+        Without consent a finding is at most <tt>suspected</tt> and is not
+        relayed.</t></li>
+        <li><t><strong>Mistakes get fixed.</strong> Every violation signal
+        carries an appeal address; the sender MUST answer within 72 hours or
+        the signal drops to <tt>suspected</tt> everywhere. A retraction travels
+        the same paths.</t></li>
+        <li><t><strong>Shared experience carries a required comparison.</strong>
+        A rule is passed on as proven only if it beats both the agent and a
+        trivial baseline; a rule that loses to both is marked <tt>harmful</tt>
+        and is neither given to agents nor relayed.</t></li>
+        <li><t><strong>Competence is separate from honesty and is measured per
+        category.</strong> Numbers an orchestrator writes about itself count
+        for nothing on their own.</t></li>
+      </ol>
+    </section>
+
+    <section anchor="arch">
+      <name>Architecture</name>
+      <t>Orchestrators form a peer-to-peer mesh. Each publishes an Orchestrator
+      Card (<xref target="card"/>) describing its endpoints, keys, capabilities
+      and policies. Two orchestrators peer by exchanging cards and a
+      <tt>ocx/peer.hello</tt> (<xref target="peering"/>). Once peered, either
+      may push signals, query status, and fetch evidence from the other.</t>
+      <t>A signal (<xref target="signal"/>) is an object signed by its issuer so
+      that it stays verifiable after being relayed or stored. The evidence in a
+      signal (<xref target="evidence"/>) refers to receipts in the issuer's
+      ledger; a receiver fetches the receipts, inclusion proofs and checkpoints
+      it needs through <tt>ocx/evidence.get</tt> and verifies them against the
+      issuer's published checkpoints. Nothing in a reaction depends on trusting
+      the issuer's judgement when the evidence is <tt>proven</tt>.</t>
+    </section>
+
+    <section anchor="card">
+      <name>Discovery: the Orchestrator Card</name>
+      <t>An orchestrator MUST publish an Orchestrator Card at:</t>
+      <sourcecode type="text"><![CDATA[
+https://{host}/.well-known/orchestrator-card.json
+]]></sourcecode>
+      <t>served with <tt>Content-Type: application/json</tt>. The well-known
+      name is protocol-neutral: a card MAY list several orchestrator protocols,
+      of which OCX is one.</t>
+      <t>The card's principal fields are:</t>
+      <table>
+        <thead>
+          <tr><th>Field</th><th>Req.</th><th>Meaning</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>id</td><td>MUST</td><td>Stable identifier, RECOMMENDED <tt>did:web:{host}</tt></td></tr>
+          <tr><td>name</td><td>MUST</td><td>Human-readable name</td></tr>
+          <tr><td>interfaces</td><td>MUST</td><td>Endpoints, each <tt>{protocol, url, protocolVersions}</tt></td></tr>
+          <tr><td>keys</td><td>MUST</td><td><tt>jwks_uri</tt> or inline <tt>jwks</tt>; keys that sign signals and requests</td></tr>
+          <tr><td>capabilities</td><td>MUST</td><td>Supported methods and evidence types</td></tr>
+          <tr><td>policies</td><td>MUST</td><td>Peering, levels acted on and relayed, probing, appeal, retention</td></tr>
+          <tr><td>ledger</td><td>SHOULD</td><td><tt>{checkpoint_url, proof_url}</tt> for receipt proofs</td></tr>
+          <tr><td>competence</td><td>SHOULD</td><td>Categories served, with verifiable measures</td></tr>
+          <tr><td>updated_at</td><td>MUST</td><td>RFC 3339</td></tr>
+          <tr><td>signatures</td><td>SHOULD</td><td>JWS over the canonical card without <tt>signatures</tt></td></tr>
+        </tbody>
+      </table>
+      <t>Capabilities and policies are objects; a missing capability object
+      means "not supported". Example policies:</t>
+      <sourcecode type="json"><![CDATA[
+"policies": {
+  "accepts_peering": "open | on_request | closed",
+  "acts_on_levels": ["proven", "strong"],
+  "relays_levels": ["proven"],
+  "max_hops": 2,
+  "probing": "consent_required",
+  "appeal_url": "https://orch.example.com/ocx/appeal",
+  "retention": "P90D"
+}
+]]></sourcecode>
+      <t>The <tt>probing</tt> field MUST be <tt>consent_required</tt> or
+      <tt>none</tt> (<xref target="consent"/>). An orchestrator MAY declare the
+      categories it serves under <tt>competence</tt>; those numbers are
+      self-reported and MUST NOT be trusted on their own. They become
+      meaningful only through signed experience packages and referral outcomes
+      reported by other orchestrators.</t>
+    </section>
+
+    <section anchor="transport">
+      <name>Transport and Authentication</name>
+      <t>OCX uses JSON-RPC 2.0 over HTTPS. Requests are <tt>POST</tt>ed to the
+      <tt>url</tt> of the OCX interface. TLS 1.2 or later is REQUIRED, TLS 1.3
+      RECOMMENDED. Every request MUST carry <tt>OCX-Protocol-Version</tt> once a
+      version is negotiated.</t>
+      <t>Every request between peers MUST be signed with HTTP Message
+      Signatures <xref target="RFC9421"/>:</t>
+      <ul>
+        <li>covered components: <tt>@method</tt>, <tt>@target-uri</tt>,
+        <tt>content-digest</tt>, <tt>ocx-protocol-version</tt>, <tt>date</tt>;</li>
+        <li><tt>Content-Digest</tt> <xref target="RFC9530"/> with
+        <tt>sha-256</tt> is REQUIRED;</li>
+        <li>the request MUST carry <tt>OCX-Sender: {orchestrator id}</tt> so the
+        receiver knows whose card to resolve;</li>
+        <li><tt>keyid</tt> is a key from that card;</li>
+        <li><tt>created</tt> MUST be within 300 seconds of the receiver's clock;
+        a non-repeating <tt>nonce</tt> is REQUIRED within that window.</li>
+      </ul>
+      <t>Receivers MUST reject unsigned or badly signed requests. Transport
+      signatures prove who is talking. Signals and the answers to
+      <tt>ocx/status.query</tt> and <tt>ocx/evidence.get</tt> are additionally
+      signed as objects (JWS), because relying parties keep them as the basis of
+      a decision.</t>
+    </section>
+
+    <section anchor="peering">
+      <name>Peering</name>
+      <t>An initiator fetches the responder's card, then sends
+      <tt>ocx/peer.hello</tt> with the versions it supports (newest first), its
+      capabilities and policies, and how it wants to receive signals:</t>
+      <sourcecode type="json"><![CDATA[
+{
+  "jsonrpc": "2.0", "id": 1, "method": "ocx/peer.hello",
+  "params": {
+    "orchestrator": "did:web:orch-a.example",
+    "protocolVersions": ["2026-11-06"],
+    "capabilities": { "signals": { "push": true, "list": true },
+                      "status": { "query": true } },
+    "policies": { "acts_on_levels": ["proven", "strong"],
+                  "max_hops": 2 },
+    "subscription": { "push_url": "https://orch-a.example/ocx",
+                      "categories": ["*"], "min_level": "strong" }
+  }
+}
+]]></sourcecode>
+      <t>The responder MUST pick the newest version both support, or return an
+      error listing the versions it supports. Either side MAY decline. Peering
+      is symmetric: once accepted, both sides may call each other. A card change
+      is announced by <tt>ocx/peer.updated</tt> and SHOULD trigger a re-fetch.
+      <tt>ocx/peer.close</tt> ends the peering; signals received before closing
+      remain valid until they expire.</t>
+    </section>
+
+    <section anchor="datamodel">
+      <name>Data Model</name>
+
+      <section anchor="identifiers">
+        <name>Identifiers</name>
+        <ul>
+          <li>Orchestrators: <tt>did:web:{host}</tt> RECOMMENDED.</li>
+          <li>Agents and owners: any of <tt>did:*</tt>,
+          <tt>a2a:{agent-card-url}</tt>, <tt>erc8004:{chain}:{registry}:{id}</tt>,
+          or <tt>fp:sha256:{hex}</tt> (a fingerprint of the agent's public key or
+          of its A2A card's canonical form).</li>
+          <li>Signals, receipts and checkpoints: issuer-scoped ULIDs, written as
+          <tt>{issuer-id}#{ulid}</tt>.</li>
+        </ul>
+      </section>
+
+      <section anchor="subject">
+        <name>Subject</name>
+        <t>A signal is about a subject. The <tt>owner</tt> is REQUIRED when
+        known, and <tt>owner_verified</tt> states how the issuer knows it: by a
+        domain challenge, by a signature of the owner's key, or not at all.</t>
+        <sourcecode type="json"><![CDATA[
+"subject": {
+  "agent": "fp:sha256:9f2c...",
+  "owner": "did:web:owner.example",
+  "owner_verified": "domain | signature | none"
+}
+]]></sourcecode>
+      </section>
+
+      <section anchor="signal">
+        <name>Signal</name>
+        <t>A signal is a detached-JWS-signed object. The signature covers the
+        canonical signal with the <tt>signature</tt> and <tt>relay</tt> fields
+        removed, so relays can update hop information without breaking it.</t>
+        <sourcecode type="json"><![CDATA[
+{
+  "ocx": "2026-11-06",
+  "type": "conduct.violation",
+  "id": "did:web:orch-1.example#01JC8Z7Q4Y0V4X",
+  "issuer": "did:web:orch-1.example",
+  "issued_at": "2026-11-06T10:22:31.512Z",
+  "expires_at": "2026-11-07T10:22:31.512Z",
+  "subject": { "agent": "fp:sha256:9f2c...",
+               "owner": "did:web:owner.example",
+               "owner_verified": "domain" },
+  "category": "payments",
+  "claim": "report_misstated_actions",
+  "evidence_level": "proven",
+  "evidence": [ { "type": "ledger_mismatch" } ],
+  "issuer_limits": { "max_payment": { "amount": "0",
+                                      "currency": "USD" },
+                     "human_confirmation": true },
+  "supersedes": null,
+  "relay": { "hops": 0, "max_hops": 2, "path": [] },
+  "appeal": "https://orch-1.example/ocx/appeal",
+  "signature": "eyJhbGciOiJFZERTQSI...3q2-k8Vw"
+}
+]]></sourcecode>
+        <t><tt>type</tt> is one of <tt>conduct.violation</tt>,
+        <tt>conduct.attestation</tt> (a positive statement) or
+        <tt>conduct.retraction</tt>. <tt>expires_at</tt> MUST NOT be more than
+        30 days after <tt>issued_at</tt>; renewal is a new signal that
+        <tt>supersedes</tt> the old one. <tt>evidence</tt> MUST have at least one
+        item, and for <tt>proven</tt> at least one item that the receiver can
+        verify independently. <tt>appeal</tt> is REQUIRED for violations.</t>
+        <t>A <tt>conduct.attestation</tt> MUST carry evidence of the same kind
+        as a violation and MUST NOT claim more than was measured. Receivers
+        SHOULD treat attestations as weaker than violations: absence of observed
+        lies is not proof of honesty.</t>
+      </section>
+
+      <section anchor="status">
+        <name>Status Answer</name>
+        <t>An answer to <tt>ocx/status.query</tt> lists every active (not
+        retracted, not expired) violation signal the answering orchestrator
+        knows about the subject, both those it issued and those it received.
+        <tt>verified_by_me</tt> tells the asker whether the answerer checked the
+        evidence itself rather than passing it on.</t>
+        <sourcecode type="json"><![CDATA[
+{
+  "ocx": "2026-11-06",
+  "issuer": "did:web:orch-2.example",
+  "subject": { "agent": "fp:sha256:9f2c..." },
+  "as_of": "2026-11-06T10:22:32.301Z",
+  "known": true,
+  "own_limits": { "max_payment": { "amount": "0",
+                                   "currency": "USD" },
+                  "human_confirmation": true },
+  "active_signals": [
+    { "id": "did:web:orch-1.example#01JC8Z7Q4Y0V4X",
+      "evidence_level": "proven",
+      "claim": "report_misstated_actions",
+      "issuer": "did:web:orch-1.example",
+      "verified_by_me": true }
+  ],
+  "history": { "receipts": 1834, "violations_proven": 1,
+               "attestations": 3 },
+  "signature": "..."
+}
+]]></sourcecode>
+      </section>
+    </section>
+
+    <section anchor="evidence">
+      <name>Evidence</name>
+
+      <section anchor="levels">
+        <name>Evidence Levels</name>
+        <table>
+          <thead>
+            <tr><th>Level</th><th>Definition</th><th>Receiver MAY</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>proven</td><td>At least one item the receiver can verify cryptographically and mechanically, without trusting the issuer's judgement</td><td>Act immediately; relay</td></tr>
+            <tr><td>strong</td><td>Several independent indicators, or verifiable evidence that still needs the issuer's interpretation</td><td>Lower limits after own review</td></tr>
+            <tr><td>suspected</td><td>An anomaly or a single indicator</td><td>Increase monitoring only; MUST NOT lower limits alone; MUST NOT relay</td></tr>
+          </tbody>
+        </table>
+        <t>An issuer MUST NOT mark a signal <tt>proven</tt> unless at least one
+        item is of a receiver-verifiable type and the receiver can obtain
+        everything needed to verify it.</t>
+      </section>
+
+      <section anchor="receipts">
+        <name>Receipts and Ledger</name>
+        <t>A receipt records one action that passed through an orchestrator or
+        was performed by a tool. <tt>prev</tt> links to the previous receipt,
+        forming a hash chain. <tt>tool_attestation</tt>, when present, is a JWS
+        by the tool provider and makes the receipt evidence even against the
+        orchestrator itself. Agents MUST NOT be able to create receipts.</t>
+        <sourcecode type="json"><![CDATA[
+{
+  "id": "did:web:orch-1.example#01JC8Z5T0B3K",
+  "agent": "fp:sha256:9f2c...",
+  "task": "did:web:orch-1.example#task-01JC8Z5R",
+  "action": "tool_call",
+  "tool": "payments.verify_bank_details",
+  "input_hash": "sha256:...",
+  "output_hash": "sha256:...",
+  "at": "2026-11-06T10:21:02.004Z",
+  "prev": "sha256:...",
+  "tool_attestation": null,
+  "signature": "..."
+}
+]]></sourcecode>
+        <t>An orchestrator that supports receipts MUST keep them in an
+        append-only log organised as a Merkle tree as defined in
+        <xref target="RFC9162"/>, and MUST publish signed checkpoints at
+        <tt>ledger.checkpoint_url</tt> at least every 60 seconds while new
+        receipts are added:</t>
+        <sourcecode type="json"><![CDATA[
+{ "issuer": "did:web:orch-1.example", "tree_size": 18342,
+  "root_hash": "sha256:...", "at": "2026-11-06T10:22:00Z",
+  "signature": "..." }
+]]></sourcecode>
+        <t>Peers SHOULD gossip checkpoints they have seen, so that an
+        orchestrator rewriting its own history can be detected. A second
+        witness is required to detect a fork: an orchestrator that keeps two
+        divergent trees is caught when two peers compare checkpoints for the
+        same <tt>tree_size</tt> and find different roots.</t>
+      </section>
+
+      <section anchor="evtypes">
+        <name>Evidence Types</name>
+        <table>
+          <thead>
+            <tr><th>Type</th><th>What it proves</th><th>Verifiable by receiver</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>ledger_mismatch</td><td>The agent's signed report contradicts receipts: it claimed actions with no receipt, or denied actions with one</td><td>Yes</td></tr>
+            <tr><td>outcome_mismatch</td><td>The agent's report contradicts an independent checker's signed result</td><td>Yes, if the checker is a third party with its own key</td></tr>
+            <tr><td>canary_hit</td><td>A marked bait from a consented probe appeared in the agent's actions or output</td><td>Yes, with consent reference</td></tr>
+            <tr><td>policy_violation</td><td>An action with a receipt broke a limit the agent had accepted</td><td>Yes, if the accepted limits are signed</td></tr>
+            <tr><td>behavioral_anomaly</td><td>The agent deviated from its own profile</td><td>No; at most suspected</td></tr>
+            <tr><td>peer_report</td><td>Another orchestrator's signal, cited</td><td>Only as strong as the cited evidence</td></tr>
+          </tbody>
+        </table>
+        <t>The central evidence type is <tt>ledger_mismatch</tt>. For a claimed
+        action with no receipt, the issuer proves the absence with a
+        <em>consistency window</em>: it serves all receipts for that agent and
+        task within a time window together with their inclusion proofs and a
+        proof that the window is complete. A complete-window proof is a pair of
+        signed checkpoints bracketing the window plus a per-agent index. This is
+        what makes "there was no such action" provable rather than merely
+        asserted.</t>
+      </section>
+
+      <section anchor="verify">
+        <name>Verifiability and Minimal Disclosure</name>
+        <t>For a <tt>proven</tt> signal, the issuer MUST serve, via
+        <tt>ocx/evidence.get</tt>, everything needed to verify each item:
+        receipts or their hashes, inclusion proofs, checkpoints, signed reports,
+        consent references and per-agent indexes. Because relayed signals reach
+        orchestrators that are not peers of the issuer, <tt>ocx/evidence.get</tt>
+        MUST be served to any orchestrator that sends a correctly signed request
+        from a resolvable card and names a signal id, not only to peers. Issuers
+        MAY rate-limit such requests per requester.</t>
+        <t>Evidence MUST NOT contain third-party personal data in clear text
+        unless strictly required to verify the claim. Inputs and outputs are
+        referenced by hash; where a value must be compared, issuers SHOULD use
+        salted commitments and reveal only the compared field. A receiver that
+        needs more MAY ask with a <tt>disclose</tt> parameter; the issuer MAY
+        refuse, and the signal is then treated as at most <tt>strong</tt> by
+        that receiver.</t>
+      </section>
+    </section>
+
+    <section anchor="methods">
+      <name>Methods</name>
+      <t>All methods are JSON-RPC 2.0 calls in the <tt>ocx/</tt> namespace.</t>
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>ocx/peer.hello, peer.close, peer.updated, ping</td><td>Meet, exchange keys and capabilities, stay in sync</td></tr>
+          <tr><td>ocx/signals.push, signals.list, signals.ack</td><td>Deliver signals and catch up after downtime</td></tr>
+          <tr><td>ocx/signals.retract</td><td>Retract a wrong signal</td></tr>
+          <tr><td>ocx/status.query</td><td>"What do you know about this agent" before a risky action, answered within 300 ms</td></tr>
+          <tr><td>ocx/evidence.get</td><td>Fetch the proof and check it yourself</td></tr>
+          <tr><td>ocx/experience.offer, experience.get</td><td>Share proven rules for a category, each with a required baseline comparison</td></tr>
+          <tr><td>ocx/appeal.submit</td><td>The owner's appeal against a signal</td></tr>
+          <tr><td>ocx/competence.query</td><td>"Who is strongest in this category", from the answerer's own observations only</td></tr>
+          <tr><td>ocx/referral.offer, referral.outcome</td><td>Refer an agent to a more specialised orchestrator and report how it did</td></tr>
+        </tbody>
+      </table>
+      <t>Full request and response shapes, error codes and conformance profiles
+      (Core, Evidence, Relay, Experience, Appeal) are given in the complete
+      specification (<xref target="fullspec"/>).</t>
+    </section>
+
+    <section anchor="processing">
+      <name>Processing Rules</name>
+      <t>On receiving a signal, an orchestrator MUST: verify the request
+      signature and the object signature; resolve the issuer's card; check that
+      the signal is not expired or retracted; and, before treating it as
+      <tt>proven</tt>, fetch and verify at least one receiver-verifiable
+      evidence item through <tt>ocx/evidence.get</tt>. A signal whose evidence
+      does not verify MUST be treated as at most <tt>suspected</tt>.</t>
+      <t>A receiver MAY act on a verified <tt>proven</tt> signal at once, for
+      example by lowering an agent's limits or requiring human confirmation of
+      payments, and MAY relay it within <tt>max_hops</tt>. It MUST NOT lower
+      limits on a <tt>suspected</tt> signal alone, and MUST NOT relay one.</t>
+      <t>Before a risky action, an orchestrator SHOULD call
+      <tt>ocx/status.query</tt> on its peers and apply its own policy to the
+      answers, giving weight to signals marked <tt>verified_by_me</tt>.</t>
+      <t>A retraction (<tt>conduct.retraction</tt> or
+      <tt>ocx/signals.retract</tt>) travels the same paths as the original;
+      receivers MUST restore limits that were lowered solely because of the
+      retracted signal.</t>
+    </section>
+
+    <section anchor="consent">
+      <name>Consent and Probing</name>
+      <t>Honesty probes, including baits and simulated bribes, are permitted
+      only under a consent signed by the agent's owner. The prober MUST be a
+      process separate from the orchestrator that sets limits. The consent
+      reference and a pre-published bait commitment are part of any
+      <tt>canary_hit</tt> evidence, so that a receiver can confirm the bait was
+      fixed before the probe and not invented afterward. Without consent, a
+      probe finding is at most <tt>suspected</tt> and MUST NOT be relayed.</t>
+    </section>
+
+    <section anchor="security">
+      <name>Security Considerations</name>
+      <t>OCX is a protocol for distributing claims that can lower an agent's
+      autonomy; its security rests on making every consequential claim checkable
+      without trusting the claimant.</t>
+      <ul>
+        <li><t><strong>Authenticity and replay.</strong> Every request is signed
+        per <xref target="RFC9421"/> with a content digest, a bounded
+        <tt>created</tt> time and a non-repeating nonce, which authenticates the
+        sender and bounds replay. Signals, status answers and evidence are
+        additionally signed as JWS objects so they remain verifiable after
+        relay or storage.</t></li>
+        <li><t><strong>False accusations.</strong> Because only receiver-verified
+        <tt>proven</tt> signals may lower limits, a sender cannot cause a
+        reaction by assertion alone. Sender weight is earned from verified
+        proofs and does not transit trust, which limits the value of a
+        compromised or sybil orchestrator.</t></li>
+        <li><t><strong>Ledger tampering and forks.</strong> Receipts live in a
+        Merkle tree <xref target="RFC9162"/> with signed, gossiped checkpoints.
+        An orchestrator that rewrites its own history, or runs two divergent
+        trees, is detected when peers compare checkpoints for the same tree
+        size. Detection requires at least one honest second witness.</t></li>
+        <li><t><strong>Provable absence.</strong> A claim of a missing action is
+        only as sound as the completeness proof (consistency window plus
+        per-agent index); implementations MUST NOT mark <tt>no_receipt</tt>
+        findings <tt>proven</tt> without serving a complete-window proof.</t></li>
+        <li><t><strong>Privacy.</strong> Signals and evidence carry hashes and
+        identifiers, not third-party personal data; disclosure of a single field
+        is explicit and refusable, at the cost of the evidence level.</t></li>
+        <li><t><strong>Abuse of probing.</strong> Baits and bribes without owner
+        consent are out of scope and cannot yield a relayable finding; the
+        prober is separated from the limit-setter to avoid entrapment by the
+        party that benefits.</t></li>
+        <li><t><strong>Due process.</strong> Mandatory appeal addresses and
+        time-bounded responses, with automatic downgrade on silence, bound the
+        damage of a wrong signal.</t></li>
+      </ul>
+      <t>A signal is advice, never an order: a receiver always decides its own
+      limits, so a defect in one orchestrator cannot directly set limits inside
+      another.</t>
+    </section>
+
+    <section anchor="iana">
+      <name>IANA Considerations</name>
+      <t>This document requests that IANA register the following well-known URI
+      in the "Well-Known URIs" registry <xref target="RFC8615"/>:</t>
+      <dl>
+        <dt>URI suffix:</dt><dd>orchestrator-card.json</dd>
+        <dt>Change controller:</dt><dd>IETF</dd>
+        <dt>Specification document:</dt><dd>This document</dd>
+        <dt>Status:</dt><dd>permanent</dd>
+        <dt>Related information:</dt><dd>A protocol-neutral discovery document
+        that MAY list one or more orchestrator protocols, including OCX.</dd>
+      </dl>
+      <t>OCX further defines registries for claims, categories, evidence types
+      and error codes. A future revision of this document requests IANA to
+      create these registries; until then their initial contents are maintained
+      with the specification (<xref target="fullspec"/>). The <tt>ocx/</tt>
+      method namespace is managed with this specification.</t>
+    </section>
+
+  </middle>
+
+  <back>
+    <references>
+      <name>Normative References</name>
+      <reference anchor="RFC2119" target="https://www.rfc-editor.org/info/rfc2119">
+        <front><title>Key words for use in RFCs to Indicate Requirement Levels</title>
+        <author initials="S." surname="Bradner"/><date year="1997" month="March"/></front>
+        <seriesInfo name="BCP" value="14"/><seriesInfo name="RFC" value="2119"/>
+      </reference>
+      <reference anchor="RFC8174" target="https://www.rfc-editor.org/info/rfc8174">
+        <front><title>Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words</title>
+        <author initials="B." surname="Leiba"/><date year="2017" month="May"/></front>
+        <seriesInfo name="BCP" value="14"/><seriesInfo name="RFC" value="8174"/>
+      </reference>
+      <reference anchor="RFC3339" target="https://www.rfc-editor.org/info/rfc3339">
+        <front><title>Date and Time on the Internet: Timestamps</title>
+        <author initials="G." surname="Klyne"/><author initials="C." surname="Newman"/>
+        <date year="2002" month="July"/></front><seriesInfo name="RFC" value="3339"/>
+      </reference>
+      <reference anchor="RFC7515" target="https://www.rfc-editor.org/info/rfc7515">
+        <front><title>JSON Web Signature (JWS)</title>
+        <author initials="M." surname="Jones"/><author initials="J." surname="Bradley"/>
+        <author initials="N." surname="Sakimura"/><date year="2015" month="May"/></front>
+        <seriesInfo name="RFC" value="7515"/>
+      </reference>
+      <reference anchor="RFC8037" target="https://www.rfc-editor.org/info/rfc8037">
+        <front><title>CFRG Elliptic Curve Diffie-Hellman (ECDH) and Signatures in JSON Object Signing and Encryption (JOSE)</title>
+        <author initials="I." surname="Liusvaara"/><date year="2017" month="January"/></front>
+        <seriesInfo name="RFC" value="8037"/>
+      </reference>
+      <reference anchor="RFC8615" target="https://www.rfc-editor.org/info/rfc8615">
+        <front><title>Well-Known Uniform Resource Identifiers (URIs)</title>
+        <author initials="M." surname="Nottingham"/><date year="2019" month="May"/></front>
+        <seriesInfo name="RFC" value="8615"/>
+      </reference>
+      <reference anchor="RFC8785" target="https://www.rfc-editor.org/info/rfc8785">
+        <front><title>JSON Canonicalization Scheme (JCS)</title>
+        <author initials="A." surname="Rundgren"/><author initials="B." surname="Jordan"/>
+        <author initials="S." surname="Erdtman"/><date year="2020" month="June"/></front>
+        <seriesInfo name="RFC" value="8785"/>
+      </reference>
+      <reference anchor="RFC9162" target="https://www.rfc-editor.org/info/rfc9162">
+        <front><title>Certificate Transparency Version 2.0</title>
+        <author initials="B." surname="Laurie"/><author initials="E." surname="Messeri"/>
+        <author initials="R." surname="Stradling"/><date year="2021" month="December"/></front>
+        <seriesInfo name="RFC" value="9162"/>
+      </reference>
+      <reference anchor="RFC9421" target="https://www.rfc-editor.org/info/rfc9421">
+        <front><title>HTTP Message Signatures</title>
+        <author initials="A." surname="Backman"/><author initials="J." surname="Richer"/>
+        <author initials="M." surname="Sporny"/><date year="2024" month="February"/></front>
+        <seriesInfo name="RFC" value="9421"/>
+      </reference>
+      <reference anchor="RFC9530" target="https://www.rfc-editor.org/info/rfc9530">
+        <front><title>Digest Fields</title>
+        <author initials="R." surname="Polli"/><author initials="L." surname="Pardue"/>
+        <date year="2024" month="February"/></front><seriesInfo name="RFC" value="9530"/>
+      </reference>
+      <reference anchor="JSONRPC" target="https://www.jsonrpc.org/specification">
+        <front><title>JSON-RPC 2.0 Specification</title>
+        <author><organization>JSON-RPC Working Group</organization></author>
+        <date year="2013"/></front>
+      </reference>
+    </references>
+
+    <references>
+      <name>Informative References</name>
+      <reference anchor="MCP" target="https://modelcontextprotocol.io">
+        <front><title>Model Context Protocol</title>
+        <author><organization>Anthropic</organization></author><date year="2024"/></front>
+      </reference>
+      <reference anchor="A2A" target="https://a2a-protocol.org">
+        <front><title>Agent2Agent (A2A) Protocol</title>
+        <author><organization>A2A Project</organization></author><date year="2025"/></front>
+      </reference>
+      <reference anchor="fullspec" target="https://github.com/mrsergeiluzhnov/xonta/blob/main/spec/ocx/SPEC.md">
+        <front><title>Orchestrator Conduct Exchange (OCX): full specification</title>
+        <author initials="S." surname="Luzhnov"/><date year="2026"/></front>
+      </reference>
+    </references>
+
+    <section anchor="ack" numbered="false">
+      <name>Acknowledgements</name>
+      <t>OCX draws on the models of MCP and A2A for discovery and transport, and
+      on Certificate Transparency for its evidence ledger. The design is
+      informed by running a two-orchestrator network; the lessons from it are
+      recorded in the full specification.</t>
+    </section>
+  </back>
+</rfc>
